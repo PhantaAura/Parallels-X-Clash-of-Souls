@@ -63,6 +63,18 @@ float energyGain(AttackKind kind) {
 const AttackDefinition& CombatSystem::attackFor(const std::string& fighterId, AttackKind kind) {
     const auto index = indexOf(kind);
     if (index >= std::size(kDefaultAttacks)) throw std::out_of_range("Unknown attack kind");
+    // Browser 2.9A.40.7.2R Chapter-1 Rrvvfo Fire Blast combat profile.
+    // Projectile travel speed/radius are presentation/simulation fields still pending the projectile-object port;
+    // do not fake those values by changing unrelated melee geometry.
+    if (fighterId == "rrvvfo" && kind == AttackKind::Projectile) {
+        static const AttackDefinition rrvvfoFireBlast = [] {
+            auto value = kDefaultAttacks[indexOf(AttackKind::Projectile)];
+            value.damage = 15.0f;
+            value.guardDamage = 9.0f;
+            return value;
+        }();
+        return rrvvfoFireBlast;
+    }
     if (fighterId != "sage" && fighterId != "plouke") return kDefaultAttacks[index];
     static const std::array<AttackDefinition, std::size(kDefaultAttacks)> sage = [] {
         std::array<AttackDefinition, std::size(kDefaultAttacks)> result{};

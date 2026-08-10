@@ -126,7 +126,7 @@ void finishOpeningTraining(px::RuntimeSession& runtime, px::InputState& input) {
     assert(runtime.view().playerPosition.x < beforeBackpedal.x);
     assert(std::fabs(runtime.view().playerYawDegrees + 90.0f) < 0.01f);
     assert(std::fabs(runtime.view().opponentYawDegrees - 90.0f) < 0.01f);
-    assert(runtime.view().playerAnimation == "run" && runtime.view().playerAnimationSpeed < 0.0f);
+    assert(runtime.view().playerAnimation == "combat_retreat" && runtime.view().playerAnimationSpeed > 0.0f);
     input.beginFrame(); input.set(px::Action::MoveLeft, false); runtime.tick(input, 0.01f);
 
     // A directionless dash cannot satisfy the movement lesson with a fake,
@@ -331,13 +331,54 @@ int main() {
     assert(adventure.ambientLife.birdCount == 5 && adventure.ambientLife.birdSpeed == 95.0f);
     assert(adventure.ambientLife.deliveryCartSpeed == 42.0f);
     assert(exploration.get("selected_route_adventure").routeChallenges.size() == 3);
-    assert(exploration.get("selected_route_adventure").jumpMarkers.size() == 3);
+    assert(exploration.get("selected_route_adventure").mainWorkMarkers.size() == 4);
+    assert(exploration.get("selected_route_adventure").forestBellMarkers.size() == 4);
+    assert(exploration.get("selected_route_adventure").jumpMarkers.size() == 5);
+    assert(exploration.get("selected_route_adventure").routeHintFirstSeconds == 18.0f);
+    assert(exploration.get("selected_route_adventure").routeHintSecondSeconds == 36.0f);
+    assert(exploration.get("transport_wheel_recovery").rule == px::ExplorationRuleKind::SwapRelay);
+    assert(exploration.get("transport_wheel_recovery").relayMarkers.size() == 2);
+    {
+        px::SaveData checkpoint;
+        checkpoint.story.chapterId = "rrvvfo_ch1";
+        checkpoint.story.sceneIndex = 10;
+        checkpoint.story.checkpointId = ch1.openingFlow[10].checkpointId;
+        checkpoint.story.flags = {"ch1_route_progress=2"};
+        checkpoint.world.mapId = ch1.primaryMap;
+        checkpoint.world.routeChoice = "forest";
+        checkpoint.world.position = {250.0f, -350.0f};
+        px::RuntimeSession restarted(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        restarted.loadSnapshot(checkpoint);
+        const auto restartPoint = restarted.view().playerPosition;
+        px::InputState checkpointInput;
+        moveToward(restarted, checkpointInput, {410.0f, -350.0f}, 30.0f, 80);
+        assert(px::distance(restarted.view().playerPosition, restartPoint) > 20.0f);
+        restarted.resetCurrentScene();
+        assert(px::distance(restarted.view().playerPosition, restartPoint) < 0.01f);
+        assert(restarted.view().objective.find("BELLS 2 / 4") != std::string::npos);
+    }
 
     const auto hotbar = px::AbilityHotbarCatalog::rrvvfoChapter1();
-    assert(hotbar.size() == 3 && hotbar[1].id == "objectSwap" && hotbar[1].energyCost == 20.0f);
+    assert(hotbar.size() == 3 && hotbar[0].id == "fireBlast" && hotbar[0].energyCost == 22.0f);
+    assert(hotbar[1].id == "objectSwap" && hotbar[1].energyCost == 20.0f);
+    const auto& storyFireBlast = px::CombatSystem::attackFor("rrvvfo", px::AttackKind::Projectile);
+    assert(storyFireBlast.damage == 15.0f && storyFireBlast.guardDamage == 9.0f);
     assert(std::none_of(hotbar.begin(), hotbar.end(), [](const px::AbilitySlotDefinition& ability){
         return ability.id == "shotsOfAgony" || ability.id == "solarWeave" || ability.label == "???";
     }));
+
+    // Omega save migration: a stable checkpoint ID wins over a stale numeric index.
+    {
+        px::SaveData legacy;
+        legacy.schemaVersion = 4;
+        legacy.story.chapterId = "rrvvfo_ch1";
+        legacy.story.sceneIndex = 0;
+        legacy.story.checkpointId = ch1.openingFlow[10].checkpointId;
+        legacy.world.mapId = ch1.primaryMap;
+        px::RuntimeSession migrated(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        migrated.loadSnapshot(px::SaveCodec::deserialize(px::SaveCodec::serialize(legacy)));
+        assert(migrated.view().sceneId == ch1.openingFlow[10].id);
+    }
 
     // Shared Chapter 2–4 foundation: Legacy progression math, protected card visibility and data-only quests.
     px::TournamentCardState card{"rrvvfo"};

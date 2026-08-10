@@ -22,6 +22,8 @@ if [[ ! -f "$DEVKITARM/3ds_rules" ]]; then
   exit 3
 fi
 
+mkdir -p "$ROOT/src/platform/3ds/romfs/assets/characters/rrvvfo"
+cp "$ROOT/assets/characters/rrvvfo/rrvvfo-dev.pxskel" "$ROOT/src/platform/3ds/romfs/assets/characters/rrvvfo/rrvvfo-dev.pxskel"
 make -C "$ROOT/src/platform/3ds" clean all
 
 echo

@@ -6,7 +6,7 @@ AbilityHotbarLayout AbilityHotbarCatalog::rrvvfoChapter1() {
     // Shots of Agony and Solar Weave are both absent. At this story point only
     // techniques Rrvvfo can actually use are allowed to occupy visible UI.
     return {
-        {1, 1, "fireBlast", "FIRE BLAST", "FIRE", 28.0f, 0.0f,
+        {1, 1, "fireBlast", "FIRE BLAST", "FIRE", 22.0f, 0.0f,
             AbilityState::Ready, "READY", "Legacy core ranged fire technique."},
         {2, 3, "objectSwap", "OBJECT SWAP", "SWAP", 20.0f, 0.0f,
             AbilityState::Ready, "READY", "Traversal and combat position exchange."},
@@ -17,7 +17,7 @@ AbilityHotbarLayout AbilityHotbarCatalog::rrvvfoChapter1() {
 
 AbilityHotbarLayout AbilityHotbarCatalog::rrvvfoWithShotsOfAgony() {
     return {
-        {1, 1, "fireBlast", "FIRE BLAST", "FIRE", 28.0f, 0.0f,
+        {1, 1, "fireBlast", "FIRE BLAST", "FIRE", 22.0f, 0.0f,
             AbilityState::Ready, "READY", "Legacy core ranged fire technique."},
         {2, 2, "shotsOfAgony", "SHOTS OF AGONY", "SHOTS", 42.0f, 0.0f,
             AbilityState::Ready, "READY", "Only appears after Rrvvfo actually invents the technique."},

@@ -34,8 +34,9 @@ int main(int argc, char** argv) {
 
     struct ExpectedClip { const char* name; float duration; };
     constexpr ExpectedClip expected[] = {
-        {"idle", .750f}, {"fighting_stance", .420f}, {"run", .328f}, {"dash", .240f},
-        {"jump_start", .150f}, {"fall", .220f}, {"land", .130f},
+        {"idle", .750f}, {"fighting_stance", .420f}, {"combat_ready", .300f}, {"combat_relax", .280f},
+        {"run", .328f}, {"combat_advance", .320f}, {"combat_retreat", .340f}, {"dash", .240f},
+        {"jump_start", .150f}, {"fall", .220f}, {"land", .130f}, {"hard_land", .220f},
         {"light_1", .270f}, {"light_2", .290f}, {"light_3", .390f},
         {"heavy", .620f}, {"launcher", .550f}, {"air_light", .360f}, {"air_heavy", .520f},
         {"pursuit_light", .320f}, {"pursuit_heavy", .460f}, {"grab", .380f},

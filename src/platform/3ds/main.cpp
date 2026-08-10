@@ -37,9 +37,10 @@ namespace {
      GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8) | \
      GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 
-constexpr const char* kSavePath = "sdmc:/3ds/ParallelsX/save-v4.txt";
-constexpr const char* kBackupSavePath = "sdmc:/3ds/ParallelsX/save-v4.txt.bak";
-constexpr const char* kTemporarySavePath = "sdmc:/3ds/ParallelsX/save-v4.txt.tmp";
+constexpr const char* kSavePath = "sdmc:/3ds/ParallelsX/save-v5.txt";
+constexpr const char* kBackupSavePath = "sdmc:/3ds/ParallelsX/save-v5.txt.bak";
+constexpr const char* kTemporarySavePath = "sdmc:/3ds/ParallelsX/save-v5.txt.tmp";
+constexpr const char* kLegacyQolSavePath = "sdmc:/3ds/ParallelsX/save-v4.txt";
 constexpr const char* kLegacyGateSavePath = "sdmc:/3ds/ParallelsX/chapter1_gate_save.txt";
 constexpr const char* kRrvvfoModelPath = "romfs:/assets/characters/rrvvfo/rrvvfo-dev.pxskel";
 
@@ -63,12 +64,26 @@ bool writeText(const char* path, const std::string& text) {
     return ok;
 }
 
+bool validSaveLocation(const px::SaveData& save) {
+    if (save.story.chapterId.empty()) return true;
+    px::ChapterRegistry chapters;
+    if (!chapters.has(save.story.chapterId)) return false;
+    const auto& chapter = chapters.get(save.story.chapterId);
+    if (!save.story.checkpointId.empty()) {
+        const auto checkpoint = std::find_if(chapter.openingFlow.begin(), chapter.openingFlow.end(), [&](const px::SceneStep& step) {
+            return step.checkpointId == save.story.checkpointId;
+        });
+        if (checkpoint != chapter.openingFlow.end()) return true;
+    }
+    return save.story.sceneIndex < chapter.openingFlow.size();
+}
+
 bool loadSaveAt(const char* path, px::SaveData& output) {
     std::string text;
     if (!readText(path, text)) return false;
     try {
         output = px::SaveCodec::deserialize(text);
-        return output.story.chapterId.empty() || output.story.chapterId == "rrvvfo_ch1";
+        return validSaveLocation(output);
     } catch (...) {
         return false;
     }
@@ -77,6 +92,7 @@ bool loadSaveAt(const char* path, px::SaveData& output) {
 bool loadSave(px::SaveData& output) {
     if (loadSaveAt(kSavePath, output)) return true;
     if (loadSaveAt(kBackupSavePath, output)) return true;
+    if (loadSaveAt(kLegacyQolSavePath, output)) return true;
     return loadSaveAt(kLegacyGateSavePath, output);
 }
 
@@ -85,7 +101,8 @@ bool writeSave(const px::SaveData& save) {
     mkdir("sdmc:/3ds/ParallelsX", 0777);
     const std::string text = px::SaveCodec::serialize(save);
     std::string previous;
-    if (readText(kSavePath, previous)) writeText(kBackupSavePath, previous);
+    px::SaveData validPrevious;
+    if (loadSaveAt(kSavePath, validPrevious) && readText(kSavePath, previous)) writeText(kBackupSavePath, previous);
     if (!writeText(kTemporarySavePath, text)) return false;
     std::remove(kSavePath);
     return std::rename(kTemporarySavePath, kSavePath) == 0;
@@ -119,8 +136,11 @@ void processMenuOutcome(px::MenuState& menu, px::RuntimeSession& session,
                         px::SaveData& save, bool& gameplay) {
     const auto outcome = menu.outcome();
     if (outcome == px::MenuOutcome::None) return;
-    if (outcome == px::MenuOutcome::BeginStory || outcome == px::MenuOutcome::ReplayChapter)
+    if (outcome == px::MenuOutcome::BeginStory) {
         session.startChapter("rrvvfo_ch1");
+        session.setQolSettings(save.qol);
+    } else if (outcome == px::MenuOutcome::ReplayChapter)
+        session.startReplayChapter(save);
     else if (outcome == px::MenuOutcome::ContinueStory) {
         if (save.story.chapterId.empty()) session.startChapter("rrvvfo_ch1");
         else session.loadSnapshot(save);
@@ -128,6 +148,7 @@ void processMenuOutcome(px::MenuState& menu, px::RuntimeSession& session,
         const auto mode = menu.snapshot().selectedMode.id;
         if (mode == px::MenuModeId::ArenaBattle) session.startCpuFight();
         else if (mode == px::MenuModeId::Training) session.startStandaloneTraining();
+        session.setQolSettings(save.qol);
     }
     if (outcome == px::MenuOutcome::BeginStory || outcome == px::MenuOutcome::ContinueStory ||
         outcome == px::MenuOutcome::ReplayChapter || outcome == px::MenuOutcome::LaunchMode)
@@ -189,6 +210,7 @@ int main() {
     loadSave(save);
     px::RuntimeSession session(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
     px::MenuState menu(menuRegistry, storyRoutes, storyRecap, save);
+    menu.setReducedMotion(save.qol.reducedMotion);
 
     px::CharacterModelAsset rrvvfoModel;
     std::string modelError;

@@ -34,17 +34,27 @@
 
 namespace {
 
+std::string defaultSaveDirectory() {
+    if (const char* xdg = std::getenv("XDG_DATA_HOME"))
+        return (std::filesystem::path(xdg) / "ParallelsX/ClashOfSouls").string();
+    if (const char* home = std::getenv("HOME"))
+        return (std::filesystem::path(home) / ".local/share/ParallelsX/ClashOfSouls").string();
+    return "dev-saves/linux";
+}
+
 struct Arguments {
     std::string review;
     std::string screenshot;
-    std::string saveDirectory{"dev-saves/linux"};
+    std::string saveDirectory{defaultSaveDirectory()};
     std::string assetRoot;
     bool headless{false};
 };
 
 Arguments parseArguments(int argc, char** argv) {
     Arguments args;
-    args.assetRoot = std::filesystem::absolute(argv[0]).parent_path().parent_path().string();
+    const auto executableDir = std::filesystem::absolute(argv[0]).parent_path();
+    args.assetRoot = std::filesystem::exists(executableDir / "assets")
+        ? executableDir.string() : executableDir.parent_path().string();
     if (const char* configured = std::getenv("PX_LINUX_SAVE_DIR")) args.saveDirectory = configured;
     if (const char* configured = std::getenv("PX_ASSET_ROOT")) args.assetRoot = configured;
     for (int i = 1; i < argc; ++i) {
@@ -69,16 +79,38 @@ Arguments parseArguments(int argc, char** argv) {
     return args;
 }
 
-px::SaveData loadDevelopmentSave(const std::filesystem::path& path, bool allowBackup = true) {
-    std::ifstream input(path);
-    if (!input) return allowBackup ? loadDevelopmentSave(path.string() + ".bak", false) : px::SaveData{};
-    const std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
-    try { return px::SaveCodec::deserialize(text); }
-    catch (const std::exception& error) {
-        std::cerr << "Linux development save ignored: " << error.what() << '\n';
-        if (allowBackup) return loadDevelopmentSave(path.string() + ".bak", false);
-        return {};
+bool validSaveLocation(const px::SaveData& save) {
+    if (save.story.chapterId.empty()) return true;
+    px::ChapterRegistry chapters;
+    if (!chapters.has(save.story.chapterId)) return false;
+    const auto& chapter = chapters.get(save.story.chapterId);
+    if (!save.story.checkpointId.empty()) {
+        const auto checkpoint = std::find_if(chapter.openingFlow.begin(), chapter.openingFlow.end(), [&](const px::SceneStep& step) {
+            return step.checkpointId == save.story.checkpointId;
+        });
+        if (checkpoint != chapter.openingFlow.end()) return true;
     }
+    return save.story.sceneIndex < chapter.openingFlow.size();
+}
+
+bool readValidatedSave(const std::filesystem::path& path, px::SaveData& output) {
+    std::ifstream input(path);
+    if (!input) return false;
+    const std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    try {
+        output = px::SaveCodec::deserialize(text);
+        return validSaveLocation(output);
+    } catch (const std::exception& error) {
+        std::cerr << "Linux save ignored: " << error.what() << '\n';
+        return false;
+    }
+}
+
+px::SaveData loadDevelopmentSave(const std::filesystem::path& path, bool allowBackup = true) {
+    px::SaveData output;
+    if (readValidatedSave(path, output)) return output;
+    if (allowBackup && readValidatedSave(path.string() + ".bak", output)) return output;
+    return {};
 }
 
 bool writeDevelopmentSave(const std::filesystem::path& path, const px::SaveData& save) {
@@ -86,17 +118,22 @@ bool writeDevelopmentSave(const std::filesystem::path& path, const px::SaveData&
         std::filesystem::create_directories(path.parent_path());
         const auto temporary = path.string() + ".tmp";
         const auto backup = path.string() + ".bak";
-        if (std::filesystem::exists(path))
-            std::filesystem::copy_file(path, backup, std::filesystem::copy_options::overwrite_existing);
+        px::SaveData validPrevious;
+        if (readValidatedSave(path, validPrevious)) {
+            std::ofstream backupOutput(backup, std::ios::trunc);
+            backupOutput << px::SaveCodec::serialize(validPrevious);
+            if (!backupOutput) return false;
+        }
         {
             std::ofstream output(temporary, std::ios::trunc);
             output << px::SaveCodec::serialize(save);
             if (!output) return false;
         }
+        if (std::filesystem::exists(path)) std::filesystem::remove(path);
         std::filesystem::rename(temporary, path);
         return true;
     } catch (const std::exception& error) {
-        std::cerr << "Could not write Linux development save: " << error.what() << '\n';
+        std::cerr << "Could not write Linux save: " << error.what() << '\n';
         return false;
     }
 }
@@ -130,6 +167,7 @@ struct ApplicationState {
         : save(std::move(initial)),
           runtime(chapters, maps, cutscenes, dialogue, exploration, training, adventures),
           menu(menus, routes, recap, save) {
+        menu.setReducedMotion(save.qol.reducedMotion);
         const auto& rrvvfo = characters.get("rrvvfo");
         std::string error;
         if (!characterModels.load(rrvvfo.characterId, (assetRoot / rrvvfo.desktopCookedAsset).string(), &error))
@@ -255,6 +293,7 @@ std::optional<px::Action> actionForKey(Sint32 key) {
         case SDLK_RETURN: return px::Action::Confirm;
         case SDLK_ESCAPE: case SDLK_BACKSPACE: return px::Action::Cancel;
         case SDLK_SPACE: return px::Action::Jump;
+        case SDLK_LSHIFT: case SDLK_RSHIFT: return px::Action::Dash;
         case 'j': return px::Action::Light;
         case 'k': return px::Action::Heavy;
         case 'i': return px::Action::Launcher;
@@ -335,8 +374,12 @@ void remapGameplayControllerLayer(px::InputState& input, SDL_GameController* con
 void processMenuOutcome(ApplicationState& state) {
     const auto outcome = state.menu.outcome();
     if (outcome == px::MenuOutcome::None) return;
-    if (outcome == px::MenuOutcome::BeginStory || outcome == px::MenuOutcome::ReplayChapter) {
+    if (outcome == px::MenuOutcome::BeginStory) {
         state.runtime.startChapter("rrvvfo_ch1");
+        state.runtime.setQolSettings(state.save.qol);
+        state.gameplay = true;
+    } else if (outcome == px::MenuOutcome::ReplayChapter) {
+        state.runtime.startReplayChapter(state.save);
         state.gameplay = true;
     } else if (outcome == px::MenuOutcome::ContinueStory) {
         if (state.save.story.chapterId.empty()) state.runtime.startChapter("rrvvfo_ch1");
@@ -346,6 +389,7 @@ void processMenuOutcome(ApplicationState& state) {
         const auto mode = state.menu.snapshot().selectedMode.id;
         if (mode == px::MenuModeId::ArenaBattle) state.runtime.startCpuFight();
         else if (mode == px::MenuModeId::Training) state.runtime.startStandaloneTraining();
+        state.runtime.setQolSettings(state.save.qol);
         state.gameplay = true;
     }
     state.menu.clearOutcome();
@@ -367,11 +411,15 @@ int main(int argc, char** argv) {
     const auto arguments = parseArguments(argc, argv);
     const bool reviewRun = !arguments.review.empty() || !arguments.screenshot.empty();
     const std::filesystem::path savePath =
-        std::filesystem::path(arguments.saveDirectory) / "ParallelsX-0.4H-GOLDEN-GATE-QOL-linux-dev.save";
+        std::filesystem::path(arguments.saveDirectory) / "ParallelsX-Omega-save-v5.txt";
     const std::filesystem::path legacySavePath =
+        std::filesystem::path(arguments.saveDirectory) / "ParallelsX-0.4H-GOLDEN-GATE-QOL-linux-dev.save";
+    const std::filesystem::path olderLegacySavePath =
         std::filesystem::path(arguments.saveDirectory) / "ParallelsX-0.4G-GOLD-linux-dev.save";
     const bool currentSaveExists = std::filesystem::exists(savePath) || std::filesystem::exists(savePath.string() + ".bak");
-    ApplicationState state(reviewRun ? px::SaveData{} : loadDevelopmentSave(currentSaveExists ? savePath : legacySavePath), arguments.assetRoot);
+    const bool legacySaveExists = std::filesystem::exists(legacySavePath) || std::filesystem::exists(legacySavePath.string() + ".bak");
+    const auto selectedSavePath = currentSaveExists ? savePath : (legacySaveExists ? legacySavePath : olderLegacySavePath);
+    ApplicationState state(reviewRun ? px::SaveData{} : loadDevelopmentSave(selectedSavePath), arguments.assetRoot);
 
     try { prepareReview(arguments.review, state); }
     catch (const std::exception& error) {
@@ -437,6 +485,12 @@ int main(int argc, char** argv) {
                     state.input.set(px::Action::Pause, true);
                     releaseDisconnectPause = true;
                 }
+                continue;
+            }
+            if (state.gameplay && (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP)) {
+                const bool held = event.type == SDL_MOUSEBUTTONDOWN;
+                if (event.button.button == SDL_BUTTON_LEFT) state.input.set(px::Action::Light, held);
+                else if (event.button.button == SDL_BUTTON_RIGHT) state.input.set(px::Action::Block, held);
                 continue;
             }
             const bool down = event.type == SDL_KEYDOWN || event.type == SDL_CONTROLLERBUTTONDOWN;

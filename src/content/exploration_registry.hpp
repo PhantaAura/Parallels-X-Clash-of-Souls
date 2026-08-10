@@ -63,6 +63,11 @@ struct ExplorationDefinition {
     bool swapPhysicalObject{false};
     std::vector<Vec2> jumpMarkers;
     float jumpMarkerRadius{72.0f};
+    // Omega keeps the browser-authoritative route counts/order while mapping them into the native 3D road.
+    std::vector<Vec2> mainWorkMarkers;
+    std::vector<Vec2> forestBellMarkers;
+    float routeHintFirstSeconds{18.0f};
+    float routeHintSecondSeconds{36.0f};
     std::string qteId;
     std::string encounterId;
 };

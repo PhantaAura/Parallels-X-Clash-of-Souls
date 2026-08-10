@@ -66,19 +66,39 @@ struct Point3 {
 
 static NSString* macSavePath() {
     NSString* support=NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject;
-    return [[support stringByAppendingPathComponent:@"ParallelsX/ClashOfSouls"] stringByAppendingPathComponent:@"save-v4.txt"];
+    return [[support stringByAppendingPathComponent:@"ParallelsX/ClashOfSouls"] stringByAppendingPathComponent:@"save-v5.txt"];
 }
 
 static NSString* legacyMacSavePath() {
     NSString* support=NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject;
+    return [[support stringByAppendingPathComponent:@"ParallelsX/ClashOfSouls"] stringByAppendingPathComponent:@"save-v4.txt"];
+}
+
+static NSString* olderLegacyMacSavePath() {
+    NSString* support=NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject;
     return [[support stringByAppendingPathComponent:@"ParallelsX/ClashOfSouls"] stringByAppendingPathComponent:@"save-v3.txt"];
+}
+
+static bool validMacSaveLocation(const px::SaveData& save) {
+    if(save.story.chapterId.empty())return true;
+    px::ChapterRegistry chapters;
+    if(!chapters.has(save.story.chapterId))return false;
+    const auto& chapter=chapters.get(save.story.chapterId);
+    if(!save.story.checkpointId.empty()){
+        const auto checkpoint=std::find_if(chapter.openingFlow.begin(),chapter.openingFlow.end(),[&](const px::SceneStep& step){return step.checkpointId==save.story.checkpointId;});
+        if(checkpoint!=chapter.openingFlow.end())return true;
+    }
+    return save.story.sceneIndex<chapter.openingFlow.size();
 }
 
 static bool readMacSave(NSString* path, px::SaveData& out) {
     NSError* error=nil;
     NSString* encoded=[NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:&error];
     if(!encoded)return false;
-    try{out=px::SaveCodec::deserialize(std::string(encoded.UTF8String?:""));return true;}
+    try{
+        out=px::SaveCodec::deserialize(std::string(encoded.UTF8String?:""));
+        return validMacSaveLocation(out);
+    }
     catch(const std::exception& exception){NSLog(@"Ignoring unreadable Parallels X save at %@: %s",path,exception.what());return false;}
 }
 
@@ -89,6 +109,9 @@ static px::SaveData loadMacSave() {
     path=legacyMacSavePath();
     if(readMacSave(path,save))return save;
     if(readMacSave([path stringByAppendingString:@".bak"],save))return save;
+    path=olderLegacyMacSavePath();
+    if(readMacSave(path,save))return save;
+    if(readMacSave([path stringByAppendingString:@".bak"],save))return save;
     return {};
 }
 
@@ -96,7 +119,8 @@ static bool writeMacSave(const px::SaveData& save) {
     NSString* path=macSavePath();NSString* directory=[path stringByDeletingLastPathComponent];
     [NSFileManager.defaultManager createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:nil error:nil];
     NSString* backup=[path stringByAppendingString:@".bak"];
-    if([NSFileManager.defaultManager fileExistsAtPath:path]){
+    px::SaveData validPrevious;
+    if([NSFileManager.defaultManager fileExistsAtPath:path]&&readMacSave(path,validPrevious)){
         [NSFileManager.defaultManager removeItemAtPath:backup error:nil];
         [NSFileManager.defaultManager copyItemAtPath:path toPath:backup error:nil];
     }
@@ -137,6 +161,7 @@ struct AppState {
         : save(loadMacSave()),
           session(chapters,maps,cutscenes,dialogue,exploration,training,adventures),
           menu(menuRegistry,storyRoutes,storyRecap,save) {
+        menu.setReducedMotion(save.qol.reducedMotion);
         const auto& rrvvfo=characterPresentation.get("rrvvfo");
         NSString* bundled=[NSBundle.mainBundle pathForResource:@"rrvvfo-dev" ofType:@"pxskel"
                                                    inDirectory:@"assets/characters/rrvvfo"];
@@ -157,7 +182,8 @@ struct AppState {
             menu.clearOutcome();
             return;
         }
-        if(outcome==px::MenuOutcome::BeginStory||outcome==px::MenuOutcome::ReplayChapter)session.startChapter("rrvvfo_ch1");
+        if(outcome==px::MenuOutcome::BeginStory){session.startChapter("rrvvfo_ch1");session.setQolSettings(save.qol);}
+        else if(outcome==px::MenuOutcome::ReplayChapter)session.startReplayChapter(save);
         else if(outcome==px::MenuOutcome::ContinueStory){
             if(save.story.chapterId.empty())session.startChapter("rrvvfo_ch1");else session.loadSnapshot(save);
         }
@@ -165,6 +191,7 @@ struct AppState {
             const auto mode=menu.snapshot().selectedMode.id;
             if(mode==px::MenuModeId::ArenaBattle)session.startCpuFight();
             else if(mode==px::MenuModeId::Training)session.startStandaloneTraining();
+            session.setQolSettings(save.qol);
         }
         if(outcome==px::MenuOutcome::BeginStory||outcome==px::MenuOutcome::ContinueStory||
            outcome==px::MenuOutcome::ReplayChapter||outcome==px::MenuOutcome::LaunchMode)gameplay=true;
