@@ -1,5 +1,6 @@
 d8e17c667dce12d49e0e548b79e2f1e5a5385648bedb656033af4ff72e96c7b0  3DS-Azahar-Gameplay-Review.png
-f9819c4a6369e95ea83ac905a350dceb9586ca269bb764c249f82a8c27d23514  EVERYTHING_A_NEW_CHAT_NEEDS_TO_KNOW.md
+1d8260dbb460c46c32e44f2758feff25860b19256e3031fb5150c2fd1566ba90  EVERYTHING_A_NEW_CHAT_NEEDS_TO_KNOW.md
 74a5ca8a0e546433d7e8710e9bae57a848bcaf36e8b735e1239835dafd96300c  Parallels-X-Clash-of-Souls-3.0R-3DS-0.4H.5-CANDIDATE.3dsx
-14f38932276631a8090a2609bf335aa0156fef973078c5285ca971c7d500bd63  Parallels-X-Clash-of-Souls-3.0R-Linux-Build-Source-0.4H.5.zip
+eab08a73a03ade00d257ee7260399ab03b2daaaea9511697cfceee7eca58d45d  Parallels-X-Clash-of-Souls-3.0R-Linux-Build-Source-0.4H.5.zip
+4e90d619f9d26a6db43fc00fbec18929948dda7412a19515eda32eb7ba0e0512  Parallels-X-Clash-of-Souls-3.0R-Linux-x86_64.tar.gz
 40617733e6ec7184ef5bcf7f2cb3846ff715ba11c44e580dbb739a70fcf5a37c  Parallels-X-Clash-of-Souls-3.0R-Mac-0.4H.5-CANDIDATE.dmg

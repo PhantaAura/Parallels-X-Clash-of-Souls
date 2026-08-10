@@ -177,7 +177,7 @@ As of this handoff:
 - Shared automated tests: **5/5 passing**.
 - Native 3DS cross-build: successful; output is a valid 3DSX.
 - macOS universal Intel/Apple Silicon build: successful, signed, packaged, and DMG checksum verified.
-- Linux shared sources/tests: passing. A native Linux executable must be produced and verified on Linux; GitHub Actions is included for this.
+- Native Linux x86_64 build: successful on GitHub's Ubuntu runner after the shared tests passed.
 
 Release artifacts are under `release/0.4H.5/`:
 
@@ -187,6 +187,8 @@ Release artifacts are under `release/0.4H.5/`:
   - SHA-256: `74a5ca8a0e546433d7e8710e9bae57a848bcaf36e8b735e1239835dafd96300c`
 - `Parallels-X-Clash-of-Souls-3.0R-Linux-Build-Source-0.4H.5.zip`
   - See `release/0.4H.5/SHA256SUMS.txt` for the generated hash.
+- `Parallels-X-Clash-of-Souls-3.0R-Linux-x86_64.tar.gz`
+  - SHA-256: `4e90d619f9d26a6db43fc00fbec18929948dda7412a19515eda32eb7ba0e0512`
 
 Build/test commands:
 
@@ -197,12 +199,12 @@ Build/test commands:
 make -C src/platform/3ds
 ```
 
-The Linux GitHub workflow is `.github/workflows/linux-build.yml` and uploads a native x86_64 build artifact after a successful run.
+The Linux GitHub workflow is `.github/workflows/linux-build.yml`. Run `31347683931` passed its shared tests, built the native executable, packaged it, and uploaded it successfully.
 
 ## 12. Honest limitations
 
 - The 3DS build has booted in Azahar and a screenshot exists, but real Old 3DS hardware remains the authority for frame pacing, memory, suspend/resume, battery behavior, text readability, arm/garment deformation, and face attachment.
-- The Linux package initially committed from this Mac is source/build-ready, not a fake macOS-linked “Linux binary.” Use the included GitHub Linux workflow or a real Linux machine for the native executable.
+- The native Linux executable was built on GitHub's Ubuntu x86_64 runner. Other distributions and physical Linux machines still require launch, controller, audio, and graphics-driver testing.
 - The build is a **candidate**, not release-final. Do not claim Chapter 1 is perfect solely because it compiles or tests pass.
 - No Chapter 2 remake work should begin yet.
 
