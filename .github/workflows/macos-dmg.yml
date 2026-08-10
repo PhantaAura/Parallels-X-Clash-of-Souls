@@ -1,0 +1,26 @@
+name: macOS DMG
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core tests
+        run: |
+          cmake -S . -B build-test -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-test -j 3
+          ctest --test-dir build-test --output-on-failure
+      - name: Build stable DMG
+        run: ./scripts/build-macos.sh
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Parallels-X-Clash-of-Souls-macOS
+          path: |
+            dist/Parallels-X-Clash-of-Souls.dmg
+            dist/Parallels-X-Clash-of-Souls.dmg.sha256

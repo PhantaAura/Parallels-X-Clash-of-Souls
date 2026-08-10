@@ -1,0 +1,12 @@
+build/
+build-linux/
+dev-saves/
+build-macos/
+dist/
+.DS_Store
+*.dSYM/
+review/content.json
+src/platform/3ds/build/
+*.elf
+*.3dsx
+!release/**/*.3dsx

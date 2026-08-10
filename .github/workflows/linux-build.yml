@@ -1,0 +1,38 @@
+name: Linux build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libsdl2-dev python3
+
+      - name: Run shared tests
+        run: ./scripts/test.sh
+
+      - name: Build native Linux game
+        run: ./scripts/build-linux.sh
+
+      - name: Package Linux build
+        run: |
+          mkdir -p linux-package
+          cp build-linux/ParallelsX linux-package/ParallelsX
+          cp LINUX_BUILD_README.md linux-package/README.md
+          tar -C linux-package -czf Parallels-X-Clash-of-Souls-3.0R-Linux-x86_64.tar.gz .
+
+      - name: Upload Linux build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Parallels-X-Clash-of-Souls-3.0R-Linux-x86_64
+          path: Parallels-X-Clash-of-Souls-3.0R-Linux-x86_64.tar.gz
+          if-no-files-found: error

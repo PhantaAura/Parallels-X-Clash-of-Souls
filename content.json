@@ -1,0 +1,95 @@
+{
+  "build": "3.0R Mac 0.4D.1",
+  "chapter": {"id": "rrvvfo_ch1", "title": "Back to Normal", "flow": [
+    {"id": "ch1_object_swap_setup", "checkpoint": "rrvvfo-ch1-swap-setup", "presentationStage": "training-field"},
+    {"id": "sage_object_swap_field_trial", "checkpoint": "rrvvfo-ch1-field-anchors", "presentationStage": "training-field"},
+    {"id": "ch1_object_swap_result", "checkpoint": "rrvvfo-ch1-swap-result", "presentationStage": "training-field"},
+    {"id": "ch1_opening_sage_setup", "checkpoint": "rrvvfo-ch1-opening", "presentationStage": "training-field"},
+    {"id": "sage_tutorial_spar", "checkpoint": "rrvvfo-ch1-sage-spar", "presentationStage": "training-field"},
+    {"id": "ch1_post_spar_banter", "checkpoint": "rrvvfo-ch1-post-spar", "presentationStage": "training-field"},
+    {"id": "tournament_road_departure_dialogue", "checkpoint": "rrvvfo-ch1-road-talk", "presentationStage": "training-road"},
+    {"id": "tournament_road_departure", "checkpoint": "rrvvfo-ch1-road-start", "presentationStage": "training-road"},
+    {"id": "river_object_swap_problem", "checkpoint": "rrvvfo-ch1-river", "presentationStage": "training-road"},
+    {"id": "physical_route_choice", "checkpoint": "rrvvfo-ch1-route-fork", "presentationStage": "training-road"},
+    {"id": "selected_route_adventure", "checkpoint": "rrvvfo-ch1-route-travel", "presentationStage": "training-road"},
+    {"id": "swap_relay_trial", "checkpoint": "rrvvfo-ch1-swap-relay", "presentationStage": "training-road"},
+    {"id": "transport_wheel_recovery", "checkpoint": "rrvvfo-ch1-transport", "presentationStage": "training-road"},
+    {"id": "runaway_tournament_cart", "checkpoint": "rrvvfo-ch1-runaway-cart", "presentationStage": "training-road"},
+    {"id": "roadside_encounter", "checkpoint": "rrvvfo-ch1-roadside-encounter", "presentationStage": "training-road"},
+    {"id": "reach_tournament_checkpoint", "checkpoint": "rrvvfo-ch1-checkpoint-approach", "presentationStage": "training-road"},
+    {"id": "tournament_checkpoint_dialogue", "checkpoint": "rrvvfo-ch1-checkpoint", "presentationStage": "training-road"},
+    {"id": "reach_lens_roadblock", "checkpoint": "rrvvfo-ch1-lens-approach", "presentationStage": "training-road"},
+    {"id": "lens_manual_reaction", "checkpoint": "rrvvfo-ch1-lens-manual", "presentationStage": "training-road"},
+    {"id": "lens_roadblock_reveal", "checkpoint": "rrvvfo-ch1-lens-roadblock", "presentationStage": "training-road"},
+    {"id": "reach_tournament_outskirts", "checkpoint": "rrvvfo-ch1-outskirts-approach", "presentationStage": "training-road"},
+    {"id": "tournament_outskirts_arrival", "checkpoint": "rrvvfo-ch1-complete", "presentationStage": "training-road"}
+  ]},
+  "hotbar": [
+    {"displaySlot": 1, "canonicalSlot": 1, "id": "fireBlast", "label": "FIRE BLAST", "state": "READY"},
+    {"displaySlot": 2, "canonicalSlot": 3, "id": "objectSwap", "label": "OBJECT SWAP", "state": "READY"},
+    {"displaySlot": 3, "canonicalSlot": 4, "id": "lensOfTruth", "label": "LENS OF TRUTH", "state": "READY"}
+  ],
+  "map": {"id": "training_region", "name": "Sage Training Field / Tournament Road", "bounds": [-1550,1450,-720,720], "zones": [
+    {"id": "sage_field", "name": "Sage's Training Field", "x": -1260, "z": 0, "identity": "opening training and personality"},
+    {"id": "road_junction", "name": "Tournament Road Junction", "x": -650, "z": 0, "identity": "breathing room and route setup"},
+    {"id": "river", "name": "Broken River Crossing", "x": 70, "z": 0, "identity": "Object Swap story solution"},
+    {"id": "route_fork", "name": "Three-Way Route Fork", "x": 250, "z": 0, "identity": "physical choice, no popup required"},
+    {"id": "main_road", "name": "Main Road", "x": 405, "z": 0, "identity": "damaged road and practical problem solving"},
+    {"id": "forest", "name": "Forest Route", "x": 405, "z": -350, "identity": "navigation and environmental reading"},
+    {"id": "cliff", "name": "Cliff Route", "x": 405, "z": 350, "identity": "jumping, risk and optional reward"},
+    {"id": "swap_relay", "name": "Swap Relay", "x": 600, "z": 0, "identity": "routes reconnect and precision Object Swap"},
+    {"id": "riverside", "name": "Riverside Road", "x": 820, "z": 0, "identity": "transport, cart and roadside encounter"},
+    {"id": "lens_roadblock", "name": "Outskirts Roadblock", "x": 1080, "z": 0, "identity": "mandatory Lens route reveal"},
+    {"id": "tournament_outskirts", "name": "Tournament Outskirts", "x": 1320, "z": 0, "identity": "Chapter 1 arrival boundary"}
+  ], "links": [
+    {"from": "sage_field", "to": "road_junction", "route": "main"},
+    {"from": "road_junction", "to": "river", "route": "main"},
+    {"from": "river", "to": "route_fork", "route": "main"},
+    {"from": "route_fork", "to": "main_road", "route": "main"},
+    {"from": "route_fork", "to": "forest", "route": "forest"},
+    {"from": "route_fork", "to": "cliff", "route": "cliff"},
+    {"from": "main_road", "to": "swap_relay", "route": "main"},
+    {"from": "forest", "to": "swap_relay", "route": "forest"},
+    {"from": "cliff", "to": "swap_relay", "route": "cliff"},
+    {"from": "swap_relay", "to": "riverside", "route": "main"},
+    {"from": "riverside", "to": "lens_roadblock", "route": "main"},
+    {"from": "lens_roadblock", "to": "tournament_outskirts", "route": "main"}
+  ]},
+  "grandAdventure": {
+    "explorationScenes": [
+      {"id": "sage_object_swap_field_trial", "objective": "SAGE FIELD ANCHORS • 0 / 3", "detail": "Use Object Swap [2] at each anchor. No walking between them."},
+      {"id": "tournament_road_departure", "objective": "LEAVE THE TRAINING GROUNDS", "detail": "Follow the tan road east toward the tournament banners."},
+      {"id": "river_object_swap_problem", "objective": "SWAP WITH THE FAR-BANK ROCK", "detail": "Stand at the river edge and use [2] Object Swap. The river remains solid."},
+      {"id": "physical_route_choice", "objective": "CHOOSE YOUR TOURNAMENT ROUTE", "detail": "Physically take the Main Road, Forest Shortcut, or Cliff Route."},
+      {"id": "selected_route_adventure", "objective": "FOLLOW YOUR ROUTE TO THE SWAP RELAY", "detail": "All three authored routes reconnect at the same gate."},
+      {"id": "swap_relay_trial", "objective": "OBJECT SWAP RELAY • 0 / 3", "detail": "Use Object Swap on each marker. Every swap changes the next angle."},
+      {"id": "transport_wheel_recovery", "objective": "RECOVER THE TRANSPORT WHEEL", "detail": "Use [2] Object Swap near the marked wheel beyond the broken ledge."},
+      {"id": "runaway_tournament_cart", "objective": "INTERCEPT THE RUNAWAY CART", "detail": "Clear the road, then swap the wheel block into place."},
+      {"id": "roadside_encounter", "objective": "CONTINUE THROUGH THE PRACTICE CLEARING", "detail": "The supply cart is safe. A roaming fighter is ahead."},
+      {"id": "reach_tournament_checkpoint", "objective": "PASS THE TOURNAMENT CHECKPOINT", "detail": "Continue east and speak with the checkpoint worker."},
+      {"id": "reach_lens_roadblock", "objective": "CONTINUE TO THE OUTSKIRTS", "detail": "The final manual check is near the stadium roadblock."},
+      {"id": "lens_roadblock_reveal", "objective": "CHECK THE SUSPICIOUS ROADBLOCK", "detail": "Use [3] Lens of Truth to reveal the real route."},
+      {"id": "reach_tournament_outskirts", "objective": "REACH THE TOURNAMENT ENTRANCE", "detail": "The stadium is directly ahead."}
+    ],
+    "sageTraining": {
+      "meaningfulMovementDistance": 72, "chargeStartingEnergy": 20, "chargeTargetEnergy": 75, "lensStartingEnergy": 35, "lensRequiredEnergy": 60, "steps": [
+      {"id": "movement", "objective": "MOVEMENT • MOVE, JUMP, THEN BURST DASH"},
+      {"id": "basic_attacks", "objective": "BASIC ATTACKS • LIGHT, HEAVY, LAUNCHER, GRAB"},
+      {"id": "perfect_block", "objective": "DEFENSE • PERFECT BLOCK SAGE'S ATTACK"},
+      {"id": "charge", "objective": "ENERGY • CHARGE TO 75"},
+      {"id": "core_abilities", "objective": "ABILITIES • FIRE BLAST, THEN OBJECT SWAP"},
+      {"id": "lens_read", "objective": "LENS • CHARGE, ACTIVATE, THEN READ SAGE"},
+      {"id": "clean_hits", "objective": "FINAL SPAR • LAND 3 CLEAN HITS"}
+      ]
+    }
+  },
+  "worldPresentation": [
+    {"id": "training-field", "camera": {"yawDeg": 38, "fov": 43, "distance": 900, "height": 410, "focusX": -1240, "focusZ": 0}, "primitiveCount": 25, "ambientActorCount": 0},
+    {"id": "training-road", "camera": {"yawDeg": 38, "fov": 45, "distance": 980, "height": 430, "focusX": 0, "focusZ": 0}, "primitiveCount": 333, "ambientActorCount": 7}
+  ],
+  "openingStaging": [
+    {"actorId": "rrvvfo", "x": -1325, "z": 65, "yawDeg": 25},
+    {"actorId": "sage", "x": -1080, "z": 95, "yawDeg": -145}
+  ],
+  "characterPresentation": {"rrvvfo": {"sourceModel": "assets/characters/placeholder/Jimmy.glb", "cookedAssetReady": false, "fallback": "procedural-humanoid"}}
+}
