@@ -90,7 +90,8 @@ SaveData SaveCodec::deserialize(const std::string& text) {
         else if (key == "qolCombatMessages") data.qol.combatMessages = value;
         else if (key == "flag") data.story.flags.push_back(value);
     }
-    if (data.schemaVersion != 2 && data.schemaVersion != 3 && data.schemaVersion != SaveData::kSchemaVersion)
+    if (data.schemaVersion != 2 && data.schemaVersion != 3 && data.schemaVersion != 4 &&
+        data.schemaVersion != SaveData::kSchemaVersion)
         throw std::runtime_error("Unsupported save schema");
 
     auto replacePrefix = [](std::string& value, const std::string& oldPrefix, const std::string& newPrefix) {

@@ -70,8 +70,14 @@ ExplorationRegistry::ExplorationRegistry() {
         {"forest", "FOREST SHORTCUT • FOLLOW THE BELLS", {430.0f, -390.0f}, 90.0f, "", {}, 100.0f, ""},
         {"cliff", "CLIFF ROUTE • STAY ON THE SOUTH LEDGE", {430.0f, 390.0f}, 90.0f, "", {}, 100.0f, ""}
     };
-    routeAdventure.jumpMarkers = {{300.0f, 330.0f}, {355.0f, 400.0f}, {412.0f, 350.0f}};
+    // 7.2R parity counts: Main = four work-lane beats, Forest = four sequential bells, Cliff = five ledges.
+    // These native 3D positions preserve the existing route geography; exact browser pixel coordinates are not fabricated.
+    routeAdventure.mainWorkMarkers = {{305.0f, 42.0f}, {340.0f, -34.0f}, {378.0f, 38.0f}, {414.0f, 0.0f}};
+    routeAdventure.forestBellMarkers = {{286.0f, -242.0f}, {327.0f, -322.0f}, {371.0f, -398.0f}, {418.0f, -350.0f}};
+    routeAdventure.jumpMarkers = {{286.0f, 305.0f}, {325.0f, 365.0f}, {360.0f, 425.0f}, {397.0f, 388.0f}, {425.0f, 342.0f}};
     routeAdventure.jumpMarkerRadius = 72.0f;
+    routeAdventure.routeHintFirstSeconds = 18.0f;
+    routeAdventure.routeHintSecondSeconds = 36.0f;
     routeAdventure.openingDialogueId = "main_route_worker_intro";
     routeAdventure.completionDialogueId = "main_route_worker_result";
     scenes_.emplace(routeAdventure.sceneId, routeAdventure);
@@ -86,11 +92,11 @@ ExplorationRegistry::ExplorationRegistry() {
     scenes_.emplace(relay.sceneId, relay);
 
     auto transport = roadScene(
-        "transport_wheel_recovery", ExplorationRuleKind::UseAbilityPoint,
-        "RECOVER THE TRANSPORT WHEEL", "Use [2] Object Swap near the marked wheel beyond the broken ledge.");
-    transport.target = {735.0f, 40.0f};
+        "transport_wheel_recovery", ExplorationRuleKind::SwapRelay,
+        "RECOVER THE TRANSPORT WHEEL", "Swap to the stranded wheel, then use the return anchor to get back.");
     transport.radius = 250.0f;
     transport.requiredAbilityId = "objectSwap";
+    transport.relayMarkers = {{770.0f, -210.0f}, {0.0f, 0.0f}};
     transport.completionDialogueId = "transport_wheel_result";
     scenes_.emplace(transport.sceneId, transport);
 

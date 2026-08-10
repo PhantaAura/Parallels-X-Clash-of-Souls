@@ -157,6 +157,7 @@ public:
                    const AdventureRegistry& adventures);
 
     void startChapter(const std::string& chapterId);
+    void startReplayChapter(const SaveData& source);
     void startCpuFight();
     void startStandaloneTraining();
     void loadSnapshot(const SaveData& data);
@@ -168,7 +169,9 @@ public:
     void notifyManualSaveResult(bool success);
     void notifyManualSaveUnavailable();
     bool canManualSave() const;
-    bool standaloneMode() const { return standaloneFightMode_ || standaloneTrainingMode_; }
+    void setQolSettings(const QolSettings& settings) { qolSettings_ = settings; syncView(); }
+    bool standaloneMode() const { return standaloneFightMode_ || standaloneTrainingMode_ || replayMode_; }
+    bool replayMode() const { return replayMode_; }
 
     const RuntimeView& view() const { return view_; }
     const MapDefinition& map() const;
@@ -245,6 +248,8 @@ private:
     Game game_;
     Vec2 playerPosition_{};
     Vec2 opponentPosition_{};
+    SaveData sceneCheckpointSnapshot_{};
+    bool sceneCheckpointValid_{false};
     FighterState player_{"rrvvfo"};
     FighterState opponent_{"sage"};
     bool blockHeld_{false};
@@ -270,10 +275,18 @@ private:
     std::string playerActionAnimation_;
     float playerActionAnimationTime_{0.0f};
     float landingAnimationTime_{0.0f};
+    float combatReadyAnimationTime_{0.0f};
+    bool hardLanding_{false};
     bool playerCharging_{false};
     std::string gameplayNotice_;
     bool flowCancelLearned_{false};
     int cliffRouteHintLevel_{0};
+    int routeHintStage_{0};
+    std::size_t routeProgress_{0};
+    float routeChallengeTime_{0.0f};
+    bool mainRouteFireCleared_{false};
+    bool southernDetourChosen_{false};
+    bool southernDetourComplete_{false};
     std::string routeChoice_;
     std::vector<std::string> disabledBlockers_;
     std::vector<Vec2> relayMarkers_;
@@ -341,6 +354,7 @@ private:
     bool chapterComplete_{false};
     bool standaloneFightMode_{false};
     bool standaloneTrainingMode_{false};
+    bool replayMode_{false};
     std::string objectiveBeforePause_;
     std::vector<std::string> objectiveHistory_;
     QolSettings qolSettings_{};

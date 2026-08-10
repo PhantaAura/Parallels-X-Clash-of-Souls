@@ -44,11 +44,24 @@ struct SDL_ControllerDeviceEvent {
     Uint32 timestamp;
     Sint32 which;
 };
+struct SDL_MouseButtonEvent {
+    Uint32 type;
+    Uint32 timestamp;
+    Uint32 windowID;
+    Uint32 which;
+    Uint8 button;
+    Uint8 state;
+    Uint8 clicks;
+    Uint8 padding1;
+    Sint32 x;
+    Sint32 y;
+};
 union SDL_Event {
     Uint32 type;
     SDL_KeyboardEvent key;
     SDL_ControllerButtonEvent cbutton;
     SDL_ControllerDeviceEvent cdevice;
+    SDL_MouseButtonEvent button;
     Uint8 padding[56];
 };
 
@@ -100,6 +113,8 @@ constexpr Uint32 SDL_PIXELFORMAT_ARGB8888 = 0x16362004u;
 constexpr Uint32 SDL_QUIT = 0x100u;
 constexpr Uint32 SDL_KEYDOWN = 0x300u;
 constexpr Uint32 SDL_KEYUP = 0x301u;
+constexpr Uint32 SDL_MOUSEBUTTONDOWN = 0x401u;
+constexpr Uint32 SDL_MOUSEBUTTONUP = 0x402u;
 constexpr Uint32 SDL_CONTROLLERBUTTONDOWN = 0x651u;
 constexpr Uint32 SDL_CONTROLLERBUTTONUP = 0x652u;
 constexpr Uint32 SDL_CONTROLLERDEVICEADDED = 0x653u;
@@ -113,6 +128,10 @@ constexpr Sint32 SDLK_LEFT = 1073741904;
 constexpr Sint32 SDLK_RIGHT = 1073741903;
 constexpr Sint32 SDLK_DOWN = 1073741905;
 constexpr Sint32 SDLK_UP = 1073741906;
+constexpr Sint32 SDLK_LSHIFT = 1073742049;
+constexpr Sint32 SDLK_RSHIFT = 1073742053;
+constexpr Uint8 SDL_BUTTON_LEFT = 1;
+constexpr Uint8 SDL_BUTTON_RIGHT = 3;
 
 constexpr Uint8 SDL_CONTROLLER_BUTTON_A = 0;
 constexpr Uint8 SDL_CONTROLLER_BUTTON_B = 1;

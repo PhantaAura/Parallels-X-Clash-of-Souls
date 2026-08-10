@@ -50,7 +50,7 @@ MapRegistry::MapRegistry() {
         {"swap_gate_cliff", {555.0f, 645.0f, 175.0f, 720.0f}, true},
         {"lens_roadblock", {1045.0f, 1120.0f, -175.0f, 175.0f}, true},
         {"lens_roadblock_north", {1045.0f, 1120.0f, -720.0f, -175.0f}, true},
-        {"lens_roadblock_south", {1045.0f, 1120.0f, 175.0f, 720.0f}, true}
+        {"lens_roadblock_south", {1045.0f, 1120.0f, 175.0f, 430.0f}, true}
     };
     training.landmarks = {
         {"sage_sanctuary", "Sage Sanctuary", {-1340.0f, -300.0f}},

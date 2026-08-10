@@ -1,4 +1,5 @@
 #include "core/game.hpp"
+#include <algorithm>
 #include <stdexcept>
 
 namespace px {
@@ -19,8 +20,21 @@ void Game::startChapter(const std::string& chapterId) {
 void Game::loadSave(const SaveData& data) {
     if (!chapters_.has(data.story.chapterId)) throw std::runtime_error("Save references unknown chapter");
     const auto& def = chapters_.get(data.story.chapterId);
-    if (data.story.sceneIndex >= def.openingFlow.size()) throw std::runtime_error("Save scene index is out of range");
-    save_ = data;
+    SaveData resolved = data;
+
+    // Omega schema migration: checkpoint IDs are stable content identities, while numeric scene indexes
+    // can shift when Chapter 1 gains missing browser beats. Prefer the stable ID whenever it resolves.
+    if (!data.story.checkpointId.empty()) {
+        const auto checkpoint = std::find_if(def.openingFlow.begin(), def.openingFlow.end(), [&](const SceneStep& step) {
+            return step.checkpointId == data.story.checkpointId;
+        });
+        if (checkpoint != def.openingFlow.end())
+            resolved.story.sceneIndex = static_cast<std::size_t>(std::distance(def.openingFlow.begin(), checkpoint));
+    }
+    if (resolved.story.sceneIndex >= def.openingFlow.size())
+        throw std::runtime_error("Save scene index/checkpoint is out of range");
+    resolved.story.checkpointId = def.openingFlow[resolved.story.sceneIndex].checkpointId;
+    save_ = resolved;
     syncModeToScene();
 }
 
