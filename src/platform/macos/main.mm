@@ -206,6 +206,8 @@ struct AppState {
             runtimeSave.frontend.storySoFarSection=save.frontend.storySoFarSection;
             runtimeSave.frontend.pendingStoryUnlocks=save.frontend.pendingStoryUnlocks;
             save=std::move(runtimeSave);
+        } else if(gameplay) {
+            save.qol=session.qolSettings();
         }
         const bool ok=writeMacSave(save);lastPersist=std::chrono::steady_clock::now();return ok;
     }
@@ -678,6 +680,8 @@ static bool actionForKey(unsigned short keyCode, px::Action& out) {
     PXFrontEndView* _frontEnd;
     PXManualView* _manualView;
     std::set<px::Action> _controllerHeld;
+    std::vector<Vertex> _worldVertices;
+    std::vector<Vertex> _previewVertices;
     bool _controllerWasConnected;
     bool _mouseLight;
     bool _mouseBlock;
@@ -688,6 +692,8 @@ static bool actionForKey(unsigned short keyCode, px::Action& out) {
     if(!self)return nil;
     _state=new AppState();
     _queue=[device newCommandQueue];
+    _worldVertices.reserve(32000);
+    _previewVertices.reserve(18000);
     self.delegate=self;self.preferredFramesPerSecond=60;self.enableSetNeedsDisplay=NO;self.paused=NO;
     self.colorPixelFormat=MTLPixelFormatBGRA8Unorm_sRGB;
     self.depthStencilPixelFormat=MTLPixelFormatDepth32Float;
@@ -881,7 +887,7 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
     const bool storyMode=snapshot.screen==px::MenuScreen::ModeSelect&&snapshot.selectedMode.id==px::MenuModeId::Story;
     if((routeScreen&&snapshot.selectedRoute.id!="rrvvfo")||(!routeScreen&&!storyMode))return;
 
-    std::vector<Vertex> vertices;vertices.reserve(18000);
+    auto& vertices=_previewVertices;vertices.clear();
     const auto& binding=_state->characterPresentation.get("rrvvfo");
     const px::Vec2 position={routeScreen?105.0f:70.0f,0.0f};
     if(!pushCharacterModel(vertices,_state->characterModels.find("rrvvfo"),&_state->playerAnimation,
@@ -909,7 +915,7 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
     const auto& v=_state->session.view();
     if(!_state->worldPresentation.has(v.presentationStageId))return;
     const auto& stage=_state->worldPresentation.get(v.presentationStageId);
-    std::vector<Vertex> vertices;vertices.reserve(32000);
+    auto& vertices=_worldVertices;vertices.clear();
     const auto blockerDisabled=[&](const std::string& id){const auto& disabled=_state->session.disabledBlockers();return std::find(disabled.begin(),disabled.end(),id)!=disabled.end();};
     for(const auto& primitive:stage.primitives){if(!primitive.visibleWhileBlockerEnabled.empty()&&blockerDisabled(primitive.visibleWhileBlockerEnabled))continue;pushPrimitive(vertices,primitive);}
     if(v.ambientActors.empty())for(const auto& actor:stage.ambientActors){
@@ -928,12 +934,27 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
             pushCylinder(vertices,{marker.position.x,5.0f,marker.position.z,82.0f,8.0f,82.0f,0.0f},{.50f,.94f,1.0f,.52f},18);
         }else if(marker.kind=="lens-fx"){
             pushCylinder(vertices,{marker.position.x,92.0f,marker.position.z,48.0f,5.0f,48.0f,0.0f},{1.0f,.74f,.18f,.65f},18);
+        }else if(marker.kind=="pursuit-lock"){
+            pushCylinder(vertices,{marker.position.x,10.0f,marker.position.z,marker.complete?90.0f:70.0f,5.0f,marker.complete?90.0f:70.0f,0.0f},{1.0f,.67f,.12f,.72f},18);
+            pushBox(vertices,{marker.position.x,94.0f,marker.position.z,10.0f,58.0f,10.0f,0.0f},{1.0f,.80f,.28f,.82f});
+        }else if(marker.kind=="flow-cancel-fx"){
+            pushCylinder(vertices,{marker.position.x,6.0f,marker.position.z,96.0f,6.0f,96.0f,0.0f},{.42f,.94f,1.0f,.72f},18);
+        }else if(marker.kind=="dash-dust"){
+            pushCylinder(vertices,{marker.position.x,4.0f,marker.position.z,54.0f,4.0f,36.0f,0.0f},{.74f,.69f,.59f,.48f},10);
+        }else if(marker.kind=="landing-dust"){
+            pushCylinder(vertices,{marker.position.x,4.0f,marker.position.z,76.0f,4.0f,76.0f,0.0f},{.74f,.69f,.59f,.52f},12);
         }else if(marker.kind=="cliff-jump"){
             pushBox(vertices,{marker.position.x,18.0f,marker.position.z,54.0f,18.0f,58.0f,10.0f},marker.complete?px::PresentationColor{.35f,.50f,.34f,1}:px::PresentationColor{.55f,.41f,.26f,1});
         }else if(marker.kind=="swap-relay"){
             pushCylinder(vertices,{marker.position.x,42.0f,marker.position.z,marker.complete?22.0f:34.0f,84.0f,marker.complete?22.0f:34.0f,0.0f},marker.complete?px::PresentationColor{.36f,.48f,.48f,.45f}:px::PresentationColor{.45f,.91f,1.0f,.78f},14);
         }else if(marker.kind=="transport-wheel"){
             pushCylinder(vertices,{marker.position.x,38.0f,marker.position.z,72.0f,24.0f,72.0f,90.0f},{.24f,.20f,.16f,1.0f},16);
+        }else if(marker.kind=="return-anchor"){
+            pushCylinder(vertices,{marker.position.x,34.0f,marker.position.z,44.0f,68.0f,44.0f,0.0f},{.45f,.91f,1.0f,.82f},14);
+        }else if(marker.kind=="work-lane"){
+            pushBox(vertices,{marker.position.x,12.0f,marker.position.z,54.0f,18.0f,54.0f,0.0f},marker.complete?px::PresentationColor{.35f,.52f,.34f,.72f}:px::PresentationColor{.92f,.60f,.18f,.88f});
+        }else if(marker.kind=="blue-bell"){
+            pushCylinder(vertices,{marker.position.x,48.0f,marker.position.z,26.0f,70.0f,26.0f,0.0f},marker.complete?px::PresentationColor{.28f,.46f,.52f,.55f}:px::PresentationColor{.20f,.62f,1.0f,.92f},12);
         }else if(marker.kind=="bird"){
             pushBox(vertices,{marker.position.x,145.0f,marker.position.z,24.0f,5.0f,11.0f,12.0f},{.91f,.94f,1.0f,.82f});
         }else if(marker.kind=="delivery-cart"||marker.kind=="parked-cart"){

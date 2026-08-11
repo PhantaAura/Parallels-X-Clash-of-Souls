@@ -852,12 +852,6 @@ int main() {
                 tap(alternate, alternateInput, px::Action::Jump, 0.05f);
             }
         }
-        if (route == "cliff") {
-            assert(alternate.view().dialogueVisible);
-            assert(alternate.view().dialogueSpeaker == "RRVVFO");
-            assert(alternate.view().dialogueText.find("view") != std::string::npos);
-            finishDialogue(alternate);
-        }
         assert(alternate.view().sceneId == "swap_relay_trial");
         if (route == "cliff") {
             assert(alternate.view().gameplayNotice == "SCENIC DISCOVERY • CLIFFSIDE VIEW");
@@ -865,50 +859,6 @@ int main() {
             assert(std::find(cliffSave.story.flags.begin(), cliffSave.story.flags.end(), "ch1_road_dare_badge") != cliffSave.story.flags.end());
             assert(std::find(cliffSave.story.flags.begin(), cliffSave.story.flags.end(), "ch1_title_road_runner") != cliffSave.story.flags.end());
         }
-    }
-
-    // Update 6: completed optional stories remain visible at the outskirts, and
-    // opening Pause does not falsely mark the current objective as completed.
-    {
-        const auto outskirtsStep = std::find_if(ch1.openingFlow.begin(), ch1.openingFlow.end(),
-            [](const px::SceneStep& step){ return step.id == "reach_tournament_outskirts"; });
-        assert(outskirtsStep != ch1.openingFlow.end());
-        px::SaveData golden;
-        golden.story.chapterId = "rrvvfo_ch1";
-        golden.story.sceneIndex = static_cast<std::size_t>(std::distance(ch1.openingFlow.begin(), outskirtsStep));
-        golden.story.checkpointId = outskirtsStep->checkpointId;
-        golden.story.flags = {"ch1_lost_competitor_helped", "ch1_spectator_pass_won",
-                              "ch1_spectator_pass_delivered", "ch1_cart_supplies_saved"};
-        golden.world.mapId = ch1.primaryMap;
-        golden.world.position = {1880.0f, 0.0f};
-        golden.frontend.objectiveHistory = {"PASS THE TOURNAMENT CHECKPOINT"};
-
-        px::RuntimeSession goldenRuntime(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
-        px::InputState goldenInput;
-        goldenRuntime.loadSnapshot(px::SaveCodec::deserialize(px::SaveCodec::serialize(golden)));
-        const auto competitor = std::find_if(goldenRuntime.view().ambientActors.begin(), goldenRuntime.view().ambientActors.end(),
-            [](const px::RuntimeActorView& actor){ return actor.id == "lost_competitor"; });
-        assert(competitor != goldenRuntime.view().ambientActors.end());
-        assert(competitor->position.x > 1800.0f);
-        const auto savedCart = std::find_if(goldenRuntime.view().worldMarkers.begin(), goldenRuntime.view().worldMarkers.end(),
-            [](const px::RuntimeMarkerView& marker){ return marker.id == "saved_supply_cart"; });
-        assert(savedCart != goldenRuntime.view().worldMarkers.end());
-        assert(savedCart->position.x == 1815.0f);
-
-        const std::string currentObjective = goldenRuntime.view().objective;
-        tap(goldenRuntime, goldenInput, px::Action::Pause);
-        assert(goldenRuntime.view().pauseVisible);
-        assert(std::find(goldenRuntime.view().pauseSections.begin(), goldenRuntime.view().pauseSections.end(),
-                         "BUILD • 3.0R / UPDATE 6 GOLDEN GATE") != goldenRuntime.view().pauseSections.end());
-        for (int i = 0; i < 3; ++i) tap(goldenRuntime, goldenInput, px::Action::MoveDown);
-        tap(goldenRuntime, goldenInput, px::Action::Confirm);
-        assert(goldenRuntime.view().pausePageTitle == "OBJECTIVE HISTORY");
-        assert(std::find(goldenRuntime.view().pauseSections.begin(), goldenRuntime.view().pauseSections.end(),
-                         "NOW • " + currentObjective) != goldenRuntime.view().pauseSections.end());
-        assert(std::find(goldenRuntime.view().pauseSections.begin(), goldenRuntime.view().pauseSections.end(),
-                         "DONE • PASS THE TOURNAMENT CHECKPOINT") != goldenRuntime.view().pauseSections.end());
-        assert(std::find(goldenRuntime.view().pauseSections.begin(), goldenRuntime.view().pauseSections.end(),
-                         "DONE • " + currentObjective) == goldenRuntime.view().pauseSections.end());
     }
 
     std::cout << "PASS: Chapter 1 Legacy story/tutorial/UI structure, route panel plus all three routes, "

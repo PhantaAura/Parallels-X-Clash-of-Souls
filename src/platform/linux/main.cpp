@@ -396,7 +396,8 @@ void processMenuOutcome(ApplicationState& state) {
 }
 
 void mergeRuntimeSave(ApplicationState& state) {
-    if (!state.gameplay || state.runtime.standaloneMode()) return;
+    if (!state.gameplay) return;
+    if (state.runtime.standaloneMode()) { state.save.qol = state.runtime.qolSettings(); return; }
     auto runtimeSave = state.runtime.saveSnapshot();
     runtimeSave.frontend.discoveredStoryRoutes = state.save.frontend.discoveredStoryRoutes;
     runtimeSave.frontend.selectedStoryRoute = state.save.frontend.selectedStoryRoute;

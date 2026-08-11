@@ -23,7 +23,7 @@ ExplorationRegistry::ExplorationRegistry() {
     fieldAnchors.sceneId = "sage_object_swap_field_trial";
     fieldAnchors.rule = ExplorationRuleKind::SwapRelay;
     fieldAnchors.objective = "SAGE FIELD ANCHORS • 0 / 3";
-    fieldAnchors.detail = "Use Object Swap [2] at each anchor. No walking between them.";
+    fieldAnchors.detail = "Use Object Swap at each anchor. No walking between them.";
     fieldAnchors.radius = 900.0f;
     fieldAnchors.requiredAbilityId = "objectSwap";
     fieldAnchors.hasPlayerStart = true;
@@ -43,7 +43,7 @@ ExplorationRegistry::ExplorationRegistry() {
 
     auto river = roadScene(
         "river_object_swap_problem", ExplorationRuleKind::UseAbilityPoint,
-        "SWAP WITH THE FAR-BANK ROCK", "Stand at the river edge and use [2] Object Swap. The river remains solid.");
+        "SWAP WITH THE FAR-BANK ROCK", "Stand at the river edge and use Object Swap on the far-bank rock. The river remains solid.");
     river.target = {-75.0f, 0.0f};
     river.radius = 120.0f;
     river.requiredAbilityId = "objectSwap";
@@ -65,16 +65,16 @@ ExplorationRegistry::ExplorationRegistry() {
         "selected_route_adventure", ExplorationRuleKind::RouteChallenge,
         "FOLLOW YOUR ROUTE TO THE SWAP RELAY", "All three authored routes reconnect at the same gate.");
     routeAdventure.routeChallenges = {
-        {"main", "MAIN ROAD • CONTROL THE FIRE", {430.0f, 0.0f}, 55.0f,
+        {"main", "MAIN ROAD • CONTROL THE FIRE", {535.0f, 105.0f}, 65.0f,
             "fireBlast", {270.0f, 0.0f}, 115.0f, "fallen_tree_center"},
-        {"forest", "FOREST SHORTCUT • FOLLOW THE BELLS", {430.0f, -390.0f}, 90.0f, "", {}, 100.0f, ""},
-        {"cliff", "CLIFF ROUTE • STAY ON THE SOUTH LEDGE", {430.0f, 390.0f}, 90.0f, "", {}, 100.0f, ""}
+        {"forest", "FOREST SHORTCUT • FOLLOW THE BELLS", {535.0f, -300.0f}, 95.0f, "", {}, 100.0f, ""},
+        {"cliff", "CLIFF ROUTE • STAY ON THE SOUTH LEDGE", {540.0f, 255.0f}, 95.0f, "", {}, 100.0f, ""}
     };
     // 7.2R parity counts: Main = four work-lane beats, Forest = four sequential bells, Cliff = five ledges.
     // These native 3D positions preserve the existing route geography; exact browser pixel coordinates are not fabricated.
-    routeAdventure.mainWorkMarkers = {{305.0f, 42.0f}, {340.0f, -34.0f}, {378.0f, 38.0f}, {414.0f, 0.0f}};
-    routeAdventure.forestBellMarkers = {{286.0f, -242.0f}, {327.0f, -322.0f}, {371.0f, -398.0f}, {418.0f, -350.0f}};
-    routeAdventure.jumpMarkers = {{286.0f, 305.0f}, {325.0f, 365.0f}, {360.0f, 425.0f}, {397.0f, 388.0f}, {425.0f, 342.0f}};
+    routeAdventure.mainWorkMarkers = {{305.0f, 265.0f}, {365.0f, 185.0f}, {438.0f, 285.0f}, {520.0f, 105.0f}};
+    routeAdventure.forestBellMarkers = {{285.0f, -250.0f}, {345.0f, -430.0f}, {430.0f, -540.0f}, {520.0f, -300.0f}};
+    routeAdventure.jumpMarkers = {{285.0f, 255.0f}, {340.0f, 420.0f}, {410.0f, 550.0f}, {480.0f, 430.0f}, {535.0f, 255.0f}};
     routeAdventure.jumpMarkerRadius = 72.0f;
     routeAdventure.routeHintFirstSeconds = 18.0f;
     routeAdventure.routeHintSecondSeconds = 36.0f;
@@ -102,7 +102,7 @@ ExplorationRegistry::ExplorationRegistry() {
 
     auto runaway = roadScene(
         "runaway_tournament_cart", ExplorationRuleKind::QteSequence,
-        "INTERCEPT THE RUNAWAY CART", "Clear the road, then swap the wheel block into place.");
+        "INTERCEPT THE RUNAWAY CART", "Cut across the road using the shown four-step movement sequence.");
     runaway.qteId = "runaway_tournament_cart";
     runaway.openingDialogueId = "runaway_cart_intro";
     runaway.completionDialogueId = "runaway_cart_result";
@@ -110,7 +110,7 @@ ExplorationRegistry::ExplorationRegistry() {
 
     auto encounter = roadScene(
         "roadside_encounter", ExplorationRuleKind::RoadsideEncounter,
-        "CONTINUE THROUGH THE PRACTICE CLEARING", "The supply cart is safe. A roaming fighter is ahead.");
+        "CONTINUE THROUGH THE PRACTICE CLEARING", "The supply cart is safe. Continue through the practice clearing.");
     encounter.encounterId = "roadside_challenger";
     encounter.target = {780.0f, 0.0f};
     encounter.radius = 42.0f;
@@ -119,21 +119,39 @@ ExplorationRegistry::ExplorationRegistry() {
     auto checkpoint = roadScene(
         "reach_tournament_checkpoint", ExplorationRuleKind::ReachPoint,
         "PASS THE TOURNAMENT CHECKPOINT", "Continue east and speak with the checkpoint worker.");
-    checkpoint.target = {915.0f, 0.0f};
+    auto collapse = roadScene(
+        "collapsed_tournament_road_detour", ExplorationRuleKind::TerrainDetour,
+        "FIND A WAY AROUND THE COLLAPSE", "The direct road is gone. Take the high north-side trail and reconnect ahead.");
+    collapse.openingDialogueId = "terrain_collapse_intro";
+    collapse.completionDialogueId = "terrain_collapse_complete";
+    collapse.jumpMarkers = {{900.0f, -300.0f}, {970.0f, -430.0f}, {1045.0f, -515.0f}};
+    collapse.jumpMarkerRadius = 74.0f;
+    collapse.detourDashMarker = {1120.0f, -520.0f};
+    collapse.detourDashRadius = 88.0f;
+    collapse.requiredAbilityId = "objectSwap";
+    collapse.shortcutPoint = {1205.0f, -455.0f};
+    collapse.shortcutRadius = 125.0f;
+    collapse.swapDestination = {1285.0f, -285.0f};
+    collapse.target = {1340.0f, -70.0f};
+    collapse.radius = 85.0f;
+    collapse.blockersToDisable = {"detour_jump_gate_1", "detour_jump_gate_2", "detour_jump_gate_3", "detour_dash_gate", "detour_swap_gate"};
+    scenes_.emplace(collapse.sceneId, collapse);
+
+    checkpoint.target = {1420.0f, 0.0f};
     checkpoint.radius = 45.0f;
     scenes_.emplace(checkpoint.sceneId, checkpoint);
 
     auto lensApproach = roadScene(
         "reach_lens_roadblock", ExplorationRuleKind::ReachPoint,
         "CONTINUE TO THE OUTSKIRTS", "The final manual check is near the stadium roadblock.");
-    lensApproach.target = {995.0f, 0.0f};
+    lensApproach.target = {1650.0f, 0.0f};
     lensApproach.radius = 42.0f;
     scenes_.emplace(lensApproach.sceneId, lensApproach);
 
     auto lens = roadScene(
         "lens_roadblock_reveal", ExplorationRuleKind::MandatoryAbilityReveal,
-        "CHECK THE SUSPICIOUS ROADBLOCK", "Use [3] Lens of Truth to reveal the real route.");
-    lens.target = {1000.0f, 0.0f};
+        "CHECK THE SUSPICIOUS ROADBLOCK", "Use Lens of Truth to reveal the real route.");
+    lens.target = {1700.0f, 0.0f};
     lens.radius = 160.0f;
     lens.requiredAbilityId = "lensOfTruth";
     lens.blockersToDisable = {"lens_roadblock", "lens_roadblock_north", "lens_roadblock_south"};
@@ -142,7 +160,7 @@ ExplorationRegistry::ExplorationRegistry() {
     auto outskirts = roadScene(
         "reach_tournament_outskirts", ExplorationRuleKind::ReachPoint,
         "REACH THE TOURNAMENT ENTRANCE", "The stadium is directly ahead.");
-    outskirts.target = {1280.0f, -10.0f};
+    outskirts.target = {1960.0f, -10.0f};
     outskirts.radius = 35.0f;
     scenes_.emplace(outskirts.sceneId, outskirts);
 }

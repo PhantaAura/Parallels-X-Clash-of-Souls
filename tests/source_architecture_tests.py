@@ -276,4 +276,31 @@ continuity = read("docs/ORGANIZATION_OF_THE_RED_LOST_YEAR_CONTINUITY.md")
 for required in ("organization_red", "Season 1 Clone incident", "Lost Year", "Strange Man", "unstable", "Echo", "disbanded"):
     assert required in continuity, f"Organization continuity lock is missing {required}"
 
+def assert_u4_u6_invariants():
+    skeletal = read("src/content/skeletal_animation.cpp")
+    renderer3ds = read("src/platform/3ds/world_renderer_3ds.cpp")
+    runtime = read("src/core/runtime.cpp")
+    animation_author = read("scripts/author-rrvvfo-core-animations.py")
+
+    assert "bindLocalMatrices_" in skeletal
+    assert "std::vector<CharacterMatrix> local;" not in skeletal
+    assert "desiredHotbarSize" in runtime
+    assert "view_.hotbar = AbilityHotbarCatalog::rrvvfoChapter1();" not in runtime
+    assert "staticGpuDirty_" in renderer3ds
+    assert "frameVertices_=staticWorld_" not in renderer3ds
+    mac = read("src/platform/macos/main.mm")
+    assert "_worldVertices.reserve(32000)" in mac
+    assert "std::vector<Vertex> vertices;vertices.reserve(32000);" not in mac
+    assert '"flow_cancel"' in animation_author
+    assert '"pursuit-lock"' in runtime
+    assert runtime.count("tryFlowCancel()") >= 3  # definition + Arena + roadside calls
+    assert runtime.count("CombatSystem::flowCancel(player_)") == 1
+    assert "recordObjective(objectiveBeforePause_)" not in runtime
+    assert 'kExplorationTurnDegreesPerSecond = 1320.0f' in runtime
+    assert '"dash-dust"' in runtime and '"landing-dust"' in runtime
+    assert "SHOTS OF AGONY" not in runtime
+
+
+assert_u4_u6_invariants()
+
 print("PASS: portable source boundary, shared Mac/Linux presentation ownership, no platform gameplay fork, no mission architecture, and perspective RuntimeSession 3DS parity boundary")

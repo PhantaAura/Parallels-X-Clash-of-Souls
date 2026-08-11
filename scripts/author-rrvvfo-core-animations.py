@@ -47,6 +47,37 @@ def P(**kw):
     d={k:(list(v) if isinstance(v,list) else v) for k,v in BASE.items()}; d.update(kw); return d
 
 
+def legacy_idle_pose(index=0):
+    """Use an actual authored Legacy idle silhouette as the Story transition boundary."""
+    pose=legacy_idle["POSES"][index % len(legacy_idle["POSES"])]
+    return P(yaw=pose["root_yaw"],root=pose["root_height"],lean=pose["torso_lean"],
+             pitch=pose["torso_pitch"],head=pose["head_yaw"],
+             lu=list(pose["left_upper"]),lf=list(pose["left_fore"]),
+             ru=list(pose["right_upper"]),rf=list(pose["right_fore"]),
+             lt=list(pose["left_thigh"]),ls=list(pose["left_shin"]),
+             rt=list(pose["right_thigh"]),rs=list(pose["right_shin"]))
+
+
+def run_start_pose(stage: int):
+    """Story-only launch: exact Legacy idle boundary -> compression -> sprint contact."""
+    if stage == 0: return legacy_idle_pose(3)
+    if stage == 1:
+        return P(yaw=-2,root=-.030,lean=.5,pitch=18,head=-1,
+                 lu=[.15,-.50,-.85],lf=[.05,-.66,-.75],ru=[-.15,-.48,.86],rf=[-.05,-.64,.77],
+                 lt=[.18,-.78,.60],ls=[.09,-.97,.22],rt=[-.18,-.68,-.71],rs=[-.09,-.90,-.42])
+    return run_pose(0)
+
+
+def run_stop_pose(stage: int):
+    """Story-only brake: sprint contact -> planted deceleration -> Legacy idle boundary."""
+    if stage == 0: return run_pose(3)
+    if stage == 1:
+        return P(yaw=2,root=-.022,lean=-.5,pitch=12,head=0,
+                 lu=[.16,-.65,.74],lf=[.05,-.78,.62],ru=[-.16,-.58,-.80],rf=[-.05,-.72,-.69],
+                 lt=[.19,-.88,-.43],ls=[.09,-.97,-.22],rt=[-.19,-.91,.36],rs=[-.09,-.99,-.08])
+    return legacy_idle_pose(3)
+
+
 def stance(phase=0):
     """Combat idle: compact, asymmetrical, alert and lightly bouncing."""
     bob=[-.004,.007,-.003,.004][phase%4]
@@ -60,11 +91,8 @@ def stance(phase=0):
 
 def combat_ready_pose(stage):
     if stage == 0:
-        # Start from a relaxed, readable hub silhouette.
-        return P(root=.002,pitch=1,head=1,
-                 lu=[.18,-.91,.37],lf=[.04,-.97,.24],
-                 ru=[-.18,-.91,.37],rf=[-.04,-.97,.24],
-                 lt=[.19,-.97,.16],rt=[-.19,-.97,.16])
+        # Meet Story on an actual Legacy idle boundary instead of a generic neutral.
+        return legacy_idle_pose(3)
     if stage == 1:
         # Plant the rear foot and pull the hands up.
         return P(yaw=4,root=-.014,pitch=8,lean=2,head=-3,
@@ -82,37 +110,35 @@ def combat_relax_pose(stage):
                  lu=[.20,-.72,.66],lf=[.05,-.72,.69],
                  ru=[-.20,-.75,.63],rf=[-.05,-.74,.67],
                  lt=[.20,-.96,.19],rt=[-.20,-.96,.19])
-    return combat_ready_pose(0)
+    return legacy_idle_pose(3)
 
 
 def run_pose(phase: int):
-    """Hub/exploration run: a real sprint, not the old casual walk cycle."""
-    # Six authored phases make the contact / compression / flight rhythm clear
-    # without copying impossible 2D smear frames literally.
-    phase %= 6
+    """Exploration sprint keyed directly around the four Legacy run silhouettes.
+
+    The sprite sheet reads as contact -> compressed drive -> airborne extension ->
+    opposite contact. 3D keeps legal anatomy, but the torso angle, stride length,
+    arm drive and flight beat are intentionally exaggerated so this cannot read
+    as a casual walk at gameplay distance.
+    """
+    phase %= 4
     poses = [
-        # L contact: long stride, strong forward lean, opposite arm drive.
-        P(yaw=-3,root=-.012,lean=1,pitch=22,head=-2,
-          lu=[.14,-.31,-.94],lf=[.04,-.48,-.88],ru=[-.14,-.35,.93],rf=[-.04,-.57,.82],
-          lt=[.17,-.60,.78],ls=[.08,-.88,.47],rt=[-.17,-.76,-.63],rs=[-.08,-.95,-.31]),
-        # Compression / push.
-        P(yaw=-1,root=-.027,lean=0,pitch=25,head=-1,
-          lu=[.13,-.40,-.90],lf=[.04,-.60,-.80],ru=[-.13,-.28,.95],rf=[-.04,-.47,.88],
-          lt=[.17,-.78,.60],ls=[.08,-.97,.23],rt=[-.17,-.62,-.76],rs=[-.08,-.87,-.48]),
-        # Flight / passing.
-        P(yaw=2,root=.020,lean=-1,pitch=23,head=1,
-          lu=[.13,-.31,.94],lf=[.04,-.50,.86],ru=[-.13,-.31,-.94],rf=[-.04,-.50,-.86],
-          lt=[.17,-.67,-.72],ls=[.08,-.90,-.43],rt=[-.17,-.67,.72],rs=[-.08,-.90,.43]),
-        # R contact mirrors the first.
-        P(yaw=3,root=-.012,lean=-1,pitch=22,head=2,
-          lu=[.14,-.35,.93],lf=[.04,-.57,.82],ru=[-.14,-.31,-.94],rf=[-.04,-.48,-.88],
-          lt=[.17,-.76,-.63],ls=[.08,-.95,-.31],rt=[-.17,-.60,.78],rs=[-.08,-.88,.47]),
-        P(yaw=1,root=-.027,lean=0,pitch=25,head=1,
-          lu=[.13,-.28,.95],lf=[.04,-.47,.88],ru=[-.13,-.40,-.90],rf=[-.04,-.60,-.80],
-          lt=[.17,-.62,-.76],ls=[.08,-.87,-.48],rt=[-.17,-.78,.60],rs=[-.08,-.97,.23]),
-        P(yaw=-2,root=.020,lean=1,pitch=23,head=-1,
-          lu=[.13,-.31,-.94],lf=[.04,-.50,-.86],ru=[-.13,-.31,.94],rf=[-.04,-.50,.86],
-          lt=[.17,-.67,.72],ls=[.08,-.90,.43],rt=[-.17,-.67,-.72],rs=[-.08,-.90,-.43]),
+        # RUN 1: planted drive. Rear leg pushes, lead knee comes through.
+        P(yaw=-3,root=-.018,lean=1,pitch=26,head=-2,
+          lu=[.15,-.28,-.95],lf=[.05,-.43,-.90],ru=[-.15,-.36,.92],rf=[-.05,-.57,.82],
+          lt=[.18,-.58,.79],ls=[.09,-.88,.46],rt=[-.18,-.80,-.58],rs=[-.09,-.96,-.27]),
+        # RUN 2: low acceleration/compression, matching the sprite's crouched burst.
+        P(yaw=-1,root=-.038,lean=0,pitch=34,head=-1,
+          lu=[.14,-.40,-.91],lf=[.04,-.61,-.79],ru=[-.14,-.25,.96],rf=[-.04,-.43,.90],
+          lt=[.18,-.76,.62],ls=[.09,-.98,.18],rt=[-.18,-.55,-.81],rs=[-.09,-.84,-.53]),
+        # RUN 3: the distinctive long airborne Legacy silhouette.
+        P(yaw=2,root=.034,lean=-1,pitch=39,head=1,
+          lu=[.12,-.22,-.97],lf=[.03,-.35,-.94],ru=[-.12,-.25,.96],rf=[-.03,-.40,.91],
+          lt=[.16,-.49,-.86],ls=[.07,-.79,-.61],rt=[-.16,-.52,.84],rs=[-.07,-.81,.58]),
+        # RUN 4: opposite foot catches the body and immediately drives again.
+        P(yaw=3,root=-.014,lean=-1,pitch=29,head=2,
+          lu=[.15,-.35,.92],lf=[.05,-.56,.82],ru=[-.15,-.28,-.95],rf=[-.05,-.43,-.90],
+          lt=[.18,-.81,-.56],ls=[.09,-.96,-.26],rt=[-.18,-.58,.79],rs=[-.09,-.88,.46]),
     ]
     return poses[phase]
 
@@ -166,13 +192,13 @@ def jump_pose(kind):
     return P(root=-.034,pitch=10,lu=[.20,-.62,.76],lf=[.06,-.44,.90],ru=[-.20,-.62,.76],rf=[-.06,-.44,.90],lt=[.20,-.80,.56],ls=[.10,-.91,-.40],rt=[-.20,-.80,.56],rs=[-.10,-.91,-.40])
 
 
-def hard_land_pose(stage):
+def hard_land_pose(stage, combat=False):
     if stage == 0:
         return P(root=-.060,pitch=18,lean=3,head=-6,
                  lu=[.27,-.70,.66],lf=[.10,-.54,.84],ru=[-.22,-.58,.78],rf=[-.07,-.39,.92],
                  lt=[.25,-.66,.71],ls=[.11,-.68,-.72],rt=[-.28,-.72,.63],rs=[-.12,-.76,-.64])
     if stage == 1: return jump_pose("land")
-    return stance(0)
+    return stance(0) if combat else legacy_idle_pose(3)
 
 
 def attack_pose(side, amount, vertical=0.0, windup=False):
@@ -186,16 +212,87 @@ def attack_pose(side, amount, vertical=0.0, windup=False):
     return p
 
 
-def heavy_pose(stage):
-    if stage==0: return P(yaw=-28,root=-.018,pitch=15,lu=[.18,-.45,-.87],lf=[.05,-.32,-.95],ru=[-.18,-.57,.80],rf=[-.05,-.30,.95])
-    if stage==1: return P(yaw=34,root=.007,pitch=21,lu=[.18,-.30,.94],lf=[.05,-.08,.995],ru=[-.20,-.16,.97],rf=[-.06,-.03,.998])
+def light1_pose(stage):
+    # Legacy Light Combo frames 1-2: compact guard -> straight flaming jab.
+    if stage == 0: return stance(0)
+    if stage == 1:
+        return P(yaw=-8,root=-.012,pitch=8,lean=-2,head=-2,
+                 ru=[-.22,-.47,.85],rf=[-.07,-.26,.96],lu=[.25,-.51,.82],lf=[.08,-.20,.98],
+                 lt=[.22,-.94,.24],rt=[-.25,-.91,.32])
+    if stage == 2:
+        return P(yaw=18,root=.002,pitch=12,lean=3,head=-4,
+                 ru=[-.08,-.08,.994],rf=[-.02,-.01,.999],lu=[.28,-.53,.80],lf=[.09,-.25,.965],
+                 lt=[.22,-.95,.20],rt=[-.24,-.91,.34])
     return stance(1)
 
 
-def launcher_pose(stage):
-    if stage==0: return P(yaw=-10,root=-.038,pitch=17,ru=[-.18,-.55,-.81],rf=[-.06,-.40,-.91],lt=[.16,-.74,.65],rt=[-.16,-.74,.65])
-    if stage==1: return P(yaw=14,root=.018,pitch=22,ru=[-.15,.62,.77],rf=[-.05,.82,.57],lu=[.18,-.36,.92],lf=[.05,-.12,.99],lt=[.14,-.84,.52],rt=[-.14,-.84,.52])
+def light2_pose(stage):
+    # Legacy frames 3-4: cross-body fire strike into the long stepping kick silhouette.
+    if stage == 0: return stance(1)
+    if stage == 1:
+        return P(yaw=-24,root=-.014,pitch=13,lean=-5,head=3,
+                 lu=[.18,-.34,-.92],lf=[.05,-.28,-.96],ru=[-.27,-.49,.83],rf=[-.08,-.20,.98],
+                 lt=[.24,-.91,.33],rt=[-.20,-.95,.22])
+    if stage == 2:
+        return P(yaw=25,root=.016,pitch=24,lean=2,head=-5,
+                 lu=[.12,-.10,.988],lf=[.03,.02,.999],ru=[-.24,-.48,.84],rf=[-.08,-.17,.982],
+                 lt=[.20,-.43,.88],ls=[.08,-.62,.78],rt=[-.19,-.95,.23],rs=[-.08,-.99,-.03])
     return stance(2)
+
+
+def light3_pose(stage):
+    # Legacy frames 5-6: low replant -> forceful finishing fire arc/punch.
+    if stage == 0:
+        return P(yaw=-18,root=-.030,pitch=18,lean=-4,head=3,
+                 ru=[-.22,-.55,-.80],rf=[-.07,-.37,-.93],lu=[.24,-.56,.79],lf=[.08,-.28,.96],
+                 lt=[.24,-.76,.61],ls=[.10,-.88,-.47],rt=[-.25,-.91,.32])
+    if stage == 1:
+        return P(yaw=30,root=.012,pitch=19,lean=5,head=-6,
+                 ru=[-.10,.12,.988],rf=[-.03,.28,.96],lu=[.26,-.44,.86],lf=[.08,-.17,.982],
+                 lt=[.21,-.92,.32],rt=[-.24,-.88,.40])
+    if stage == 2:
+        return P(yaw=20,root=.004,pitch=14,lean=2,head=-4,
+                 ru=[-.06,-.04,.997],rf=[-.02,.03,.999],lu=[.29,-.55,.78],lf=[.09,-.25,.965],
+                 lt=[.21,-.95,.22],rt=[-.24,-.91,.34])
+    return stance(0)
+
+
+def heavy_pose(stage):
+    # Heavy sheet 1-4: flaming load -> crouched coil -> broad sweep -> low slam finish.
+    if stage==0:
+        return P(yaw=-18,root=-.020,pitch=12,lean=-4,head=3,
+                 ru=[-.24,-.45,.86],rf=[-.08,-.14,.987],lu=[.22,-.52,.82],lf=[.07,-.25,.966],
+                 lt=[.23,-.91,.34],rt=[-.24,-.92,.30])
+    if stage==1:
+        return P(yaw=-34,root=-.046,pitch=25,lean=-7,head=5,
+                 ru=[-.18,-.52,-.83],rf=[-.06,-.35,-.94],lu=[.25,-.58,.77],lf=[.08,-.31,.947],
+                 lt=[.27,-.72,.64],ls=[.11,-.82,-.56],rt=[-.27,-.80,.53],rs=[-.11,-.91,-.39])
+    if stage==2:
+        return P(yaw=58,root=.006,pitch=17,lean=8,head=-8,
+                 ru=[-.06,-.06,.996],rf=[-.02,.08,.996],lu=[.26,-.43,.86],lf=[.08,-.16,.984],
+                 lt=[.21,-.94,.25],rt=[-.27,-.89,.36])
+    return P(yaw=26,root=-.052,pitch=30,lean=4,head=-5,
+             ru=[-.12,-.72,.68],rf=[-.04,-.82,.57],lu=[.24,-.52,.82],lf=[.08,-.27,.96],
+             lt=[.25,-.70,.67],ls=[.11,-.74,-.66],rt=[-.28,-.78,.56],rs=[-.12,-.86,-.49])
+
+
+def launcher_pose(stage):
+    # Rising Attack sheet 1-4: two compact setup hits then a committed flaming rise.
+    if stage==0:
+        return P(yaw=-10,root=-.020,pitch=13,head=1,
+                 ru=[-.18,-.42,.89],rf=[-.06,-.12,.991],lu=[.23,-.48,.85],lf=[.07,-.19,.98],
+                 lt=[.22,-.90,.36],rt=[-.23,-.92,.31])
+    if stage==1:
+        return P(yaw=14,root=-.010,pitch=15,head=-2,
+                 lu=[.10,-.06,.993],lf=[.03,.03,.999],ru=[-.25,-.48,.84],rf=[-.08,-.18,.98],
+                 lt=[.22,-.91,.34],rt=[-.23,-.93,.28])
+    if stage==2:
+        return P(yaw=-8,root=-.046,pitch=22,head=-2,
+                 ru=[-.18,-.58,-.79],rf=[-.06,-.42,-.90],lu=[.21,-.49,.85],lf=[.07,-.20,.978],
+                 lt=[.24,-.72,.65],ls=[.10,-.80,-.59],rt=[-.24,-.75,.61],rs=[-.10,-.84,-.53])
+    return P(yaw=16,root=.030,pitch=28,head=-5,
+             ru=[-.10,.72,.68],rf=[-.03,.89,.45],lu=[.20,-.34,.92],lf=[.06,-.09,.994],
+             lt=[.18,-.83,.53],rt=[-.18,-.82,.54])
 
 
 def guard_pose(perfect=False):
@@ -205,6 +302,40 @@ def guard_pose(perfect=False):
 
 def hurt_pose():
     return P(yaw=-20,root=-.012,pitch=-15,lean=-7,lu=[.28,-.64,-.72],lf=[.10,-.74,-.66],ru=[-.28,-.58,-.76],rf=[-.10,-.72,-.68],lt=[.18,-.91,.37],rt=[-.20,-.91,.36])
+
+
+def flow_cancel_pose(stage):
+    # Presentation-only snap for a successful Flow Cancel; never adds gameplay latency.
+    if stage == 0:
+        return P(yaw=-9,root=-.014,pitch=12,lean=-3,head=4,
+                 lu=[.24,-.50,.83],lf=[.07,-.18,.981],ru=[-.24,-.52,.82],rf=[-.07,-.20,.978],
+                 lt=[.23,-.90,.36],rt=[-.25,-.92,.30])
+    if stage == 1:
+        return P(yaw=18,root=.006,pitch=15,lean=5,head=-7,
+                 lu=[.25,-.44,.86],lf=[.07,-.12,.990],ru=[-.18,-.32,.93],rf=[-.05,-.08,.995],
+                 lt=[.20,-.94,.27],rt=[-.26,-.89,.37])
+    return stance(1)
+
+
+def pursuit_commit_pose(heavy=False):
+    # Compressed chase commitment: head stays on the opponent before the strike.
+    return P(yaw=8 if not heavy else -12,root=-.026,pitch=29 if not heavy else 25,head=-8 if not heavy else 6,
+             lu=[.17,-.36,-.92],lf=[.05,-.49,-.87],
+             ru=[-.17,-.30,.94] if not heavy else [-.18,-.48,-.86],
+             rf=[-.05,-.38,.92] if not heavy else [-.06,-.31,-.95],
+             lt=[.18,-.72,.67],ls=[.08,-.92,.38],rt=[-.20,-.80,-.56],rs=[-.09,-.96,-.26])
+
+
+def heavy_recovery_pose():
+    return P(yaw=18,root=-.018,pitch=16,lean=2,head=-4,
+             ru=[-.18,-.53,.83],rf=[-.06,-.31,.95],lu=[.25,-.49,.84],lf=[.08,-.19,.978],
+             lt=[.22,-.92,.31],rt=[-.25,-.92,.30])
+
+
+def launcher_recovery_pose():
+    return P(yaw=10,root=-.008,pitch=14,lean=2,head=-5,
+             ru=[-.20,-.46,.86],rf=[-.06,-.22,.974],lu=[.24,-.48,.84],lf=[.07,-.18,.981],
+             lt=[.21,-.93,.29],rt=[-.25,-.92,.30])
 
 
 def power_pose(stage):
@@ -314,34 +445,56 @@ def main():
     add("fighting_stance",.420,True,[stance(i) for i in range(4)],"Omega 3D translation of Legacy fightingStance stance_01..04 @105ms")
     add("combat_ready",.300,False,[combat_ready_pose(i) for i in range(3)],"Omega combat-entry transition into the Legacy fighting stance")
     add("combat_relax",.280,False,[combat_relax_pose(i) for i in range(3)],"Omega combat-exit transition back toward hub posture")
-    add("run",.328,True,[run_pose(i) for i in range(6)],"Omega aggressive 3D sprint preserving Legacy run silhouette/timing language")
-    add("combat_advance",.320,True,[combat_advance_pose(i) for i in range(6)],"Omega guarded forward combat locomotion; opponent remains faced")
+    add("run_start",.165,False,[run_start_pose(i) for i in range(3)],"Omega Story locomotion launch from a real Legacy idle boundary into the sprint")
+    add("run",.300,True,[run_pose(i) for i in range(4)],"Update 2 four-key sprint keyed to Legacy RUN 1-4 silhouettes; 3D in-betweens preserve anatomy")
+    add("run_stop",.180,False,[run_stop_pose(i) for i in range(3)],"Omega Story locomotion brake from sprint back to a real Legacy idle boundary")
+    add("combat_advance",.320,True,[combat_advance_pose(i) for i in range(4)],"Omega guarded forward combat locomotion; opponent remains faced")
     add("combat_retreat",.340,True,[combat_retreat_pose(i) for i in range(4)],"Omega dedicated backpedal; replaces reverse-playing the hub run")
     add("dash",.240,False,[dash_pose(i) for i in range(4)],"Legacy dash_01..04 @60ms with stronger 3D launch silhouette")
     add("jump_start",.150,False,[jump_pose("start"),jump_pose("rise")],"Legacy jump_01..02 @75ms")
     add("fall",.220,True,[jump_pose("rise"),jump_pose("fall")],"Legacy jump_03..04 @110ms")
-    add("land",.130,False,[jump_pose("land"),stance(0)],"Legacy jump_05 + stance_01 @65ms")
-    add("hard_land",.220,False,[hard_land_pose(i) for i in range(3)],"Omega heavy landing silhouette for knockback/large descent presentation")
-    add("light_1",.270,False,[stance(0),attack_pose("R",.65,windup=True),attack_pose("R",.99),stance(1)],"Legacy light1 attack_01..02; gameplay duration .27s")
-    add("light_2",.290,False,[stance(1),attack_pose("L",.60,windup=True),attack_pose("L",.99),stance(2)],"Legacy light2 attack_02..03; gameplay duration .29s")
-    add("light_3",.390,False,[stance(2),heavy_pose(0),attack_pose("R",.99,vertical=.18),stance(0)],"Legacy light3 attack_03..04; gameplay duration .39s")
-    add("heavy",.620,False,[stance(0),heavy_pose(0),heavy_pose(1),stance(1)],"Legacy heavy startup/active/recovery; gameplay duration .62s")
-    add("launcher",.550,False,[stance(0),launcher_pose(0),launcher_pose(1),stance(2)],"Legacy launcher startup/active/recovery; gameplay duration .55s")
+    add("land",.130,False,[jump_pose("land"),legacy_idle_pose(3)],"Omega Story landing: Legacy jump silhouette back to a Legacy idle boundary")
+    add("combat_land",.130,False,[jump_pose("land"),stance(0)],"Omega combat landing: Legacy jump silhouette back to fighting stance")
+    add("hard_land",.220,False,[hard_land_pose(i,False) for i in range(3)],"Omega Story heavy landing returning to Legacy idle boundary")
+    add("combat_hard_land",.220,False,[hard_land_pose(i,True) for i in range(3)],"Omega combat heavy landing returning to fighting stance")
+    add("light_1",.270,False,[light1_pose(i) for i in range(4)],
+        "U5 Legacy Light 1: sprite key poses aligned to gameplay impact/recovery",
+        [0.0,.045,.105,.270])
+    add("light_2",.290,False,[light2_pose(i) for i in range(4)],
+        "U5 Legacy Light 2: cross-body load -> long stepping silhouette -> guard",
+        [0.0,.050,.125,.290])
+    add("light_3",.390,False,[light3_pose(i) for i in range(4)],
+        "U5 Legacy Light 3: low replant -> fire finisher -> confident reset",
+        [0.0,.070,.155,.390])
+    add("heavy",.620,False,[heavy_pose(0),heavy_pose(1),heavy_pose(2),heavy_pose(3),heavy_recovery_pose()],
+        "U5 Heavy: Legacy load/coil/sweep/slam with readable fast-striker recovery",
+        [0.0,.145,.265,.385,.620])
+    add("launcher",.550,False,[launcher_pose(0),launcher_pose(1),launcher_pose(2),launcher_pose(3),launcher_recovery_pose()],
+        "U5 Launcher: setup hits -> flaming rise -> controlled recovery",
+        [0.0,.090,.165,.255,.550])
     add("air_light",.360,False,[jump_pose("rise"),attack_pose("R",.99,vertical=.05),jump_pose("fall")],"Legacy air attack key silhouettes; gameplay duration .36s")
     add("air_heavy",.520,False,[jump_pose("rise"),heavy_pose(1),jump_pose("fall")],"Legacy air heavy key silhouettes; gameplay duration .52s")
-    add("pursuit_light",.320,False,[dash_pose(2),attack_pose("R",.99),jump_pose("fall")],"Legacy pursuit uses dash/attack vocabulary; gameplay duration .32s")
-    add("pursuit_heavy",.460,False,[dash_pose(2),heavy_pose(1),jump_pose("fall")],"Legacy pursuit finisher vocabulary; gameplay duration .46s")
+    add("pursuit_light",.320,False,[pursuit_commit_pose(False),dash_pose(2),attack_pose("R",.99),jump_pose("fall")],
+        "U5 Pursuit Light: committed lock/chase silhouette -> strike -> fall",
+        [0.0,.045,.145,.320])
+    add("pursuit_heavy",.460,False,[pursuit_commit_pose(True),dash_pose(2),heavy_pose(2),heavy_pose(3),jump_pose("fall")],
+        "U5 Pursuit Heavy: compressed chase read -> committed finisher -> follow-through",
+        [0.0,.055,.185,.300,.460])
     add("grab",.380,False,[stance(0),attack_pose("L",.92),stance(1)],"Legacy combat grab timing; shared authored pose translation")
     add("block",.240,True,[guard_pose(False),guard_pose(True)],"Legacy blockHold block_02 @120ms")
     add("perfect_block",.140,False,[guard_pose(False),guard_pose(True)],"Legacy perfectBlock block_03..04 @70ms")
-    add("hurt",.210,False,[hurt_pose(),stance(0)],"Legacy hurtHeavy hurt_02..03 @105ms")
+    add("flow_cancel",.180,False,[flow_cancel_pose(i) for i in range(3)],
+        "U5 presentation-only Flow Cancel snap; no added gameplay recovery or latency",
+        [0.0,.060,.180])
+    add("hurt",.210,False,[hurt_pose(),stance(2),stance(0)],"U5 Legacy hurt recoil -> deliberate combat recovery",
+        [0.0,.145,.210])
     add("charge",.276,True,[power_pose(0),power_pose(1),power_pose(2)],"Legacy chargeEnergy ultimate_01..03 @92ms")
     add("counter",.216,False,[guard_pose(False),guard_pose(True),heavy_pose(1)],"Legacy counter block_01/perfect_01/heavy_02 @72ms")
     add("breaker",.150,False,[stance(0),heavy_pose(1)],"Legacy breaker stance_01/heavy_02 @75ms")
     add("fire_blast",.420,False,[fire_pose(0),fire_pose(1),fire_pose(2)],"Omega stronger 3D Fire Blast release preserving Legacy fire/projectile vocabulary")
     add("object_swap",.320,False,[beam_pose(i) for i in range(4)],"Legacy Object Swap beam_01..04 @60-80ms translated to .32s")
     add("lens_activate",.300,False,[power_pose(i) for i in range(3)],"Legacy Lens power_01..03 @80ms translated to .30s")
-    payload={"version":1,"source":"Omega: Legacy/approved Rrvvfo sprite-sheet silhouettes translated to unchanged 39-joint rig; combat locomotion separated from hub locomotion","clips":clips}
+    payload={"version":2,"source":"U5: Legacy/approved Rrvvfo sprite-sheet silhouettes remain key-pose authority; timing aligns key silhouettes to active windows and signature recoveries without changing the 39-joint rig","clips":clips}
     a.output.parent.mkdir(parents=True,exist_ok=True); a.output.write_text(json.dumps(payload,indent=2)+"\n")
     print(f"Authored {len(clips)} Omega Chapter-1 Rrvvfo clips -> {a.output}")
 

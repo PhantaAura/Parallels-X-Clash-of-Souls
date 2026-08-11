@@ -22,6 +22,7 @@ int main(int argc, char** argv) {
     const bool acceptedMissingClip = player.setState("missing_clip");
     assert(!acceptedMissingClip);
     assert(player.skinMatrices().size() == 39);
+    const auto* stableSkinBuffer = player.skinMatrices().data();
 
     float bindError = 0.0f;
     for (const auto& vertex : model.vertices()) {
@@ -35,12 +36,14 @@ int main(int argc, char** argv) {
     struct ExpectedClip { const char* name; float duration; };
     constexpr ExpectedClip expected[] = {
         {"idle", .750f}, {"fighting_stance", .420f}, {"combat_ready", .300f}, {"combat_relax", .280f},
-        {"run", .328f}, {"combat_advance", .320f}, {"combat_retreat", .340f}, {"dash", .240f},
-        {"jump_start", .150f}, {"fall", .220f}, {"land", .130f}, {"hard_land", .220f},
+        {"run_start", .165f}, {"run", .300f}, {"run_stop", .180f},
+        {"combat_advance", .320f}, {"combat_retreat", .340f}, {"dash", .240f},
+        {"jump_start", .150f}, {"fall", .220f}, {"land", .130f}, {"combat_land", .130f},
+        {"hard_land", .220f}, {"combat_hard_land", .220f},
         {"light_1", .270f}, {"light_2", .290f}, {"light_3", .390f},
         {"heavy", .620f}, {"launcher", .550f}, {"air_light", .360f}, {"air_heavy", .520f},
         {"pursuit_light", .320f}, {"pursuit_heavy", .460f}, {"grab", .380f},
-        {"block", .240f}, {"perfect_block", .140f}, {"hurt", .210f},
+        {"block", .240f}, {"perfect_block", .140f}, {"flow_cancel", .180f}, {"hurt", .210f},
         {"charge", .276f}, {"counter", .216f}, {"breaker", .150f},
         {"fire_blast", .420f}, {"object_swap", .320f}, {"lens_activate", .300f}
     };
@@ -51,6 +54,9 @@ int main(int argc, char** argv) {
         const bool selectedExpectedClip = player.setState(expectedClip.name, true);
         assert(selectedExpectedClip);
         player.seek(expectedClip.duration * .55f);
+        assert(player.skinMatrices().data() == stableSkinBuffer);
+        player.update(.001f);
+        assert(player.skinMatrices().data() == stableSkinBuffer);
         for (const auto& vertex : model.vertices()) {
             const auto skinned = player.skinPosition(vertex);
             for (const auto value : skinned) assert(std::isfinite(value) && std::abs(value) < 6.0f);
@@ -70,7 +76,7 @@ int main(int argc, char** argv) {
     for (const auto& expectedClip : expected) {
         const bool selectedGarmentClip = player.setState(expectedClip.name, true);
         assert(selectedGarmentClip);
-        for (const float phase : {.20f, .50f, .80f}) {
+        for (const float phase : {.05f, .25f, .50f, .75f, .95f}) {
             player.seek(expectedClip.duration * phase);
             for (const std::size_t submeshIndex : {std::size_t{0}, std::size_t{5}}) {
                 const auto& submesh = model.submeshes()[submeshIndex];
@@ -139,17 +145,16 @@ int main(int argc, char** argv) {
     assert(std::abs(player.time()-.05f) < .0001f);
     assert(player.playing() && !player.finished());
 
-    // Combat backpedaling reuses the authored run without moonwalking: the
-    // shared sampler supports signed playback and wraps looping clips backward.
-    player.setPlaybackSpeed(-1.0f);
-    const bool selectedReverseRun = player.setState("run", true);
-    assert(selectedReverseRun);
-    player.seek(.05f);
+    // Combat retreat is its own authored positive-time clip; never moonwalk the hub sprint.
+    player.setPlaybackSpeed(1.0f);
+    const bool selectedRetreat = player.setState("combat_retreat", true);
+    assert(selectedRetreat);
+    player.seek(.30f);
     player.update(.10f);
-    assert(std::abs(player.time() - .278f) < .001f);
+    assert(player.time() < .340f);
     assert(player.playing() && !player.finished());
 
-    std::cout << "PASS: 26 Legacy-based Chapter-1 clips, bind fallback, sampling, looping, speed, stable 39-joint deformation, and garment edge coherence "
+    std::cout << "PASS: 36 Legacy/sprite-authored Chapter-1 clips, bind fallback, sampling, looping, speed, stable 39-joint deformation, and garment edge coherence "
               << minimumGarmentEdgeRatio << ".." << maximumGarmentEdgeRatio << "\n";
     return 0;
 }

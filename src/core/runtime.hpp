@@ -169,7 +169,8 @@ public:
     void notifyManualSaveResult(bool success);
     void notifyManualSaveUnavailable();
     bool canManualSave() const;
-    void setQolSettings(const QolSettings& settings) { qolSettings_ = settings; syncView(); }
+    void setQolSettings(const QolSettings& settings) { qolSettings_ = settings; if (sceneCheckpointValid_) sceneCheckpointSnapshot_.qol = settings; syncView(); }
+    const QolSettings& qolSettings() const { return qolSettings_; }
     bool standaloneMode() const { return standaloneFightMode_ || standaloneTrainingMode_ || replayMode_; }
     bool replayMode() const { return replayMode_; }
 
@@ -211,6 +212,7 @@ private:
     ArenaAttackAttempt performArenaAttack(Action action);
     ArenaAttackAttempt requestArenaAttack(Action action, bool allowBuffer = true);
     bool tryBufferedArenaAttack();
+    bool tryFlowCancel();
     void clearCombatInputBuffer();
     void queueCombatInputsDuringFreeze(const InputState& input);
     void emitCombatFeedback(const HitResult& result, AttackKind kind, bool playerAttacker);
@@ -234,6 +236,9 @@ private:
     const AbilitySlotDefinition* pressedAbility(const InputState& input) const;
     bool blockerDisabled(const std::string& id) const;
     void disableBlocker(const std::string& id);
+    void enableBlocker(const std::string& id);
+    void setTerrainCollapseActive(bool active);
+    void setDetourBlockersActive(bool active);
     std::string areaNameForPosition(Vec2 position) const;
     const RouteChallenge* currentRouteChallenge(const ExplorationDefinition& definition) const;
 
@@ -276,6 +281,9 @@ private:
     float playerActionAnimationTime_{0.0f};
     float landingAnimationTime_{0.0f};
     float combatReadyAnimationTime_{0.0f};
+    float explorationRunStartAnimationTime_{0.0f};
+    float explorationRunStopAnimationTime_{0.0f};
+    bool explorationWasMoving_{false};
     bool hardLanding_{false};
     bool playerCharging_{false};
     std::string gameplayNotice_;
@@ -284,9 +292,14 @@ private:
     int routeHintStage_{0};
     std::size_t routeProgress_{0};
     float routeChallengeTime_{0.0f};
+    float routeChoiceIntroTime_{0.0f};
     bool mainRouteFireCleared_{false};
+    bool lensRouteChosen_{false};
     bool southernDetourChosen_{false};
     bool southernDetourComplete_{false};
+    bool terrainCollapseSeen_{false};
+    bool detourDashDone_{false};
+    bool detourSwapDone_{false};
     std::string routeChoice_;
     std::vector<std::string> disabledBlockers_;
     std::vector<Vec2> relayMarkers_;

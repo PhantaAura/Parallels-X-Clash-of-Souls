@@ -13,9 +13,9 @@ AdventureRegistry::AdventureRegistry() {
         {"road_worker", "ROAD WORKER", "ambient_worker", {365.0f, 300.0f}, 3.1f, 115.0f, "road_npc_worker", "", "", false},
         {"lost_competitor", "LOST COMPETITOR", "ambient_competitor", {730.0f, -285.0f}, 4.1f, 115.0f,
             "road_npc_lost_competitor", "road_npc_lost_competitor_helped", "road_npc_lost_competitor_declined", true},
-        {"tournament_fan", "TOURNAMENT FAN", "ambient_fan", {940.0f, 285.0f}, 5.2f, 115.0f, "road_npc_fan", "", "", false},
-        {"vendor", "VENDOR", "ambient_vendor", {1130.0f, 260.0f}, 4.6f, 115.0f, "road_npc_vendor", "", "", false},
-        {"sign_painter", "SIGN PAINTER", "ambient_painter", {1225.0f, -300.0f}, 2.4f, 115.0f, "road_npc_sign_painter", "", "", false}
+        {"tournament_fan", "TOURNAMENT FAN", "ambient_fan", {1480.0f, 285.0f}, 5.2f, 115.0f, "road_npc_fan", "", "", false},
+        {"vendor", "VENDOR", "ambient_vendor", {1750.0f, 260.0f}, 4.6f, 115.0f, "road_npc_vendor", "", "", false},
+        {"sign_painter", "SIGN PAINTER", "ambient_painter", {1840.0f, -300.0f}, 2.4f, 115.0f, "road_npc_sign_painter", "", "", false}
     };
     road.cliffJumpMarkers = {{300.0f, 330.0f}, {355.0f, 400.0f}, {412.0f, 350.0f}};
     road.cliffJumpRadius = 72.0f;
@@ -32,7 +32,7 @@ AdventureRegistry::AdventureRegistry() {
     };
     road.sidePuzzle = {
         "sign_that_points_back", "THE SIGN THAT POINTS BACK", "sign_painter",
-        {1135.0f, -245.0f}, {1245.0f, -285.0f}, 105.0f,
+        {1760.0f, -245.0f}, {1870.0f, -285.0f}, 105.0f,
         "sign_quest_intro", "sign_quest_lens_reveal", "sign_quest_complete", "sign_quest_repeat"
     };
     road.ambientLife = {5, -1300.0f, 2900.0f, 95.0f, -520.0f, 245.0f,

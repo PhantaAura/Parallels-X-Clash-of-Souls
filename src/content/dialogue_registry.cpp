@@ -61,7 +61,7 @@ DialogueRegistry::DialogueRegistry() {
     scenes_.emplace("runaway_cart_intro", std::vector<DialogueLine>{
         {"TRANSPORT DRIVER", "WAIT—THE SUPPLY CART BRAKE!"},
         {"RRVVFO", "I just fixed one moving problem."},
-        {"ROAD WORKER", "Catch it before the hill! Clear the road, then swap the wheel block into place!"}
+        {"ROAD WORKER", "Catch it before the hill! Cut right, jump the debris, cut left, then right again to get in front of it!"}
     });
     scenes_.emplace("runaway_cart_result", std::vector<DialogueLine>{
         {"ROAD WORKER", "The supplies are safe!"},
@@ -159,6 +159,18 @@ DialogueRegistry::DialogueRegistry() {
     });
     scenes_.emplace("sign_quest_reminder_swap", std::vector<DialogueLine>{
         {"SIGN PAINTER", "The empty post is right there. Swap the lying sign onto it."}
+    });
+
+    scenes_.emplace("cliff_overlook_reaction", std::vector<DialogueLine>{
+        {"RRVVFO", "Okay. That view almost makes the climb worth it.", "rrvvfo", "confident", "rrvvfo"}
+    });
+
+    scenes_.emplace("terrain_collapse_intro", std::vector<DialogueLine>{
+        {"RRVVFO", "Seriously? The road waited until I got here to collapse?", "rrvvfo", "annoyed", "rrvvfo"},
+        {"RRVVFO", "Fine. Side path. I'll be back on the road before this dust settles.", "rrvvfo", "confident", "rrvvfo"}
+    });
+    scenes_.emplace("terrain_collapse_complete", std::vector<DialogueLine>{
+        {"RRVVFO", "There. Same road. Problem solved.", "rrvvfo", "confident", "rrvvfo"}
     });
 
     scenes_.emplace("tournament_checkpoint_dialogue", std::vector<DialogueLine>{

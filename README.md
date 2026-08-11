@@ -2,7 +2,7 @@
 
 Multi-platform native content port of the playable browser prototype. The current authority is `2.9A.40.7.2R`, with `2.9A.40.7.1.1` retained as its cumulative reference base.
 
-## Current milestone — 0.4H: Golden Gate QoL
+## Current milestone — 3.0R Chapter 1 Golden Gate • Updates 1–6
 
 For Rrvvfo Chapters 1–4, the latest playable browser build is the primary story and gameplay source. Historical 7.1.1 audits remain the cumulative base; current route documents supply only explicit continuity overrides. See `docs/STORY_SOURCE_RULES.md` and `docs/BROWSER_CONTENT_PORT_EXECUTION_RULES.md`.
 
@@ -22,9 +22,11 @@ Chapter 1 includes:
 
 The shared engine includes timed Legacy-derived combat, burst Dash, save/reload, content-driven world/camera data, a protected Tournament Card progression foundation, generic quest/party state and one runtime for all routes/platforms.
 
-The Mac renderer consumes the shared world through perspective Metal rendering. The repaired Rrvvfo 15 asset keeps its silhouette, 39-joint rig and 26 Legacy-timed clips across Mac, Linux and the 3DS Gate. A lightweight head-attached cel layer supplies eyes, brows and mouth expressions without altering the source head, hair or outfit. Final art/effects/audio polish, native Legacy side-by-side approval and Old 3DS hardware performance remain incomplete. `Jimmy.glb` is unrelated and is not Rrvvfo's binding.
+The Mac renderer consumes the shared world through perspective Metal rendering. The repaired Rrvvfo 15 asset keeps its silhouette and 39-joint rig across Mac, Linux and the 3DS Gate. The current cooked asset carries 36 shared clips: the exact 0.75-second Legacy hub idle plus Chapter-1 locomotion, combat, defense, ability and presentation clips. A lightweight head-attached cel layer supplies eyes, brows and mouth expressions without altering the source head, hair or outfit. Final art/effects/audio polish, native Legacy side-by-side approval and Old 3DS hardware performance remain incomplete. `Jimmy.glb` is unrelated and is not Rrvvfo's binding.
 
 Golden Gate QoL adds an interactive pause menu, safe manual saves with backup recovery, checkpoint restart, objective history, controls reference, accessibility toggles, dialogue hold-to-advance, mild dash steering, dedicated combat arenas and controller-disconnect pausing on desktop. See `docs/GOLDEN_GATE_QOL_0.4H.md`.
+
+Updates 4–6 focus on performance headroom, Rrvvfo animation/combat personality, and the final Chapter-1 Golden Gate pass. Optimization is behavior-preserving: no story, route, animation, graphics or mechanics are removed to gain performance. See `UPDATE_6_GOLDEN_GATE.md`.
 
 ## Story and Replay
 
@@ -99,7 +101,7 @@ With devkitPro installed:
 ./scripts/build-3ds.sh
 ```
 
-The 0.4H.4 candidate runs the same `RuntimeSession`, Chapter 1 stage definitions, dialogue, combat rules, blockers, tutorial choices and optional stories as desktop. Its Citro3D renderer uses the authored perspective camera, depth-tested world geometry and the byte-identical cooked Rrvvfo asset; only visual density and effects are reduced for the 3DS tier. Legacy's blue, white, black and yellow interface language covers title, mode/route selection, dialogue, objectives, manual, hotbar, pause and save screens. The earlier 0.4H.1 package remains rejected. The new candidate cross-build succeeds, but it still requires fresh Azahar review and a complete performance/memory/suspend-resume check on an actual Old 3DS XL.
+The Update 6 Golden Gate candidate runs the same `RuntimeSession`, Chapter 1 stage definitions, dialogue, combat rules, blockers, tutorial choices and optional stories as desktop. Its Citro3D renderer uses the authored perspective camera, depth-tested world geometry and the byte-identical cooked Rrvvfo asset; only visual density and effects are reduced for the 3DS tier. Legacy's blue, white, black and yellow interface language covers title, mode/route selection, dialogue, objectives, manual, hotbar, pause and save screens. The earlier 0.4H.1 package remains rejected. The new candidate cross-build succeeds, but it still requires fresh Azahar review and a complete performance/memory/suspend-resume check on an actual Old 3DS XL.
 
 3DS online target: investigate Pretendo compatibility in a later networking milestone. No networking or Pretendo compatibility is claimed in 0.4H.
 

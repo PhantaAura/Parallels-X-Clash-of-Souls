@@ -2,10 +2,10 @@
 
 namespace px {
 
-AbilityHotbarLayout AbilityHotbarCatalog::rrvvfoChapter1() {
+const AbilityHotbarLayout& AbilityHotbarCatalog::rrvvfoChapter1() {
     // Shots of Agony and Solar Weave are both absent. At this story point only
     // techniques Rrvvfo can actually use are allowed to occupy visible UI.
-    return {
+    static const AbilityHotbarLayout layout{
         {1, 1, "fireBlast", "FIRE BLAST", "FIRE", 22.0f, 0.0f,
             AbilityState::Ready, "READY", "Legacy core ranged fire technique."},
         {2, 3, "objectSwap", "OBJECT SWAP", "SWAP", 20.0f, 0.0f,
@@ -13,10 +13,11 @@ AbilityHotbarLayout AbilityHotbarCatalog::rrvvfoChapter1() {
         {3, 4, "lensOfTruth", "LENS OF TRUTH", "LENS", 60.0f, 25.0f,
             AbilityState::Ready, "EARLY / UNSTABLE", "Costs Energy and HP; Chapter 1 framing stays unstable."}
     };
+    return layout;
 }
 
-AbilityHotbarLayout AbilityHotbarCatalog::rrvvfoWithShotsOfAgony() {
-    return {
+const AbilityHotbarLayout& AbilityHotbarCatalog::rrvvfoWithShotsOfAgony() {
+    static const AbilityHotbarLayout layout{
         {1, 1, "fireBlast", "FIRE BLAST", "FIRE", 22.0f, 0.0f,
             AbilityState::Ready, "READY", "Legacy core ranged fire technique."},
         {2, 2, "shotsOfAgony", "SHOTS OF AGONY", "SHOTS", 42.0f, 0.0f,
@@ -28,6 +29,7 @@ AbilityHotbarLayout AbilityHotbarCatalog::rrvvfoWithShotsOfAgony() {
         {5, 5, "solarWeave", "SOLAR WEAVE", "SOLAR", 90.0f, 0.0f,
             AbilityState::Ready, "READY", "Later hotbar position."}
     };
+    return layout;
 }
 
 const AbilitySlotDefinition* AbilityHotbarCatalog::abilityAtDisplaySlot(const AbilityHotbarLayout& layout, int displaySlot) {

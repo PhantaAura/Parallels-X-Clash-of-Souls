@@ -12,7 +12,7 @@ constexpr float kRrvvfoInputBufferSeconds = 0.135f; // Legacy 2.9A.40.7.1.1 figh
 constexpr float kFeedbackStepSeconds = 1.0f / 60.0f;
 constexpr float kDashBufferSeconds = 0.135f;
 constexpr float kPi = 3.14159265358979323846f;
-constexpr float kExplorationTurnDegreesPerSecond = 1080.0f;
+constexpr float kExplorationTurnDegreesPerSecond = 1320.0f; // U5: snappier exploration turnaround without changing combat facing.
 constexpr float kCombatTurnDegreesPerSecond = 1440.0f;
 
 float wrapDegrees(float degrees) {
@@ -105,6 +105,9 @@ void RuntimeSession::startChapter(const std::string& chapterId) {
     playerActionAnimationTime_ = 0.0f;
     landingAnimationTime_ = 0.0f;
     combatReadyAnimationTime_ = 0.0f;
+    explorationRunStartAnimationTime_ = 0.0f;
+    explorationRunStopAnimationTime_ = 0.0f;
+    explorationWasMoving_ = false;
     hardLanding_ = false;
     playerCharging_ = false;
     flowCancelLearned_ = false;
@@ -113,9 +116,16 @@ void RuntimeSession::startChapter(const std::string& chapterId) {
     routeProgress_ = 0;
     routeChallengeTime_ = 0.0f;
     mainRouteFireCleared_ = false;
+    lensRouteChosen_ = false;
     southernDetourChosen_ = false;
     southernDetourComplete_ = false;
+    terrainCollapseSeen_ = false;
+    detourDashDone_ = false;
+    detourSwapDone_ = false;
     disabledBlockers_.clear();
+    setTerrainCollapseActive(false);
+    setDetourBlockersActive(false);
+    if (terrainCollapseSeen_) setTerrainCollapseActive(true);
     relayMarkers_.clear();
     relayIndex_ = 0;
     transientDialogueId_.clear();
@@ -236,6 +246,9 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     playerActionAnimationTime_ = 0.0f;
     landingAnimationTime_ = 0.0f;
     combatReadyAnimationTime_ = 0.0f;
+    explorationRunStartAnimationTime_ = 0.0f;
+    explorationRunStopAnimationTime_ = 0.0f;
+    explorationWasMoving_ = false;
     hardLanding_ = false;
     playerCharging_ = false;
     cliffRouteHintLevel_ = 0;
@@ -249,8 +262,9 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     lostCompetitorDeclined_ = containsFlag(data.story.flags, "ch1_lost_competitor_declined");
     roadsideEncounterResolved_ = containsFlag(data.story.flags, "ch1_roadside_encounter_resolved");
     spectatorPassWon_ = containsFlag(data.story.flags, "ch1_spectator_pass_won");
+    const bool spectatorPassPending = containsFlag(data.story.flags, "ch1_spectator_pass_pending");
     spectatorPassDelivered_ = containsFlag(data.story.flags, "ch1_spectator_pass_delivered") ||
-                              (roadsideEncounterResolved_ && spectatorPassWon_);
+                              (!spectatorPassPending && roadsideEncounterResolved_ && spectatorPassWon_);
     tutorialSkipped_ = containsFlag(data.story.flags, "ch1_tutorial_skipped");
     signPuzzleStage_ = containsFlag(data.story.flags, "ch1_sign_that_points_back_complete") ? 3 :
                        containsFlag(data.story.flags, "ch1_sign_that_points_back_revealed") ? 2 :
@@ -264,8 +278,14 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     cliffRewardEarned_ = containsFlag(data.story.flags, "ch1_road_dare_badge");
     flowCancelLearned_ = containsFlag(data.story.flags, "ch1_flow_cancel_learned");
     mainRouteFireCleared_ = containsFlag(data.story.flags, "ch1_main_fire_cleared");
+    lensRouteChosen_ = containsFlag(data.story.flags, "ch1_lens_route_chosen");
     southernDetourChosen_ = containsFlag(data.story.flags, "ch1_southern_detour_chosen");
     southernDetourComplete_ = containsFlag(data.story.flags, "ch1_southern_detour_complete");
+    terrainCollapseSeen_ = containsFlag(data.story.flags, "ch1_terrain_collapse_seen");
+    detourDashDone_ = containsFlag(data.story.flags, "ch1_detour_dash_done");
+    detourSwapDone_ = containsFlag(data.story.flags, "ch1_detour_swap_done");
+    const bool migratedPastNewDetour = !terrainCollapseSeen_ && game_.story().sceneIndex > 15;
+    if (migratedPastNewDetour) terrainCollapseSeen_ = true;
     chapterComplete_ = containsFlag(data.story.flags, "ch1_complete_at_outskirts");
     objectiveHistory_ = data.frontend.objectiveHistory;
     qolSettings_ = data.qol;
@@ -277,6 +297,9 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     saveStatusTime_ = 0.0f;
     dialogueHoldTime_ = 0.0f;
     disabledBlockers_.clear();
+    setTerrainCollapseActive(false);
+    setDetourBlockersActive(false);
+    if (terrainCollapseSeen_) setTerrainCollapseActive(true);
     if (!routeChoice_.empty()) {
         if (routeChoice_ == "main") { disableBlocker("fallen_tree_north"); disableBlocker("fallen_tree_south"); }
         if (routeChoice_ == "forest") disableBlocker("fallen_tree_north");
@@ -285,13 +308,13 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     if (precisionSwapMastered_) {
         disableBlocker("swap_gate"); disableBlocker("swap_gate_forest"); disableBlocker("swap_gate_cliff");
     }
-    if (data.story.sceneIndex > 10) {
+    if (game_.story().sceneIndex > 10) {
         disableBlocker("fallen_tree_center"); disableBlocker("fallen_tree_north"); disableBlocker("fallen_tree_south");
     }
-    if (data.story.sceneIndex > 11) {
+    if (game_.story().sceneIndex > 11) {
         disableBlocker("swap_gate"); disableBlocker("swap_gate_forest"); disableBlocker("swap_gate_cliff");
     }
-    if (data.story.sceneIndex > 19) {
+    if (game_.story().sceneIndex > 20) {
         disableBlocker("lens_roadblock"); disableBlocker("lens_roadblock_north"); disableBlocker("lens_roadblock_south");
     }
     farBankRockPosition_ = {230.0f, 0.0f};
@@ -309,6 +332,11 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
         mainRouteDialogueShown_ = true; mainRouteReady_ = true;
         if (mainRouteFireCleared_) disableBlocker("fallen_tree_center");
     }
+    if (game_.scene().id == "collapsed_tournament_road_detour") {
+        for (std::size_t i=0; i<routeProgress_ && i<3; ++i) disableBlocker("detour_jump_gate_" + std::to_string(i+1));
+        if (detourDashDone_) disableBlocker("detour_dash_gate");
+        if (detourSwapDone_) disableBlocker("detour_swap_gate");
+    }
     if (exploration_.has(game_.scene().id) && exploration_.get(game_.scene().id).rule == ExplorationRuleKind::SwapRelay) {
         relayIndex_ = static_cast<int>(savedUnsignedFlag(data.story.flags, "ch1_relay_index=", relayMarkers_.size()));
         for (std::size_t i = 0; i < relayMarkers_.size(); ++i) {
@@ -319,6 +347,13 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
         if (game_.scene().id == "swap_relay_trial" && relayIndex_ >= static_cast<int>(relayMarkers_.size())) relayReleaseTimer_ = 0.01f;
     }
     playerPosition_ = data.world.position;
+    if (migratedPastNewDetour) {
+        const auto& migratedSceneId = game_.scene().id;
+        if (migratedSceneId == "reach_tournament_checkpoint" && playerPosition_.x < 1340.0f) playerPosition_ = {1340.0f, -70.0f};
+        else if (migratedSceneId == "reach_lens_roadblock" && playerPosition_.x < 1530.0f) playerPosition_ = {1530.0f, 0.0f};
+        else if (migratedSceneId == "lens_roadblock_reveal" && playerPosition_.x < 1600.0f) playerPosition_ = {1600.0f, 0.0f};
+        else if (migratedSceneId == "reach_tournament_outskirts" && playerPosition_.x < 1780.0f) playerPosition_ = {1780.0f, 0.0f};
+    }
     player_.hp = std::clamp(data.world.hp, 1.0f, player_.maxHp);
     player_.energy = std::clamp(data.world.energy, 0.0f, 100.0f);
     player_.guard = std::clamp(data.world.guard, 0.0f, 100.0f);
@@ -392,6 +427,9 @@ void RuntimeSession::enterCurrentScene() {
     playerActionAnimationTime_ = 0.0f;
     landingAnimationTime_ = 0.0f;
     combatReadyAnimationTime_ = 0.0f;
+    explorationRunStartAnimationTime_ = 0.0f;
+    explorationRunStopAnimationTime_ = 0.0f;
+    explorationWasMoving_ = false;
     hardLanding_ = false;
     playerCharging_ = false;
 
@@ -431,8 +469,9 @@ void RuntimeSession::enterCurrentScene() {
             relayIndex_ = 0;
         }
         if (definition.rule == ExplorationRuleKind::ChooseRoute) {
-            choiceKind_ = 4;
+            choiceKind_ = 0;
             choiceIndex_ = 0;
+            routeChoiceIntroTime_ = 0.85f;
         }
         if (scene.id == "selected_route_adventure") {
             mainRouteDialogueShown_ = false;
@@ -440,7 +479,14 @@ void RuntimeSession::enterCurrentScene() {
             routeProgress_ = 0; routeChallengeTime_ = 0.0f; routeHintStage_ = 0;
             cliffJumpComplete_.assign(definition.jumpMarkers.size(), false);
         }
-        if (scene.id == "lens_roadblock_reveal" && !southernDetourChosen_ && !southernDetourComplete_) {
+        if (scene.id == "collapsed_tournament_road_detour") {
+            routeProgress_ = 0;
+            cliffJumpComplete_.assign(definition.jumpMarkers.size(), false);
+            setTerrainCollapseActive(true);
+            setDetourBlockersActive(true);
+            if (!terrainCollapseSeen_ && !definition.openingDialogueId.empty()) beginTransientDialogue(definition.openingDialogueId, 30);
+        }
+        if (scene.id == "lens_roadblock_reveal" && !lensRouteChosen_ && !southernDetourChosen_ && !southernDetourComplete_) {
             choiceKind_ = 5; choiceIndex_ = 0;
         }
         if (definition.rule == ExplorationRuleKind::QteSequence && !definition.openingDialogueId.empty()) {
@@ -492,6 +538,8 @@ void RuntimeSession::tick(InputState& input, float dt) {
     landingAnimationTime_ = std::max(0.0f, landingAnimationTime_ - dt);
     if (landingAnimationTime_ <= 0.0f) hardLanding_ = false;
     combatReadyAnimationTime_ = std::max(0.0f, combatReadyAnimationTime_ - dt);
+    explorationRunStartAnimationTime_ = std::max(0.0f, explorationRunStartAnimationTime_ - dt);
+    explorationRunStopAnimationTime_ = std::max(0.0f, explorationRunStopAnimationTime_ - dt);
     bufferedCombatTime_ = std::max(0.0f, bufferedCombatTime_ - dt);
     if (bufferedCombatTime_ <= 0.0f) hasBufferedCombatAction_ = false;
     bufferedDashTime_ = std::max(0.0f, bufferedDashTime_ - dt);
@@ -505,7 +553,6 @@ void RuntimeSession::tick(InputState& input, float dt) {
     if (input.pressed(Action::Pause) && !trainingManualVisible_ && transientDialogueId_.empty() &&
         choiceKind_ == 0 && !qteActive_ && game_.mode() != GameMode::Cutscene) {
         objectiveBeforePause_ = view_.objective;
-        recordObjective(objectiveBeforePause_);
         pauseSelection_ = 0;
         pausePage_ = 0;
         game_.pause();
@@ -749,15 +796,7 @@ void RuntimeSession::tickArena(InputState& input, float dt) {
             playerPosition_ = {opponentPosition_.x - 78.0f, opponentPosition_.z};
             movementState_.dashCooldown = 0.0f;
             consumed = true;
-        } else if (CombatSystem::flowCancel(player_)) {
-            movementState_.dashCooldown = 0.0f;
-            flowCancelLearned_ = true;
-            showGameplayNotice("FLOW CANCEL • KEEP MOVING", 1.25f);
-            hitFreezeTime_ = std::max(hitFreezeTime_, 3.0f * kFeedbackStepSeconds);
-            cameraImpulse_ = std::max(cameraImpulse_, 3.2f);
-            impactFlash_ = std::max(impactFlash_, 0.11f);
-            combatFeedback_ = "FLOW CANCEL";
-            combatFeedbackTime_ = 0.55f;
+        } else if (tryFlowCancel()) {
             consumed = true;
         }
         if (consumed) { bufferedDash_ = false; bufferedDashTime_ = 0.0f; }
@@ -787,7 +826,8 @@ void RuntimeSession::tickArena(InputState& input, float dt) {
     const AttackKind resolvingAttack = player_.activeAttack;
     const auto resolvedHit = advancePlayerAttack(dt);
     emitCombatFeedback(resolvedHit, resolvingAttack, true);
-    if (resolvedHit.connected && !resolvedHit.blocked && player_.flowCancelWindow > 0.0f)
+    if (resolvedHit.connected && !resolvedHit.blocked && player_.flowCancelWindow > 0.0f &&
+        !flowCancelLearned_ && qolSettings_.firstTimeHints)
         showGameplayNotice("FLOW CANCEL READY • DASH", 0.80f);
     tryBufferedArenaAttack();
     if (stepBeforeMove && stepBeforeMove->task == TrainingTaskKind::BasicAttacks &&
@@ -888,6 +928,20 @@ void RuntimeSession::tickArena(InputState& input, float dt) {
 void RuntimeSession::showGameplayNotice(const std::string& text, float seconds) {
     gameplayNotice_ = text;
     gameplayNoticeTime_ = std::max(0.0f, seconds);
+}
+
+bool RuntimeSession::tryFlowCancel() {
+    if (!CombatSystem::flowCancel(player_)) return false;
+    movementState_.dashCooldown = 0.0f;
+    flowCancelLearned_ = true;
+    triggerAbilityAnimation("flow_cancel", 0.18f);
+    showGameplayNotice("FLOW CANCEL • KEEP MOVING", 1.05f);
+    hitFreezeTime_ = std::max(hitFreezeTime_, 3.0f * kFeedbackStepSeconds);
+    cameraImpulse_ = std::max(cameraImpulse_, 3.2f);
+    impactFlash_ = std::max(impactFlash_, 0.11f);
+    combatFeedback_ = "FLOW CANCEL";
+    combatFeedbackTime_ = 0.55f;
+    return true;
 }
 
 void RuntimeSession::clearCombatInputBuffer() {
@@ -1002,13 +1056,18 @@ std::string RuntimeSession::resolvePlayerAnimation() const {
     if (player_.blocking) return "block";
     if (movementState_.dashing || player_.dashTime > 0.0f || player_.pursuitTime > 0.0f) return "dash";
     if (movementState_.height > 0.0f) return movementState_.verticalVelocity < -35.0f ? "fall" : "jump_start";
-    if (landingAnimationTime_ > 0.0f) return hardLanding_ ? "hard_land" : "land";
-    const bool moving = distance(previousPlayerPosition_, playerPosition_) > 0.35f;
-    if (moving) {
-        if (!combat) return "run";
-        return playerBackpedaling() ? "combat_retreat" : "combat_advance";
+    if (landingAnimationTime_ > 0.0f) {
+        if (hardLanding_) return combat ? "combat_hard_land" : "hard_land";
+        return combat ? "combat_land" : "land";
     }
-    return combat ? "fighting_stance" : "idle";
+    const bool moving = distance(previousPlayerPosition_, playerPosition_) > 0.35f;
+    if (!combat) {
+        if (moving && explorationRunStartAnimationTime_ > 0.0f) return "run_start";
+        if (!moving && explorationRunStopAnimationTime_ > 0.0f) return "run_stop";
+        return moving ? "run" : "idle";
+    }
+    if (moving) return playerBackpedaling() ? "combat_retreat" : "combat_advance";
+    return "fighting_stance";
 }
 
 void RuntimeSession::updateExplorationFacing(float dt) {
@@ -1116,6 +1175,19 @@ void RuntimeSession::disableBlocker(const std::string& id) {
     disabledBlockers_.push_back(id);
 }
 
+void RuntimeSession::enableBlocker(const std::string& id) {
+    disabledBlockers_.erase(std::remove(disabledBlockers_.begin(), disabledBlockers_.end(), id), disabledBlockers_.end());
+}
+
+void RuntimeSession::setTerrainCollapseActive(bool active) {
+    if (active) enableBlocker("terrain_collapse"); else disableBlocker("terrain_collapse");
+}
+
+void RuntimeSession::setDetourBlockersActive(bool active) {
+    constexpr const char* ids[] = {"detour_jump_gate_1","detour_jump_gate_2","detour_jump_gate_3","detour_dash_gate","detour_swap_gate"};
+    for (const auto* id : ids) { if (active) enableBlocker(id); else disableBlocker(id); }
+}
+
 const RouteChallenge* RuntimeSession::currentRouteChallenge(const ExplorationDefinition& definition) const {
     const auto it = std::find_if(definition.routeChallenges.begin(), definition.routeChallenges.end(), [&](const RouteChallenge& route){
         return route.routeId == routeChoice_;
@@ -1132,9 +1204,12 @@ const AdventureDefinition* RuntimeSession::currentAdventure() const {
 }
 
 Vec2 RuntimeSession::adventureNpcPosition(const AdventureNpcDefinition& npc) const {
+    Vec2 base = npc.basePosition;
+    if (npc.id == "lost_competitor" && spectatorPassDelivered_ && game_.scene().id == "reach_tournament_outskirts")
+        base = {1885.0f, 170.0f};
     return {
-        npc.basePosition.x + std::sin(adventureTime_ * 0.55f + npc.motionPhase) * 45.0f,
-        npc.basePosition.z + std::cos(adventureTime_ * 0.48f + npc.motionPhase) * 24.0f
+        base.x + std::sin(adventureTime_ * 0.55f + npc.motionPhase) * 45.0f,
+        base.z + std::cos(adventureTime_ * 0.48f + npc.motionPhase) * 24.0f
     };
 }
 
@@ -1309,7 +1384,6 @@ void RuntimeSession::finishTransientDialogue() {
             spectatorPassDelivered_ = true;
             roadsideEncounterResolved_ = true;
             showGameplayNotice("SIDE STORY COMPLETE • THE LOUDEST SEAT", 1.65f);
-            completeScene();
             break;
         case 20:
             signPuzzleStage_ = std::max(signPuzzleStage_, 1);
@@ -1317,6 +1391,18 @@ void RuntimeSession::finishTransientDialogue() {
             break;
         case 21:
             showGameplayNotice("SIDE STORY COMPLETE • WAYFINDER BADGE", 1.85f);
+            break;
+        case 30:
+            terrainCollapseSeen_ = true;
+            showGameplayNotice("DIRECT ROAD BLOCKED • HIGH TRAIL OPEN", 1.45f);
+            break;
+        case 31:
+            setDetourBlockersActive(false);
+            showGameplayNotice("TOURNAMENT ROAD REJOINED", 1.35f);
+            completeScene();
+            break;
+        case 32:
+            completeScene();
             break;
         default: break;
     }
@@ -1357,6 +1443,7 @@ void RuntimeSession::tickChoice(InputState& input) {
         }
         completeScene();
     } else if (kind == 5) {
+        lensRouteChosen_ = !second;
         southernDetourChosen_ = second;
         if (southernDetourChosen_) showGameplayNotice("SOUTH DETOUR • LONG WAY AROUND", 1.45f);
         else showGameplayNotice("LENS ROUTE • READ THE ROADBLOCK", 1.35f);
@@ -1442,8 +1529,9 @@ void RuntimeSession::resolveRoadsideEncounter(bool wonFight) {
     player_.energy = 45.0f;
     opponent_ = FighterState{"sage"};
     if (wonFight) {
-        roadsideEncounterResolved_ = false;
-        showGameplayNotice("PASS WON • RETURN IT TO THE LOST COMPETITOR", 1.85f);
+        roadsideEncounterResolved_ = true;
+        showGameplayNotice("PASS WON • OPTIONAL: RETURN IT TO THE LOST COMPETITOR", 1.85f);
+        completeScene();
     } else {
         roadsideEncounterResolved_ = true;
         completeScene();
@@ -1453,6 +1541,9 @@ void RuntimeSession::resolveRoadsideEncounter(bool wonFight) {
 void RuntimeSession::handleRoadsideAbilities(const InputState& input) {
     const auto* ability = pressedAbility(input);
     if (!ability) return;
+    if (player_.energy < ability->energyCost) { showGameplayNotice("NOT ENOUGH ENERGY • " + std::to_string(static_cast<int>(player_.energy)) + " / " + std::to_string(static_cast<int>(ability->energyCost)), 1.0f); return; }
+    if (ability->id == "fireBlast" && attackCooldown_ > 0.0f) { showGameplayNotice("FIRE BLAST • RECHARGING", 0.85f); return; }
+    if (ability->id == "lensOfTruth" && player_.hp <= ability->hpCost) { showGameplayNotice("LENS OF TRUTH • NOT ENOUGH HP", 1.0f); return; }
     if (ability->id == "fireBlast" && attackCooldown_ <= 0.0f && player_.energy >= ability->energyCost &&
         CombatSystem::startAttack(player_, AttackKind::Projectile)) {
         player_.energy -= ability->energyCost;
@@ -1486,15 +1577,7 @@ void RuntimeSession::tickRoadsideFight(InputState& input, float dt) {
             playerPosition_ = {opponentPosition_.x - 78.0f, opponentPosition_.z};
             movementState_.dashCooldown = 0.0f;
             consumed = true;
-        } else if (CombatSystem::flowCancel(player_)) {
-            movementState_.dashCooldown = 0.0f;
-            flowCancelLearned_ = true;
-            showGameplayNotice("FLOW CANCEL • KEEP MOVING", 1.25f);
-            hitFreezeTime_ = std::max(hitFreezeTime_, 3.0f * kFeedbackStepSeconds);
-            cameraImpulse_ = std::max(cameraImpulse_, 3.2f);
-            impactFlash_ = std::max(impactFlash_, 0.11f);
-            combatFeedback_ = "FLOW CANCEL";
-            combatFeedbackTime_ = 0.55f;
+        } else if (tryFlowCancel()) {
             consumed = true;
         } else if (movementState_.height > 0.0f) {
             CombatSystem::startAirDash(player_);
@@ -1588,7 +1671,8 @@ void RuntimeSession::tickRoadsideFight(InputState& input, float dt) {
             opponentPosition_.z=std::clamp(opponentPosition_.z,map().bounds.minZ+28.0f,map().bounds.maxZ-28.0f);
             if (playerHit.launched) { opponentHeight_=std::max(opponentHeight_,12.0f); opponentVerticalVelocity_=std::max(opponentVerticalVelocity_,opponent_.verticalVelocity); opponent_.verticalVelocity=0.0f; }
         }
-        if (playerHit.connected && !playerHit.blocked && player_.flowCancelWindow > 0.0f)
+        if (playerHit.connected && !playerHit.blocked && player_.flowCancelWindow > 0.0f &&
+            !flowCancelLearned_ && qolSettings_.firstTimeHints)
             showGameplayNotice("FLOW CANCEL READY • DASH", 0.80f);
         tryBufferedArenaAttack();
         const auto opponentHit = CombatSystem::advanceAttack(opponent_, player_, dt, opponentInRange,
@@ -1627,8 +1711,7 @@ void RuntimeSession::tickRoadsideFight(InputState& input, float dt) {
 void RuntimeSession::tickRoadsideEncounter(InputState& input, float dt, const ExplorationDefinition& definition) {
     if (roadsideFightActive_) { tickRoadsideFight(input, dt); return; }
     if (roadsideEncounterResolved_) { completeScene(); return; }
-    if (spectatorPassWon_ && !spectatorPassDelivered_) return;
-    if (distance(playerPosition_, definition.target) <= definition.radius) {
+    if (distance(playerPosition_, definition.target) <= definition.radius || playerPosition_.x >= definition.target.x) {
         if (lostCompetitorHelped_) { choiceKind_ = 2; choiceIndex_ = 0; }
         else resolveRoadsideEncounter(false);
     }
@@ -1641,7 +1724,7 @@ void RuntimeSession::tickAdventureNpcs(InputState& input, float, const Explorati
     float nearestDistance = 100000.0f;
     for (const auto& npc : adventure.npcs) {
         const float d = distance(playerPosition_, adventureNpcPosition(npc));
-        if (d <= npc.interactionRadius && d < nearestDistance) { nearest = &npc; nearestDistance = d; }
+        if (d <= npc.interactionRadius + 30.0f && d < nearestDistance) { nearest = &npc; nearestDistance = d; }
     }
     if (!nearest) return;
     if (nearest->id == "lost_competitor") {
@@ -1690,6 +1773,8 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
 
     tickAdventureNpcs(input, dt, definition);
     if (!transientDialogueId_.empty()) return;
+    if (input.pressed(Action::Interact) && qolSettings_.firstTimeHints && !view_.objective.empty())
+        showGameplayNotice("OBJECTIVE • " + view_.objective, 1.35f);
 
     FieldMovementConfig movement;
     movement.walkSpeed = 270.0f;
@@ -1701,6 +1786,10 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
         hardLanding_ = preLandingVelocity < -520.0f;
         landingAnimationTime_ = hardLanding_ ? 0.22f : 0.13f;
     }
+    const bool explorationMoving = distance(previousPlayerPosition_, playerPosition_) > 0.35f;
+    if (explorationMoving && !explorationWasMoving_) { explorationRunStartAnimationTime_ = 0.165f; explorationRunStopAnimationTime_ = 0.0f; }
+    else if (!explorationMoving && explorationWasMoving_) { explorationRunStopAnimationTime_ = 0.180f; explorationRunStartAnimationTime_ = 0.0f; }
+    explorationWasMoving_ = explorationMoving;
     const auto* ability = pressedAbility(input);
 
     if (game_.scene().id == "reach_tournament_outskirts" && tickAdventureSidePuzzle(ability)) return;
@@ -1722,6 +1811,9 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
             if (distance(playerPosition_, definition.target) <= definition.radius && input.pressed(Action::Interact)) completeScene();
             break;
         case ExplorationRuleKind::UseAbilityPoint:
+            if (ability && ability->id == definition.requiredAbilityId && !withinAbilityTarget(playerPosition_, definition.target, definition.radius)) {
+                showGameplayNotice("GET CLOSER TO THE " + std::string(ability->id == "objectSwap" ? "SWAP TARGET" : "ABILITY TARGET"), 1.0f);
+            }
             if (ability && ability->id == definition.requiredAbilityId && withinAbilityTarget(playerPosition_, definition.target, definition.radius)) {
                 triggerAbilityAnimation(ability->id == "objectSwap" ? "object_swap" : ability->id == "fireBlast" ? "fire_blast" : "lens_activate",
                                         ability->id == "objectSwap" ? 0.32f : ability->id == "fireBlast" ? 0.42f : 0.30f);
@@ -1736,19 +1828,19 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
             }
             break;
         case ExplorationRuleKind::ChooseRoute:
-            // The exact Legacy route panel is opened when this internal scene is entered.
-            // The selected route is still traversed physically in the following scene.
+            routeChoiceIntroTime_ = std::max(0.0f, routeChoiceIntroTime_ - dt);
+            if (routeChoiceIntroTime_ <= 0.0f) { choiceKind_ = 4; choiceIndex_ = 0; }
             break;
         case ExplorationRuleKind::RouteChallenge: {
             const auto* challenge = currentRouteChallenge(definition);
             if (!challenge) break;
             routeChallengeTime_ += dt;
-            if (routeHintStage_ == 0 && routeChallengeTime_ >= definition.routeHintFirstSeconds) {
+            if (qolSettings_.firstTimeHints && routeHintStage_ == 0 && routeChallengeTime_ >= definition.routeHintFirstSeconds) {
                 routeHintStage_ = 1;
-                showGameplayNotice(routeChoice_ == "forest" ? "FOREST • LISTEN FOR THE NEXT BLUE BELL" :
+                showGameplayNotice(routeChoice_ == "forest" ? "FOREST • FIND THE NEXT BLUE BELL" :
                                    routeChoice_ == "cliff" ? "CLIFF • TAKE THE LEDGES IN ORDER" :
                                    "MAIN ROAD • FOLLOW THE WORK LANES", 1.30f);
-            } else if (routeHintStage_ == 1 && routeChallengeTime_ >= definition.routeHintSecondSeconds) {
+            } else if (qolSettings_.firstTimeHints && routeHintStage_ == 1 && routeChallengeTime_ >= definition.routeHintSecondSeconds) {
                 routeHintStage_ = 2;
                 showGameplayNotice(routeChoice_ == "forest" ? "FOREST • FOUR BELLS • ONE AFTER ANOTHER" :
                                    routeChoice_ == "cliff" ? "CLIFF • FIVE AIRBORNE LEDGES" :
@@ -1756,13 +1848,15 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
             }
 
             if (routeChoice_ == "main") {
-                if (!mainRouteDialogueShown_ && playerPosition_.x > 235.0f) {
+                if (!mainRouteDialogueShown_ && distance(playerPosition_, Vec2{365.0f, 300.0f}) <= 165.0f) {
                     mainRouteDialogueShown_ = true;
                     beginTransientDialogue(definition.openingDialogueId, 2);
                     break;
                 }
                 if (!mainRouteReady_) break;
                 if (!mainRouteFireCleared_) {
+                    if (ability && ability->id == challenge->requiredAbilityId && !withinAbilityTarget(playerPosition_, challenge->abilityTarget, challenge->abilityRadius))
+                        showGameplayNotice("FIRE BLAST • GET CLOSER TO THE FALLEN LOG", 1.0f);
                     if (ability && ability->id == challenge->requiredAbilityId &&
                         withinAbilityTarget(playerPosition_, challenge->abilityTarget, challenge->abilityRadius)) {
                         triggerAbilityAnimation("fire_blast", 0.42f);
@@ -1772,14 +1866,14 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
                 }
                 if (routeProgress_ < definition.mainWorkMarkers.size() &&
                     distance(playerPosition_, definition.mainWorkMarkers[routeProgress_]) <= 62.0f) {
-                    ++routeProgress_;
+                    ++routeProgress_; routeChallengeTime_ = 0.0f; routeHintStage_ = 0;
                     showGameplayNotice("MAIN ROAD • WORK LANE " + std::to_string(routeProgress_) + " / 4", 1.0f);
                 }
                 if (routeProgress_ < definition.mainWorkMarkers.size()) break;
             } else if (routeChoice_ == "forest") {
                 if (routeProgress_ < definition.forestBellMarkers.size() &&
                     distance(playerPosition_, definition.forestBellMarkers[routeProgress_]) <= 74.0f) {
-                    ++routeProgress_;
+                    ++routeProgress_; routeChallengeTime_ = 0.0f; routeHintStage_ = 0;
                     showGameplayNotice("BLUE BELL • " + std::to_string(routeProgress_) + " / 4", 1.05f);
                 }
                 if (routeProgress_ < definition.forestBellMarkers.size()) break;
@@ -1788,29 +1882,74 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
                     distance(playerPosition_, definition.jumpMarkers[routeProgress_]) <= definition.jumpMarkerRadius &&
                     (movementState_.height > 8.0f || movementState_.jumpStartedThisFrame)) {
                     cliffJumpComplete_[routeProgress_] = true;
-                    ++routeProgress_;
+                    ++routeProgress_; routeChallengeTime_ = 0.0f; routeHintStage_ = 0;
                     showGameplayNotice("CLIFF LEDGE • " + std::to_string(routeProgress_) + " / 5", 0.95f);
                 }
                 const bool ready = routeProgress_ >= definition.jumpMarkers.size();
-                if (!ready && playerPosition_.x > 430.0f) playerPosition_.x = 410.0f;
+                if (!ready && playerPosition_.x > challenge->finish.x) playerPosition_.x = challenge->finish.x - 22.0f;
                 if (!ready) break;
             }
 
-            if (distance(playerPosition_, challenge->finish) <= challenge->finishRadius || playerPosition_.x > 430.0f) {
+            if (distance(playerPosition_, challenge->finish) <= challenge->finishRadius || playerPosition_.x > challenge->finish.x) {
                 disableBlocker("fallen_tree_center");
                 disableBlocker("fallen_tree_north");
                 disableBlocker("fallen_tree_south");
                 if (routeChoice_ == "cliff" && !cliffRewardEarned_) {
                     cliffRewardEarned_ = true;
-                    showGameplayNotice("SCENIC DISCOVERY • CLIFFSIDE VIEW", 1.65f);
+                    showGameplayNotice("SCENIC DISCOVERY • CLIFFSIDE VIEW", 1.20f);
+                    beginTransientDialogue("cliff_overlook_reaction", 32);
+                    break;
                 }
                 completeScene();
+            }
+            break;
+        }
+        case ExplorationRuleKind::TerrainDetour: {
+            // Three readable broken-ground jumps. Each successful airborne crossing opens
+            // only the corresponding collision gate; this keeps the flat collision core
+            // while giving the authored 3D ledges real gameplay meaning.
+            if (routeProgress_ < definition.jumpMarkers.size()) {
+                const auto index = routeProgress_;
+                if (distance(playerPosition_, definition.jumpMarkers[index]) <= definition.jumpMarkerRadius &&
+                    (movementState_.height > 8.0f || movementState_.jumpStartedThisFrame)) {
+                    ++routeProgress_;
+                    disableBlocker("detour_jump_gate_" + std::to_string(index + 1));
+                    showGameplayNotice("BROKEN GROUND • " + std::to_string(routeProgress_) + " / 3", 1.0f);
+                }
+                break;
+            }
+            if (!detourDashDone_) {
+                if (distance(playerPosition_, definition.detourDashMarker) <= definition.detourDashRadius && movementState_.dashStartedThisFrame) {
+                    detourDashDone_ = true;
+                    disableBlocker("detour_dash_gate");
+                    showGameplayNotice("GAP CLEARED • KEEP MOVING", 1.0f);
+                } else if (distance(playerPosition_, definition.detourDashMarker) <= definition.detourDashRadius + 50.0f && qolSettings_.firstTimeHints) {
+                    showGameplayNotice("WIDE GAP • DASH THROUGH", .85f);
+                }
+                break;
+            }
+            if (!detourSwapDone_) {
+                if (ability && ability->id == definition.requiredAbilityId && withinAbilityTarget(playerPosition_, definition.shortcutPoint, definition.shortcutRadius)) {
+                    detourSwapDone_ = true;
+                    triggerAbilityAnimation("object_swap", .32f);
+                    playerPosition_ = definition.swapDestination;
+                    disableBlocker("detour_swap_gate");
+                    showGameplayNotice("OBJECT SWAP • BACK TOWARD THE ROAD", 1.1f);
+                } else if (ability && ability->id == definition.requiredAbilityId) {
+                    showGameplayNotice("OBJECT SWAP • GET CLOSER TO THE HIGH ANCHOR", 1.0f);
+                }
+                break;
+            }
+            if (distance(playerPosition_, definition.target) <= definition.radius || playerPosition_.x >= definition.target.x) {
+                if (!definition.completionDialogueId.empty()) beginTransientDialogue(definition.completionDialogueId, 31);
+                else completeScene();
             }
             break;
         }
         case ExplorationRuleKind::SwapRelay:
             if (relayIndex_ < static_cast<int>(relayMarkers_.size()) && ability && ability->id == definition.requiredAbilityId) {
                 const Vec2 target = relayMarkers_[relayIndex_];
+                if (!withinAbilityTarget(playerPosition_, target, definition.radius)) showGameplayNotice("OBJECT SWAP • GET CLOSER TO THE ACTIVE TARGET", 1.0f);
                 if (withinAbilityTarget(playerPosition_, target, definition.radius)) {
                     triggerAbilityAnimation("object_swap", 0.32f);
                     const Vec2 old = playerPosition_;
@@ -1847,7 +1986,7 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
             break;
         case ExplorationRuleKind::MandatoryAbilityReveal:
             if (southernDetourChosen_) {
-                if (playerPosition_.x > 1130.0f && playerPosition_.z > 430.0f) {
+                if (playerPosition_.x > 1830.0f && playerPosition_.z > 430.0f) {
                     southernDetourComplete_ = true;
                     showGameplayNotice("WORLD DELIGHT • SOUTHERN DETOUR", 1.65f);
                     completeScene();
@@ -1933,7 +2072,8 @@ SaveData RuntimeSession::saveSnapshot(const std::string& inputPreset) const {
         return flag.rfind("ch1_tutorial_checkpoint=", 0) == 0 ||
                flag.rfind("ch1_route_progress=", 0) == 0 ||
                flag.rfind("ch1_relay_index=", 0) == 0 ||
-               flag.rfind("ch1_cliff_mask=", 0) == 0;
+               flag.rfind("ch1_cliff_mask=", 0) == 0 ||
+               flag == "ch1_spectator_pass_pending";
     }), data.story.flags.end());
     const auto addFlag = [&](const std::string& flag) {
         if (!containsFlag(data.story.flags, flag)) data.story.flags.push_back(flag);
@@ -1945,12 +2085,17 @@ SaveData RuntimeSession::saveSnapshot(const std::string& inputPreset) const {
     for (std::size_t i = 0; i < cliffJumpComplete_.size() && i < 31; ++i) if (cliffJumpComplete_[i]) cliffMask |= (1u << i);
     addFlag("ch1_cliff_mask=" + std::to_string(cliffMask));
     if (mainRouteFireCleared_) addFlag("ch1_main_fire_cleared");
+    if (lensRouteChosen_) addFlag("ch1_lens_route_chosen");
     if (southernDetourChosen_) addFlag("ch1_southern_detour_chosen");
     if (southernDetourComplete_) { addFlag("ch1_southern_detour_complete"); addFlag("world_delight_southern_detour"); }
+    if (terrainCollapseSeen_) addFlag("ch1_terrain_collapse_seen");
+    if (detourDashDone_) addFlag("ch1_detour_dash_done");
+    if (detourSwapDone_) addFlag("ch1_detour_swap_done");
     if (lostCompetitorHelped_) addFlag("ch1_lost_competitor_helped");
     if (lostCompetitorDeclined_) addFlag("ch1_lost_competitor_declined");
     if (roadsideEncounterResolved_) addFlag("ch1_roadside_encounter_resolved");
     if (spectatorPassWon_) addFlag("ch1_spectator_pass_won");
+    if (spectatorPassWon_ && !spectatorPassDelivered_) addFlag("ch1_spectator_pass_pending");
     if (spectatorPassDelivered_) addFlag("ch1_spectator_pass_delivered");
     if (tutorialSkipped_) addFlag("ch1_tutorial_skipped");
     if (signPuzzleStage_ >= 1) addFlag("ch1_sign_that_points_back_started");
@@ -2002,11 +2147,18 @@ void RuntimeSession::syncView() {
     view_.sparCleanHits = sparCleanHits_;
     view_.relayProgress = relayIndex_;
     view_.sceneComplete = sceneComplete_;
-    view_.hotbar = AbilityHotbarCatalog::rrvvfoChapter1();
+    const auto& chapterHotbar = AbilityHotbarCatalog::rrvvfoChapter1();
     const bool tutorialScene = training_.has(game_.scene().id);
     view_.hotbarVisible = !tutorialScene || (!trainingManualVisible_ && trainingStepIndex_ >= 4);
-    if (tutorialScene && trainingStepIndex_ == 4 && view_.hotbar.size() > 2) view_.hotbar.resize(2);
-    if (!view_.hotbarVisible) view_.hotbar.clear();
+    const std::size_t desiredHotbarSize = !view_.hotbarVisible ? 0 :
+        (tutorialScene && trainingStepIndex_ == 4 ? std::min<std::size_t>(2, chapterHotbar.size()) : chapterHotbar.size());
+    if (desiredHotbarSize == 0) {
+        view_.hotbar.clear();
+    } else {
+        // The Chapter-1 layout is immutable. Recopy it only when visibility/lesson size changes.
+        if (view_.hotbar.size() < desiredHotbarSize) view_.hotbar = chapterHotbar;
+        if (view_.hotbar.size() > desiredHotbarSize) view_.hotbar.resize(desiredHotbarSize);
+    }
     view_.showPlayerHealth = view_.mode == GameMode::ArenaCombat && !trainingManualVisible_;
     view_.showOpponentHealth = roadsideFightActive_ || (tutorialScene && !trainingManualVisible_ &&
         (trainingStepIndex_ == 1 || trainingStepIndex_ == 2 || trainingStepIndex_ >= 5));
@@ -2085,7 +2237,8 @@ void RuntimeSession::syncView() {
     if (pausePage_ == 0) {
         view_.pauseSections = {
             "CURRENT OBJECTIVE • " + (objectiveBeforePause_.empty() ? std::string{"Continue Chapter 1"} : objectiveBeforePause_),
-            "CHECKPOINT • " + game_.story().checkpointId
+            "CHECKPOINT • " + game_.story().checkpointId,
+            "BUILD • 3.0R / UPDATE 6 GOLDEN GATE"
         };
         if (standaloneMode()) {
             const std::string sessionName = replayMode_ ? "CHAPTER REPLAY • STORY SAVE PROTECTED" :
@@ -2101,9 +2254,10 @@ void RuntimeSession::syncView() {
             };
         }
     } else if (pausePage_ == 1) {
+        if (!objectiveBeforePause_.empty()) view_.pauseSections.push_back("NOW • " + objectiveBeforePause_);
         if (objectiveHistory_.empty()) view_.pauseSections.push_back("No completed objectives yet.");
         else for (auto it = objectiveHistory_.rbegin(); it != objectiveHistory_.rend(); ++it)
-            view_.pauseSections.push_back("• " + *it);
+            view_.pauseSections.push_back("DONE • " + *it);
         view_.pauseSections.push_back("B / ESC • BACK");
     } else if (pausePage_ == 2) {
         view_.pauseSections = {
@@ -2174,7 +2328,7 @@ void RuntimeSession::syncView() {
         view_.choiceOptions = {"TRY AGAIN", "LEAVE ENCOUNTER"};
     } else if (choiceKind_ == 4) {
         view_.choiceTitle = "CHOOSE A ROUTE";
-        view_.choiceOptions = {"MAIN ROAD", "FOREST SHORTCUT", "CLIFF ROUTE"};
+        view_.choiceOptions = {"MAIN ROAD • FIRE / WORK", "FOREST • BELLS / NAVIGATION", "CLIFF • JUMPS / VIEW"};
     } else if (choiceKind_ == 5) {
         view_.choiceTitle = "FINAL ROADBLOCK";
         view_.choiceOptions = {"USE LENS OF TRUTH", "TAKE SOUTH DETOUR"};
@@ -2183,11 +2337,12 @@ void RuntimeSession::syncView() {
     if (const auto* adventure = currentAdventure()) {
         for (const auto& npc : adventure->npcs) {
             const auto position = adventureNpcPosition(npc);
-            const bool interactable = distance(playerPosition_, position) <= npc.interactionRadius;
+            const bool interactable = distance(playerPosition_, position) <= npc.interactionRadius + 30.0f;
             float npcYaw = 0.0f;
             if (interactable) { const Vec2 toPlayer{playerPosition_.x-position.x, playerPosition_.z-position.z}; npcYaw = yawForDirection(toPlayer); }
             view_.ambientActors.push_back({npc.id, npc.characterPresentationId, position, npcYaw, interactable});
-            if (distance(playerPosition_, position) <= npc.interactionRadius) view_.nearbyInteractionLabel = npc.label;
+            if (distance(playerPosition_, position) <= npc.interactionRadius + 30.0f)
+                view_.nearbyInteractionLabel = npc.label;
         }
         const auto& life = adventure->ambientLife;
         for (int i = 0; i < life.birdCount; ++i) {
@@ -2200,7 +2355,11 @@ void RuntimeSession::syncView() {
         }
         const float cartTravel = std::fmod(adventureTime_ * life.deliveryCartSpeed, life.deliveryCartTravelDistance);
         view_.worldMarkers.push_back({"delivery_cart", {life.deliveryCartStart.x + cartTravel, life.deliveryCartStart.z}, "delivery-cart", false});
-        if (runawayCartSaved_) view_.worldMarkers.push_back({"saved_supply_cart", life.savedCartPosition, "parked-cart", true});
+        if (runawayCartSaved_) {
+            const Vec2 savedCartPosition = view_.sceneId == "reach_tournament_outskirts"
+                ? Vec2{1815.0f, -185.0f} : life.savedCartPosition;
+            view_.worldMarkers.push_back({"saved_supply_cart", savedCartPosition, "parked-cart", true});
+        }
         view_.worldMarkers.push_back({"far_bank_rock", farBankRockPosition_, "swap-rock", false});
         if (!adventure->sidePuzzle.id.empty()) {
             const auto& puzzle = adventure->sidePuzzle;
@@ -2234,6 +2393,13 @@ void RuntimeSession::syncView() {
                 view_.worldMarkers.push_back({"relay_" + std::to_string(i + 1), relayMarkers_[i], "swap-relay", static_cast<int>(i) < relayIndex_});
             }
         }
+        if (view_.sceneId == "collapsed_tournament_road_detour") {
+            const auto& definition = exploration_.get(view_.sceneId);
+            for (std::size_t i=0;i<definition.jumpMarkers.size();++i)
+                view_.worldMarkers.push_back({"collapse_jump_"+std::to_string(i+1),definition.jumpMarkers[i],"cliff-jump",i<routeProgress_});
+            view_.worldMarkers.push_back({"collapse_dash",definition.detourDashMarker,"work-lane",detourDashDone_});
+            view_.worldMarkers.push_back({"collapse_swap",definition.shortcutPoint,"swap-relay",detourSwapDone_});
+        }
         if (view_.sceneId == "transport_wheel_recovery") {
             if (!relayMarkers_.empty() && relayIndex_ == 0) view_.worldMarkers.push_back({"transport_wheel", relayMarkers_[0], "transport-wheel", false});
             if (relayMarkers_.size() > 1 && relayIndex_ > 0) view_.worldMarkers.push_back({"transport_return", relayMarkers_[1], "return-anchor", relayIndex_ > 1});
@@ -2259,6 +2425,15 @@ void RuntimeSession::syncView() {
         view_.worldMarkers.push_back({"rrvvfo_object_swap_fx", playerPosition_, "object-swap-fx", false});
     if (lensActive_ || (playerActionAnimation_ == "lens_activate" && playerActionAnimationTime_ > 0.0f))
         view_.worldMarkers.push_back({"rrvvfo_lens_fx", playerPosition_, "lens-fx", lensActive_});
+    if (player_.pursuitWindow > 0.0f || player_.pursuitTime > 0.0f ||
+        player_.pursuitFollowupWindow > 0.0f || player_.pursuitFinishWindow > 0.0f)
+        view_.worldMarkers.push_back({"rrvvfo_pursuit_lock", opponentPosition_, "pursuit-lock", player_.pursuitTime > 0.0f});
+    if (playerActionAnimation_ == "flow_cancel" && playerActionAnimationTime_ > 0.0f)
+        view_.worldMarkers.push_back({"rrvvfo_flow_cancel_fx", playerPosition_, "flow-cancel-fx", true});
+    if (movementState_.dashStartedThisFrame)
+        view_.worldMarkers.push_back({"rrvvfo_dash_dust", playerPosition_, "dash-dust", false});
+    if (movementState_.landedThisFrame && hardLanding_)
+        view_.worldMarkers.push_back({"rrvvfo_land_dust", playerPosition_, "landing-dust", true});
 
     if (game_.mode() == GameMode::Cutscene && cutscenes_.has(view_.sceneId)) {
         for (const auto& actor : cutscenes_.get(view_.sceneId).staging) {
@@ -2372,11 +2547,20 @@ void RuntimeSession::syncView() {
                 view_.objective = prefix + std::to_string(relayIndex_) + " / " + std::to_string(definition.relayMarkers.size());
             }
             if (view_.sceneId == "lens_roadblock_reveal" && southernDetourChosen_)
-                view_.objectiveDetail = "Go far south, pass the roadblock, then reconnect with Tournament Road.";
-            if (view_.sceneId == "roadside_encounter" && spectatorPassWon_ && !spectatorPassDelivered_) {
-                view_.objective = "OPTIONAL • RETURN THE SPECTATOR PASS";
-                view_.objectiveDetail = "Take the earned pass back to the lost competitor. He's just behind the clearing.";
-            } else if (view_.sceneId == "reach_tournament_outskirts" && signPuzzleStage_ == 1) {
+                view_.objectiveDetail = "Follow the worn south trail around the roadblock, then reconnect with Tournament Road.";
+            if (view_.sceneId == "collapsed_tournament_road_detour") {
+                if (routeProgress_ < 3) view_.objectiveDetail = "Climb the broken ledges. Jump each gap in order.";
+                else if (!detourDashDone_) view_.objectiveDetail = "The next break is wider. Dash through it.";
+                else if (!detourSwapDone_) view_.objectiveDetail = "Use Object Swap on the high anchor beyond the broken section.";
+                else view_.objectiveDetail = "Drop back toward the original Tournament Road.";
+            }
+            if (view_.sceneId == "roadside_encounter" && lostCompetitorHelped_ && !spectatorPassWon_)
+                view_.objectiveDetail = "The fighter with the spectator pass is ahead in the practice clearing.";
+            if (spectatorPassWon_ && !spectatorPassDelivered_) {
+                if (!view_.objectiveDetail.empty()) view_.objectiveDetail += " • ";
+                view_.objectiveDetail += "OPTIONAL: Return the spectator pass to the lost competitor.";
+            }
+            if (view_.sceneId == "reach_tournament_outskirts" && signPuzzleStage_ == 1) {
                 view_.objectiveDetail = "OPTIONAL • THE SIGN THAT POINTS BACK • USE LENS ON THE TURNED SIGN";
             } else if (view_.sceneId == "reach_tournament_outskirts" && signPuzzleStage_ == 2) {
                 view_.objectiveDetail = "OPTIONAL • THE SIGN THAT POINTS BACK • OBJECT SWAP IT TO THE EMPTY POST";

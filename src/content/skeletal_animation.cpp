@@ -143,7 +143,36 @@ void SkeletalAnimationPlayer::bind(const CharacterModelAsset* asset) {
     state_.clear();
     time_ = 0.0f;
     finished_ = false;
+    rebuildBindCache();
     sample();
+}
+
+void SkeletalAnimationPlayer::rebuildBindCache() {
+    bindLocalMatrices_.clear();
+    localMatrices_.clear();
+    worldMatrices_.clear();
+    skinMatrices_.clear();
+    bindTranslations_.clear();
+    bindRotations_.clear();
+    bindScales_.clear();
+    if (!asset_ || !asset_->valid()) return;
+
+    const auto& joints = asset_->joints();
+    const auto count = joints.size();
+    bindLocalMatrices_.resize(count);
+    localMatrices_.resize(count);
+    worldMatrices_.resize(count);
+    skinMatrices_.resize(count);
+    bindTranslations_.resize(count);
+    bindRotations_.resize(count);
+    bindScales_.resize(count);
+    for (std::size_t index = 0; index < count; ++index) {
+        bindLocalMatrices_[index] = joints[index].localBindMatrix;
+        const Transform bind = decompose(joints[index].localBindMatrix);
+        bindTranslations_[index] = bind.translation;
+        bindRotations_[index] = bind.rotation;
+        bindScales_[index] = bind.scale;
+    }
 }
 
 bool SkeletalAnimationPlayer::setState(const std::string& clipName, bool restart) {
@@ -183,30 +212,47 @@ void SkeletalAnimationPlayer::seek(float timeSeconds) {
 }
 
 void SkeletalAnimationPlayer::sample() {
-    skinMatrices_.clear();
-    if (!asset_ || !asset_->valid()) return;
-    const auto& joints=asset_->joints();
-    std::vector<CharacterMatrix> local;
-    local.reserve(joints.size());
-    for (const auto& joint:joints)local.push_back(joint.localBindMatrix);
+    if (!asset_ || !asset_->valid()) {
+        skinMatrices_.clear();
+        return;
+    }
+    const auto& joints = asset_->joints();
+    const auto count = joints.size();
+    if (bindLocalMatrices_.size() != count || localMatrices_.size() != count ||
+        worldMatrices_.size() != count || skinMatrices_.size() != count ||
+        bindTranslations_.size() != count || bindRotations_.size() != count ||
+        bindScales_.size() != count) {
+        // Defensive only: normal frame sampling never enters this path.
+        // Preserve the current clip/state while refreshing an externally changed asset.
+        rebuildBindCache();
+    }
+
+    std::copy(bindLocalMatrices_.begin(), bindLocalMatrices_.end(), localMatrices_.begin());
+
     if (clip_) {
-        for (const auto& track:clip_->tracks) {
-            Transform transform=decompose(joints[track.jointIndex].localBindMatrix);
+        for (const auto& track : clip_->tracks) {
+            if (track.jointIndex >= count) continue;
+            const auto index = static_cast<std::size_t>(track.jointIndex);
+            Transform transform;
+            transform.translation = bindTranslations_[index];
+            transform.rotation = bindRotations_[index];
+            transform.scale = bindScales_[index];
             if (!track.translations.empty())
-                transform.translation=sampleLinear<3>(track.translations,time_,track.translationInterpolation);
+                transform.translation = sampleLinear<3>(track.translations, time_, track.translationInterpolation);
             if (!track.rotations.empty())
-                transform.rotation=sampleRotation(track.rotations,time_,track.rotationInterpolation);
+                transform.rotation = sampleRotation(track.rotations, time_, track.rotationInterpolation);
             if (!track.scales.empty())
-                transform.scale=sampleLinear<3>(track.scales,time_,track.scaleInterpolation);
-            local[track.jointIndex]=compose(transform);
+                transform.scale = sampleLinear<3>(track.scales, time_, track.scaleInterpolation);
+            localMatrices_[index] = compose(transform);
         }
     }
-    std::vector<CharacterMatrix> world(joints.size());
-    skinMatrices_.resize(joints.size());
-    for (std::size_t index=0;index<joints.size();++index) {
-        const auto parent=joints[index].parentIndex;
-        world[index]=parent<0?local[index]:multiply(world[static_cast<std::size_t>(parent)],local[index]);
-        skinMatrices_[index]=multiply(world[index],joints[index].inverseBindMatrix);
+
+    for (std::size_t index = 0; index < count; ++index) {
+        const auto parent = joints[index].parentIndex;
+        worldMatrices_[index] = parent >= 0
+            ? multiply(worldMatrices_[static_cast<std::size_t>(parent)], localMatrices_[index])
+            : localMatrices_[index];
+        skinMatrices_[index] = multiply(worldMatrices_[index], joints[index].inverseBindMatrix);
     }
 }
 

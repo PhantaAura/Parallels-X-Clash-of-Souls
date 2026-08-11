@@ -25,6 +25,7 @@ ChapterRegistry::ChapterRegistry() {
             {SceneKind::Exploration, "transport_wheel_recovery", "rrvvfo-ch1-transport", "training-road"},
             {SceneKind::Exploration, "runaway_tournament_cart", "rrvvfo-ch1-runaway-cart", "training-road"},
             {SceneKind::Exploration, "roadside_encounter", "rrvvfo-ch1-roadside-encounter", "training-road"},
+            {SceneKind::Exploration, "collapsed_tournament_road_detour", "rrvvfo-ch1-collapse-detour", "training-road"},
             {SceneKind::Exploration, "reach_tournament_checkpoint", "rrvvfo-ch1-checkpoint-approach", "training-road"},
             {SceneKind::Cutscene, "tournament_checkpoint_dialogue", "rrvvfo-ch1-checkpoint", "training-road"},
             {SceneKind::Exploration, "reach_lens_roadblock", "rrvvfo-ch1-lens-approach", "training-road"},

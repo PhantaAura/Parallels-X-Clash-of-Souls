@@ -167,6 +167,42 @@ void addTrainingRoad(WorldPresentationDefinition& road) {
     box(road, "road_center", 500.0f, 6.0f, 10.0f, 300.0f, 8.0f, 175.0f, rgb(201, 171, 115));
     box(road, "road_east", 820.0f, 6.0f, 0.0f, 390.0f, 8.0f, 185.0f, rgb(201, 171, 115));
     box(road, "road_outskirts", 1190.0f, 6.0f, -10.0f, 360.0f, 8.0f, 195.0f, rgb(201, 171, 115));
+    box(road, "east_extension_ground_base", 1740.0f, -28.0f, 0.0f, 1250.0f, 56.0f, 1980.0f, rgb(53, 90, 53));
+    box(road, "east_extension_grass_surface", 1740.0f, 1.0f, 0.0f, 1230.0f, 5.0f, 1860.0f, rgb(87, 131, 74));
+    box(road, "road_post_collapse", 1375.0f, 6.0f, -35.0f, 380.0f, 8.0f, 190.0f, rgb(201,171,115));
+    box(road, "road_lens_approach", 1570.0f, 6.0f, -10.0f, 360.0f, 8.0f, 190.0f, rgb(201,171,115));
+    box(road, "road_final_outskirts", 1850.0f, 6.0f, -10.0f, 520.0f, 8.0f, 205.0f, rgb(201,171,115));
+    for(int x=1450,index=0;x<=2050;x+=150,++index){
+        tree(road,"east_north_tree_"+std::to_string(index),static_cast<float>(x),-690.0f,.82f+(index%2)*.08f);
+        tree(road,"east_south_tree_"+std::to_string(index),static_cast<float>(x),690.0f,.86f+((index+1)%2)*.08f);
+    }
+    cylinder(road,"checkpoint_post_north",1420.0f,62.0f,-125.0f,22.0f,124.0f,22.0f,rgb(91,63,49),PresentationDetailTier::Essential);
+    cylinder(road,"checkpoint_post_south",1420.0f,62.0f,125.0f,22.0f,124.0f,22.0f,rgb(91,63,49),PresentationDetailTier::Essential);
+    box(road,"checkpoint_banner",1420.0f,128.0f,0.0f,18.0f,34.0f,285.0f,rgb(207,72,69,.90f),PresentationDetailTier::Essential);
+    box(road,"checkpoint_booth",1455.0f,38.0f,190.0f,95.0f,76.0f,90.0f,rgb(172,142,96),PresentationDetailTier::Full);
+    for(int i=0;i<4;++i){
+        const float x=1510.0f+i*170.0f;
+        cylinder(road,"final_banner_post_"+std::to_string(i),x,68.0f,-240.0f,10.0f,136.0f,10.0f,rgb(77,56,44),PresentationDetailTier::Full);
+        box(road,"final_banner_"+std::to_string(i),x,108.0f,-240.0f,10.0f,58.0f,76.0f,i%2?rgb(52,122,161,.86f):rgb(190,63,61,.86f),PresentationDetailTier::Full);
+    }
+
+    // The direct road has physically fallen away. The north-side trail is visible
+    // from both sides so reconnecting feels geographic rather than teleported.
+    for (int i=0;i<7;++i) {
+        const float x=985.0f+static_cast<float>(i)*38.0f;
+        const float z=-30.0f+std::sin(static_cast<float>(i)*1.2f)*70.0f;
+        cylinder(road,"collapse_boulder_"+std::to_string(i),x,38.0f,z,70.0f+(i%3)*18.0f,76.0f,62.0f,rgb(91,82,70),PresentationDetailTier::Essential,"terrain_collapse");
+    }
+    const Vec2 detourPads[]={{890,-300},{960,-430},{1035,-515},{1115,-520},{1200,-455},{1290,-285}};
+    for(int i=0;i<6;++i) {
+        box(road,"detour_ledge_"+std::to_string(i),detourPads[i].x,7.0f,detourPads[i].z,
+            105.0f,10.0f,95.0f, i<3?rgb(126,112,89):rgb(143,121,89),PresentationDetailTier::Essential,0.0f,"terrain_collapse");
+    }
+    box(road,"detour_jump_rubble_1",902.0f,24.0f,-320.0f,42.0f,42.0f,112.0f,rgb(95,85,72),PresentationDetailTier::Essential,5.0f);
+    box(road,"detour_jump_rubble_2",970.0f,27.0f,-442.0f,44.0f,48.0f,118.0f,rgb(91,82,70),PresentationDetailTier::Essential,-4.0f);
+    box(road,"detour_jump_rubble_3",1045.0f,29.0f,-525.0f,46.0f,52.0f,120.0f,rgb(87,79,68),PresentationDetailTier::Essential,3.0f);
+    box(road,"detour_dash_gap",1115.0f,3.0f,-520.0f,110.0f,4.0f,82.0f,rgb(45,42,44,.92f),PresentationDetailTier::Essential,0.0f,"terrain_collapse");
+    cylinder(road,"detour_swap_anchor",1205.0f,48.0f,-455.0f,34.0f,96.0f,34.0f,rgb(74,181,210,.82f),PresentationDetailTier::Essential);
     box(road, "river", 75.0f, 4.0f, 0.0f, 165.0f, 7.0f, 1680.0f, rgb(59, 140, 198, 0.94f));
     box(road, "river_bank_west", -30.0f, 12.0f, 0.0f, 46.0f, 22.0f, 1720.0f, rgb(133, 105, 68));
     box(road, "river_bank_east", 180.0f, 12.0f, 0.0f, 46.0f, 22.0f, 1720.0f, rgb(133, 105, 68));
@@ -184,6 +220,17 @@ void addTrainingRoad(WorldPresentationDefinition& road) {
     box(road, "tournament_gate_red", 600.0f, 154.0f, 0.0f, 58.0f, 24.0f, 340.0f, rgb(210, 72, 70), PresentationDetailTier::Essential, 0.0f, "swap_gate");
     box(road, "tournament_gate_gold", 600.0f, 182.0f, 0.0f, 42.0f, 24.0f, 300.0f, rgb(240, 201, 91), PresentationDetailTier::Essential, 0.0f, "swap_gate");
 
+    const Vec2 update3MainPads[]={{305,265},{365,185},{438,285},{520,105}};
+    const Vec2 update3ForestPads[]={{285,-250},{345,-430},{430,-540},{520,-300}};
+    const Vec2 update3CliffPads[]={{285,255},{340,420},{410,550},{480,430},{535,255}};
+    for(int i=0;i<4;++i){
+        cylinder(road,"update3_route_main_pad_"+std::to_string(i),update3MainPads[i].x,7,update3MainPads[i].z,74,4,58,rgb(185,151,99,.72f),PresentationDetailTier::Full);
+        cylinder(road,"update3_route_forest_pad_"+std::to_string(i),update3ForestPads[i].x,7,update3ForestPads[i].z,62,4,52,rgb(82,112,70,.80f),PresentationDetailTier::Full);
+        cylinder(road,"update3_forest_bell_post_"+std::to_string(i),update3ForestPads[i].x,34,update3ForestPads[i].z,8,68,8,rgb(82,64,47),PresentationDetailTier::Full);
+    }
+    for(int i=0;i<5;++i)
+        box(road,"update3_route_cliff_pad_"+std::to_string(i),update3CliffPads[i].x,7,update3CliffPads[i].z,72,10,68,rgb(126,116,102),PresentationDetailTier::Full);
+
     const float bannerX[] = {-820.0f, -560.0f, -300.0f, 310.0f, 850.0f};
     for (int i = 0; i < 5; ++i) {
         cylinder(road, "route_banner_post_" + std::to_string(i), bannerX[i], 76.0f, -245.0f, 11.0f, 152.0f, 11.0f, rgb(76, 57, 44), PresentationDetailTier::Full);
@@ -193,12 +240,12 @@ void addTrainingRoad(WorldPresentationDefinition& road) {
             rgb(216, 184, 88), PresentationDetailTier::Full);
     }
 
-    box(road, "outskirts_hall", 1295.0f, 190.0f, -260.0f, 650.0f, 370.0f, 85.0f, rgb(42, 26, 53), PresentationDetailTier::Full);
-    box(road, "outskirts_hall_band", 1295.0f, 390.0f, -260.0f, 760.0f, 40.0f, 120.0f, rgb(211, 63, 120), PresentationDetailTier::Full);
-    box(road, "outskirts_hall_crown", 1295.0f, 445.0f, -260.0f, 850.0f, 30.0f, 145.0f, rgb(240, 201, 91), PresentationDetailTier::Full);
-    box(road, "outskirts_shop_fire", 1040.0f, 40.0f, 250.0f, 170.0f, 80.0f, 150.0f, rgb(179, 90, 61), PresentationDetailTier::Full);
-    box(road, "outskirts_shop_blue", 1250.0f, 42.0f, 265.0f, 190.0f, 84.0f, 165.0f, rgb(61, 120, 180), PresentationDetailTier::Full);
-    box(road, "outskirts_shop_violet", 1420.0f, 44.0f, 240.0f, 155.0f, 88.0f, 145.0f, rgb(107, 74, 167), PresentationDetailTier::Full);
+    box(road, "outskirts_hall", 1910.0f, 190.0f, -260.0f, 650.0f, 370.0f, 85.0f, rgb(42, 26, 53), PresentationDetailTier::Full);
+    box(road, "outskirts_hall_band", 1910.0f, 390.0f, -260.0f, 760.0f, 40.0f, 120.0f, rgb(211, 63, 120), PresentationDetailTier::Full);
+    box(road, "outskirts_hall_crown", 1910.0f, 445.0f, -260.0f, 850.0f, 30.0f, 145.0f, rgb(240, 201, 91), PresentationDetailTier::Full);
+    box(road, "outskirts_shop_fire", 1660.0f, 40.0f, 250.0f, 170.0f, 80.0f, 150.0f, rgb(179, 90, 61), PresentationDetailTier::Full);
+    box(road, "outskirts_shop_blue", 1850.0f, 42.0f, 265.0f, 190.0f, 84.0f, 165.0f, rgb(61, 120, 180), PresentationDetailTier::Full);
+    box(road, "outskirts_shop_violet", 2020.0f, 44.0f, 240.0f, 155.0f, 88.0f, 145.0f, rgb(107, 74, 167), PresentationDetailTier::Full);
     box(road, "road_prop_west", -420.0f, 26.0f, -250.0f, 100.0f, 52.0f, 70.0f, rgb(139, 119, 92), PresentationDetailTier::Full);
     box(road, "road_prop_mid", -260.0f, 22.0f, 255.0f, 82.0f, 44.0f, 64.0f, rgb(143, 121, 89), PresentationDetailTier::Full);
     box(road, "road_prop_east", 845.0f, 25.0f, -245.0f, 92.0f, 50.0f, 74.0f, rgb(128, 110, 84), PresentationDetailTier::Full);
@@ -227,18 +274,43 @@ void addTrainingRoad(WorldPresentationDefinition& road) {
     for(int i=0;i<5;++i){cone(road,"mountain_"+std::to_string(i),mountains[i].x,heights[i]/2-10,mountains[i].z,520,heights[i],300,rgb(74,102,90,.46f),PresentationDetailTier::Full);cone(road,"mountain_snow_"+std::to_string(i),mountains[i].x,heights[i]-30,mountains[i].z,150,80,90,rgb(216,224,213,.36f),PresentationDetailTier::Full);}
 
     box(road, "fallen_log", 340.0f, 30.0f, 0.0f, 38.0f, 36.0f, 310.0f, rgb(107,72,47), PresentationDetailTier::Essential, -4.0f, "fallen_tree_center");
-    box(road, "lens_thicket", 1080.0f, 35.0f, 0.0f, 75.0f, 70.0f, 250.0f, rgb(60,105,57), PresentationDetailTier::Essential, 0.0f, "lens_roadblock");
-    box(road, "lens_sign_post", 1018.0f, 68.0f, 0.0f, 18.0f, 95.0f, 18.0f, rgb(106,73,47), PresentationDetailTier::Essential, 0.0f, "lens_roadblock");
-    box(road, "lens_sign", 1018.0f, 120.0f, 0.0f, 15.0f, 55.0f, 120.0f, rgb(200,74,67), PresentationDetailTier::Essential, 0.0f, "lens_roadblock");
+    box(road, "lens_thicket", 1700.0f, 35.0f, 0.0f, 75.0f, 70.0f, 250.0f, rgb(60,105,57), PresentationDetailTier::Essential, 0.0f, "lens_roadblock");
+    box(road, "lens_sign_post", 1640.0f, 68.0f, 0.0f, 18.0f, 95.0f, 18.0f, rgb(106,73,47), PresentationDetailTier::Essential, 0.0f, "lens_roadblock");
+    box(road, "lens_sign", 1640.0f, 120.0f, 0.0f, 15.0f, 55.0f, 120.0f, rgb(200,74,67), PresentationDetailTier::Essential, 0.0f, "lens_roadblock");
+
+    // Update 6: route personality without changing collision or route counts.
+    for (int i=0;i<4;++i) {
+        box(road,"u6_main_crate_"+std::to_string(i),330.0f+i*72.0f,24.0f,465.0f+(i%2)*42.0f,
+            48.0f,48.0f,48.0f,rgb(148,101,61),PresentationDetailTier::Full);
+    }
+    for (int i=0;i<4;++i) {
+        cylinder(road,"u6_forest_bell_post_"+std::to_string(i),300.0f+i*70.0f,55.0f,-665.0f+(i%2)*36.0f,
+                 12.0f,110.0f,12.0f,rgb(86,66,48),PresentationDetailTier::Full);
+    }
+    cylinder(road,"u6_cliff_overlook_post_a",505.0f,62.0f,655.0f,14.0f,124.0f,14.0f,rgb(104,76,55),PresentationDetailTier::Full);
+    cylinder(road,"u6_cliff_overlook_post_b",565.0f,62.0f,655.0f,14.0f,124.0f,14.0f,rgb(104,76,55),PresentationDetailTier::Full);
+    box(road,"u6_cliff_overlook_banner",535.0f,108.0f,655.0f,72.0f,34.0f,6.0f,rgb(204,67,56,.90f),PresentationDetailTier::Full);
+
+    // Update 2: make the optional southern route read as an authored trail instead
+    // of empty grass around the edge of a collision blocker.
+    for (int i = 0; i < 6; ++i) {
+        const float x = 1555.0f + static_cast<float>(i) * 55.0f;
+        const float z = 500.0f + std::sin(static_cast<float>(i) * .8f) * 34.0f;
+        cylinder(road, "south_detour_dirt_" + std::to_string(i), x, 7.0f, z,
+                 130.0f, 3.0f, 86.0f, rgb(183,148,98,.82f), PresentationDetailTier::Full);
+    }
+    cylinder(road, "south_detour_post_a", 1580.0f, 46.0f, 455.0f, 12.0f, 92.0f, 12.0f, rgb(104,70,47), PresentationDetailTier::Full);
+    cylinder(road, "south_detour_post_b", 1790.0f, 46.0f, 475.0f, 12.0f, 92.0f, 12.0f, rgb(104,70,47), PresentationDetailTier::Full);
+    box(road, "south_detour_flag", 1790.0f, 78.0f, 475.0f, 10.0f, 38.0f, 60.0f, rgb(210,72,70,.86f), PresentationDetailTier::Full);
 
     road.ambientActors = {
         {"dojo_student", "ambient_student", {-900.0f, 0.0f, 300.0f, 1,1,1, -30.0f}, PresentationDetailTier::Full},
         {"traveler", "ambient_traveler", {-520.0f, 0.0f, -300.0f, 1,1,1, 25.0f}, PresentationDetailTier::Full},
         {"road_worker", "ambient_worker", {365.0f, 0.0f, 300.0f, 1,1,1, -90.0f}, PresentationDetailTier::Full},
         {"lost_competitor", "ambient_competitor", {730.0f, 0.0f, -285.0f, 1,1,1, 45.0f}, PresentationDetailTier::Full},
-        {"tournament_fan", "ambient_fan", {940.0f, 0.0f, 285.0f, 1,1,1, -45.0f}, PresentationDetailTier::Full}
-        ,{"vendor", "ambient_vendor", {1130.0f, 0.0f, 260.0f, 1,1,1, 25.0f}, PresentationDetailTier::Full}
-        ,{"sign_painter", "ambient_painter", {1225.0f, 0.0f, -300.0f, 1,1,1, -25.0f}, PresentationDetailTier::Full}
+        {"tournament_fan", "ambient_fan", {1480.0f, 0.0f, 285.0f, 1,1,1, -45.0f}, PresentationDetailTier::Full}
+        ,{"vendor", "ambient_vendor", {1750.0f, 0.0f, 260.0f, 1,1,1, 25.0f}, PresentationDetailTier::Full}
+        ,{"sign_painter", "ambient_painter", {1840.0f, 0.0f, -300.0f, 1,1,1, -25.0f}, PresentationDetailTier::Full}
     };
 }
 
@@ -261,7 +333,7 @@ WorldPresentationRegistry::WorldPresentationRegistry() {
     road.id = "training-road";
     road.displayName = "Training Grounds and Tournament Road";
     road.camera = {38.0f, 45.0f, 980.0f, 930.0f, 1160.0f, 430.0f, 44.0f, 8.0f, 4200.0f,
-                   0.0f, 0.0f, 1380.0f, 820.0f, true};
+                   280.0f, 0.0f, 2050.0f, 820.0f, true};
     road.clearColor = rgb(112, 173, 209);
     road.fogColor = rgb(185, 214, 205);
     road.fogNear = 1000.0f;

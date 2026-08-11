@@ -12,6 +12,7 @@ enum class ExplorationRuleKind {
     UseAbilityPoint,
     ChooseRoute,
     RouteChallenge,
+    TerrainDetour,
     SwapRelay,
     CliffJumpRoute,
     QteSequence,
@@ -68,6 +69,8 @@ struct ExplorationDefinition {
     std::vector<Vec2> forestBellMarkers;
     float routeHintFirstSeconds{18.0f};
     float routeHintSecondSeconds{36.0f};
+    Vec2 detourDashMarker{};
+    float detourDashRadius{90.0f};
     std::string qteId;
     std::string encounterId;
 };

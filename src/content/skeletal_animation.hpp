@@ -30,6 +30,7 @@ public:
     std::array<float, 3> skinPosition(const CharacterModelVertex& vertex) const;
 
 private:
+    void rebuildBindCache();
     void sample();
 
     const CharacterModelAsset* asset_{nullptr};
@@ -38,7 +39,16 @@ private:
     float time_{0.0f};
     float playbackSpeed_{1.0f};
     bool finished_{false};
+
+    // Update 4: animation sampling owns reusable 39-joint work buffers.
+    // `sample()` never allocates or decomposes unchanged bind transforms per frame.
+    std::vector<CharacterMatrix> bindLocalMatrices_;
+    std::vector<CharacterMatrix> localMatrices_;
+    std::vector<CharacterMatrix> worldMatrices_;
     std::vector<CharacterMatrix> skinMatrices_;
+    std::vector<std::array<float, 3>> bindTranslations_;
+    std::vector<std::array<float, 4>> bindRotations_;
+    std::vector<std::array<float, 3>> bindScales_;
 };
 
 } // namespace px

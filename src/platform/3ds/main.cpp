@@ -113,6 +113,8 @@ bool persist(px::RuntimeSession& session, px::SaveData& save, bool gameplay) {
         px::SaveData runtimeSave = session.saveSnapshot("old-3ds-xl");
         runtimeSave.frontend = save.frontend;
         save = std::move(runtimeSave);
+    } else if (gameplay) {
+        save.qol = session.qolSettings();
     }
     return writeSave(save);
 }

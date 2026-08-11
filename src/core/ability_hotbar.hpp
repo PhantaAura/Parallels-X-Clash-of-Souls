@@ -34,11 +34,11 @@ class AbilityHotbarCatalog {
 public:
     // Early Story: Shots of Agony does not exist, so there is no fake/??? slot.
     // Existing techniques compress left and display as a three-slot bar.
-    static AbilityHotbarLayout rrvvfoChapter1();
+    static const AbilityHotbarLayout& rrvvfoChapter1();
 
     // Later Story: when Shots of Agony is actually invented it is inserted at display slot 2.
     // Object Swap / Lens / Solar move to display slots 3 / 4 / 5 without changing ability ids.
-    static AbilityHotbarLayout rrvvfoWithShotsOfAgony();
+    static const AbilityHotbarLayout& rrvvfoWithShotsOfAgony();
 
     static const AbilitySlotDefinition* abilityAtDisplaySlot(const AbilityHotbarLayout& layout, int displaySlot);
     static const AbilitySlotDefinition* abilityForAction(const AbilityHotbarLayout& layout, Action action);

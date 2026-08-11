@@ -264,11 +264,14 @@ RrvvfoFaceExpression resolveRrvvfoFaceExpression(
         return RrvvfoFaceExpression::Neutral;
     }
     if (animationState == "hurt") return RrvvfoFaceExpression::Hurt;
-    if (oneOf(animationState, {"perfect_block", "counter", "lens_activate"}))
+    if (oneOf(animationState, {"perfect_block", "counter", "lens_activate", "flow_cancel"}))
         return RrvvfoFaceExpression::Confident;
-    if (oneOf(animationState, {"run", "dash", "jump_start", "fall", "land",
-                               "fighting_stance", "block", "object_swap"}))
+    if (oneOf(animationState, {"run_start", "run", "run_stop", "dash", "jump_start", "fall", "land",
+                               "combat_land", "fighting_stance", "combat_advance", "combat_retreat",
+                               "block", "object_swap"}))
         return RrvvfoFaceExpression::Focused;
+    if (oneOf(animationState, {"hard_land", "combat_hard_land"}))
+        return RrvvfoFaceExpression::Grit;
     if (animationState == "charge") return clipSeconds > .16f
         ? RrvvfoFaceExpression::Grit : RrvvfoFaceExpression::Focused;
     if (oneOf(animationState, {"heavy", "launcher", "air_heavy", "pursuit_heavy",

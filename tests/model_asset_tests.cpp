@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     assert(model.indices().size() % 3 == 0);
     assert(model.indices().size() / 3 > 3000 && model.indices().size() / 3 < 3400);
     assert(model.submeshes().size() == 7);
-    assert(model.animations().size() == 26);
+    assert(model.animations().size() == 36);
     const auto* idle = model.findAnimation("idle");
     assert(idle);
     assert(idle->looping);
@@ -37,12 +37,14 @@ int main(int argc, char** argv) {
             assert(track.rotations[key].time == expectedIdleTimes[key]);
     }
     assert(model.findAnimation("run"));
+    assert(model.findAnimation("combat_retreat"));
     assert(model.findAnimation("dash"));
     assert(model.findAnimation("charge"));
     assert(model.findAnimation("counter"));
     assert(model.findAnimation("breaker"));
     assert(model.findAnimation("object_swap"));
     assert(model.findAnimation("lens_activate"));
+    assert(model.findAnimation("flow_cancel"));
     assert(model.joints().front().name == "spine");
     assert(model.joints().front().parentIndex == -1);
     assert(model.height() > 2.0f && model.height() < 2.3f);
@@ -118,11 +120,13 @@ int main(int argc, char** argv) {
     assert(px::resolveRrvvfoFaceExpression("heavy", .20f, 0.0f) == px::RrvvfoFaceExpression::Shout);
     assert(px::resolveRrvvfoFaceExpression("heavy", .55f, 0.0f) == px::RrvvfoFaceExpression::Grit);
     assert(px::resolveRrvvfoFaceExpression("hurt", 0.0f, 0.0f) == px::RrvvfoFaceExpression::Hurt);
+    assert(px::resolveRrvvfoFaceExpression("flow_cancel", .06f, 0.0f) == px::RrvvfoFaceExpression::Confident);
+    assert(px::resolveRrvvfoFaceExpression("combat_hard_land", .10f, 0.0f) == px::RrvvfoFaceExpression::Grit);
     assert(px::resolveRrvvfoFaceExpression("idle", 0.0f, 0.0f, "annoyed", true) ==
            px::RrvvfoFaceExpression::Focused);
     assert(px::resolveRrvvfoFaceExpression("idle", 0.0f, 0.0f, "realizing", true) ==
            px::RrvvfoFaceExpression::Confident);
 
-    std::cout << "PASS: unchanged Rrvvfo model/39-joint skin, lightweight cel face, and 26 Chapter-1 clips loaded\n";
+    std::cout << "PASS: unchanged Rrvvfo model/39-joint skin, lightweight cel face, and 36 Chapter-1 clips loaded\n";
     return 0;
 }

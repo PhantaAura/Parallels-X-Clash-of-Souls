@@ -28,6 +28,29 @@ constexpr u32 kGreen = 0xFF65C96A;
 
 u32 alpha(u32 color, u8 value) { return (color & 0x00FFFFFFu) | (static_cast<u32>(value) << 24); }
 
+std::string manualPrompt3ds(const CombatManualEntry& entry) {
+    const auto& id = entry.diagramId;
+    if (id == "manual_move") return "CIRCLE PAD";
+    if (id == "manual_jump") return "B";
+    if (id == "manual_dash") return "D-PAD UP";
+    if (id == "manual_light" || id == "manual_pursuit_light") return "Y";
+    if (id == "manual_heavy" || id == "manual_pursuit_heavy") return "X";
+    if (id == "manual_launcher") return "Y + X";
+    if (id == "manual_guard" || id == "manual_perfect_block") return "R";
+    if (id == "manual_grab") return "A";
+    if (id == "manual_pursuit") return "Y+X -> D-PAD UP";
+    if (id == "manual_buffering") return "Y / X DURING CHASE";
+    if (id == "manual_pursuit_tech") return "D-PAD UP + 15 ENERGY";
+    if (id == "manual_charge") return "HOLD D-PAD DOWN";
+    if (id == "manual_counter") return "D-PAD LEFT";
+    if (id == "manual_breaker") return "D-PAD RIGHT";
+    if (id == "manual_fire_blast") return "L + Y";
+    if (id == "manual_object_swap") return "L + X";
+    if (id == "manual_lens") return "L + B";
+    if (id == "manual_3ds") return "PHYSICAL BUTTONS";
+    return entry.controllerPrompt;
+}
+
 void roundedRect(float x, float y, float width, float height, float radius,
                  float depth, u32 color) {
     if (width <= 0.0f || height <= 0.0f) return;
@@ -396,7 +419,7 @@ void LegacyUi3ds::drawTopGameplay(const RuntimeView& view) {
             const float y = 111.0f + static_cast<float>(index / 2) * 39.0f;
             hardPanel(x, y, 177, 34, kWhite, kInk, kYellow, false);
             fitted(view.trainingManualPage.entries[index].label, x + 10, y + 5, 157, .38f, .36f, kInk);
-            fitted(view.trainingManualPage.entries[index].controllerPrompt, x + 10, y + 19,
+            fitted(manualPrompt3ds(view.trainingManualPage.entries[index]), x + 10, y + 19,
                    157, .36f, .36f, kRed);
         }
         return;
@@ -475,13 +498,21 @@ void LegacyUi3ds::pause(const RuntimeView& view) {
         y += 15;
     }
     const std::size_t optionCount = std::min<std::size_t>(view.pauseOptions.size(), 4);
+    const std::size_t startIndex = view.pauseOptions.size() <= 4 ? 0 :
+        std::min<std::size_t>(view.pauseSelection > 1 ? view.pauseSelection - 1 : 0, view.pauseOptions.size() - 4);
     const float firstY = optionCount <= 3 ? 108.0f : 101.0f;
     const float buttonHeight = optionCount <= 3 ? 31.0f : 27.0f;
     const float buttonStep = optionCount <= 3 ? 34.0f : 29.0f;
-    for (std::size_t index = 0; index < optionCount; ++index) {
-        remakeButton(20, firstY + static_cast<float>(index) * buttonStep, 280, buttonHeight,
+    for (std::size_t row = 0; row < optionCount; ++row) {
+        const std::size_t index = startIndex + row;
+        remakeButton(20, firstY + static_cast<float>(row) * buttonStep, 280, buttonHeight,
                      clipped(view.pauseOptions[index], 32), index == view.pauseSelection ? "A" : "",
                      index == view.pauseSelection, true);
+    }
+    if (view.pauseOptions.size() > 4) {
+        char page[48]; std::snprintf(page,sizeof(page),"%lu / %lu  •  SCROLL",
+            static_cast<unsigned long>(view.pauseSelection + 1), static_cast<unsigned long>(view.pauseOptions.size()));
+        fitted(page, 210, 85, 84, .22f, .18f, kBlue);
     }
     if (!view.saveStatus.empty()) fitted(view.saveStatus, 24, 211, 272, .20f, .17f, kBlue);
 }
@@ -565,11 +596,9 @@ void LegacyUi3ds::utility(const RuntimeView& view) {
             const bool ready = slot.state == AbilityState::Ready;
             remakePanel(x, 87, width, 78, ready ? kPaper : alpha(kMuted, 250),
                         ready ? kYellow : kMuted, ready);
-            char number[8];
-            std::snprintf(number, sizeof(number), "%d", slot.displaySlot);
-            C2D_DrawCircleSolid(x + width * .5f, 105, .90f, 11,
-                                ready ? kYellow : alpha(kMuted, 255));
-            centered(number, x + width * .5f - 11, 98, 22, .34f, kInk);
+            const char* combo = slot.id == "fireBlast" ? "L+Y" : slot.id == "objectSwap" ? "L+X" : slot.id == "lensOfTruth" ? "L+B" : "L+?";
+            roundedRect(x + width * .5f - 22, 94, 44, 22, 8, .90f, ready ? kYellow : alpha(kMuted,255));
+            centered(combo, x + width * .5f - 22, 99, 44, .31f, kInk);
             fitted(slot.label, x + 7, 122, width - 14, .24f, .18f, kInk);
             centered(ready ? "READY" : "LOCK", x + 5, 146, width - 10, .19f,
                      ready ? kBlue : 0xFF77716B);

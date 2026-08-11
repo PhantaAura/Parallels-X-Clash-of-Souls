@@ -10,7 +10,7 @@ MapRegistry::MapRegistry() {
     MapDefinition training;
     training.id = "training_region";
     training.name = "Sage Training Field / Tournament Road";
-    training.bounds = {-1550.0f, 1450.0f, -720.0f, 720.0f};
+    training.bounds = {-1550.0f, 2100.0f, -720.0f, 720.0f};
     training.playerStart = {-1260.0f, 180.0f};
     training.zones = {
         {"sage_field", "Sage's Training Field", {-1260.0f, 0.0f}, "opening training and personality"},
@@ -22,8 +22,9 @@ MapRegistry::MapRegistry() {
         {"cliff", "Cliff Route", {405.0f, 350.0f}, "jumping, risk and optional reward"},
         {"swap_relay", "Swap Relay", {600.0f, 0.0f}, "routes reconnect and precision Object Swap"},
         {"riverside", "Riverside Road", {820.0f, 0.0f}, "transport, cart and roadside encounter"},
-        {"lens_roadblock", "Outskirts Roadblock", {1080.0f, 0.0f}, "mandatory Lens route reveal"},
-        {"tournament_outskirts", "Tournament Outskirts", {1320.0f, 0.0f}, "Chapter 1 arrival boundary"}
+        {"collapse_detour", "Collapsed Tournament Road", {1110.0f, -430.0f}, "forced high trail and movement mastery"},
+        {"lens_roadblock", "Outskirts Roadblock", {1700.0f, 0.0f}, "Lens route reveal or southern detour"},
+        {"tournament_outskirts", "Tournament Outskirts", {1940.0f, 0.0f}, "Chapter 1 arrival boundary"}
     };
     training.links = {
         {"sage_field", "road_junction", "main"},
@@ -36,7 +37,8 @@ MapRegistry::MapRegistry() {
         {"forest", "swap_relay", "forest"},
         {"cliff", "swap_relay", "cliff"},
         {"swap_relay", "riverside", "main"},
-        {"riverside", "lens_roadblock", "main"},
+        {"riverside", "collapse_detour", "main"},
+        {"collapse_detour", "lens_roadblock", "main"},
         {"lens_roadblock", "tournament_outskirts", "main"}
     };
     training.blockers = {
@@ -48,9 +50,15 @@ MapRegistry::MapRegistry() {
         {"swap_gate", {555.0f, 645.0f, -175.0f, 175.0f}, true},
         {"swap_gate_forest", {555.0f, 645.0f, -720.0f, -175.0f}, true},
         {"swap_gate_cliff", {555.0f, 645.0f, 175.0f, 720.0f}, true},
-        {"lens_roadblock", {1045.0f, 1120.0f, -175.0f, 175.0f}, true},
-        {"lens_roadblock_north", {1045.0f, 1120.0f, -720.0f, -175.0f}, true},
-        {"lens_roadblock_south", {1045.0f, 1120.0f, 175.0f, 430.0f}, true}
+        {"terrain_collapse", {970.0f, 1210.0f, -220.0f, 720.0f}, true},
+        {"detour_jump_gate_1", {885.0f, 920.0f, -720.0f, -250.0f}, true},
+        {"detour_jump_gate_2", {950.0f, 990.0f, -720.0f, -365.0f}, true},
+        {"detour_jump_gate_3", {1025.0f, 1065.0f, -720.0f, -455.0f}, true},
+        {"detour_dash_gate", {1095.0f, 1145.0f, -720.0f, -430.0f}, true},
+        {"detour_swap_gate", {1180.0f, 1245.0f, -720.0f, -240.0f}, true},
+        {"lens_roadblock", {1660.0f, 1740.0f, -175.0f, 175.0f}, true},
+        {"lens_roadblock_north", {1660.0f, 1740.0f, -720.0f, -175.0f}, true},
+        {"lens_roadblock_south", {1660.0f, 1740.0f, 175.0f, 430.0f}, true}
     };
     training.landmarks = {
         {"sage_sanctuary", "Sage Sanctuary", {-1340.0f, -300.0f}},
@@ -65,13 +73,15 @@ MapRegistry::MapRegistry() {
         {"relay_low", "Swap Relay • Low Marker", {468.0f, -96.0f}},
         {"relay_high", "Swap Relay • High Marker", {522.0f, 96.0f}},
         {"relay_center", "Swap Relay • Center Lock", {570.0f, 0.0f}},
+        {"terrain_collapse", "Collapsed Tournament Road", {1080.0f, 0.0f}},
+        {"high_detour", "High North Detour", {1100.0f, -500.0f}},
         {"road_worker", "Road Worker", {365.0f, 300.0f}},
         {"dojo_student", "Dojo Student", {-900.0f, 300.0f}},
         {"traveler", "Traveler", {-520.0f, -300.0f}},
         {"lost_competitor", "Lost Competitor", {730.0f, -285.0f}},
-        {"tournament_fan", "Tournament Fan", {940.0f, 285.0f}},
-        {"vendor", "Road Vendor", {1130.0f, 260.0f}},
-        {"sign_painter", "Sign Painter", {1225.0f, -300.0f}}
+        {"tournament_fan", "Tournament Fan", {1480.0f, 285.0f}},
+        {"vendor", "Road Vendor", {1750.0f, 260.0f}},
+        {"sign_painter", "Sign Painter", {1840.0f, -300.0f}}
     };
     maps_.emplace(training.id, training);
 

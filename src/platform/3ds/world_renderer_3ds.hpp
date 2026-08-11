@@ -116,8 +116,9 @@ private:
                               bool focused);
     void submitVertices();
 
-    static std::string cacheKey(const WorldPresentationDefinition& stage,
-                                const std::vector<std::string>& disabledBlockers);
+    bool staticWorldMatches(const WorldPresentationDefinition& stage,
+                            const std::vector<std::string>& disabledBlockers) const;
+    void uploadStaticWorldIfNeeded();
 
     bool ready_{false};
     DVLB_s* shaderBinary_{nullptr};
@@ -130,7 +131,10 @@ private:
     std::vector<Vertex> staticWorld_;
     std::vector<Vertex> frameVertices_;
     std::vector<Point3> skinnedPositions_;
-    std::string staticWorldKey_;
+    std::string staticWorldStageId_;
+    std::vector<std::string> staticWorldDisabledBlockers_;
+    bool staticGpuDirty_{true};
+    std::size_t activeVertexLimit_{0};
     std::size_t submittedVertexCount_{0};
 };
 

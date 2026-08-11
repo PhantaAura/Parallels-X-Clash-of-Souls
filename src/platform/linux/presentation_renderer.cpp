@@ -983,6 +983,32 @@ void PresentationRenderer::drawWorld(const RuntimeView& view) {
         else if (marker.kind == "lens-fx")
             actorCanvas.cylinder({marker.position.x, 92.0f, marker.position.z, 48.0f, 5.0f, 48.0f, 0.0f},
                                  {1.0f, .74f, .18f, .65f}, 18);
+        else if (marker.kind == "pursuit-lock") {
+            actorCanvas.cylinder({marker.position.x, 10.0f, marker.position.z,
+                                  marker.complete ? 90.0f : 70.0f, 5.0f,
+                                  marker.complete ? 90.0f : 70.0f, 0.0f},
+                                 {1.0f, .67f, .12f, .72f}, 18);
+            actorCanvas.box({marker.position.x, 94.0f, marker.position.z, 10.0f, 58.0f, 10.0f, 0.0f},
+                            {1.0f, .80f, .28f, .82f});
+        }
+        else if (marker.kind == "flow-cancel-fx")
+            actorCanvas.cylinder({marker.position.x, 6.0f, marker.position.z, 96.0f, 6.0f, 96.0f, 0.0f},
+                                 {.42f, .94f, 1.0f, .72f}, 18);
+        else if (marker.kind == "dash-dust")
+            actorCanvas.cylinder({marker.position.x, 4.0f, marker.position.z, 54.0f, 4.0f, 36.0f, 0.0f},
+                                 {.74f, .69f, .59f, .48f}, 10);
+        else if (marker.kind == "landing-dust")
+            actorCanvas.cylinder({marker.position.x, 4.0f, marker.position.z, 76.0f, 4.0f, 76.0f, 0.0f},
+                                 {.74f, .69f, .59f, .52f}, 12);
+        else if (marker.kind == "return-anchor")
+            actorCanvas.cylinder({marker.position.x, 34.0f, marker.position.z, 44.0f, 68.0f, 44.0f, 0.0f},
+                                 {.45f, .91f, 1.0f, .82f}, 14);
+        else if (marker.kind == "work-lane")
+            actorCanvas.box({marker.position.x, 12.0f, marker.position.z, 54.0f, 18.0f, 54.0f, 0.0f},
+                            marker.complete ? PresentationColor{.35f,.52f,.34f,.72f} : PresentationColor{.92f,.60f,.18f,.88f});
+        else if (marker.kind == "blue-bell")
+            actorCanvas.cylinder({marker.position.x, 48.0f, marker.position.z, 26.0f, 70.0f, 26.0f, 0.0f},
+                                 marker.complete ? PresentationColor{.28f,.46f,.52f,.55f} : PresentationColor{.20f,.62f,1.0f,.92f}, 12);
         else if (marker.kind == "bird")
             actorCanvas.box({marker.position.x, 145.0f, marker.position.z, 22.0f, 5.0f, 10.0f, 12.0f},
                             {.91f, .94f, 1.0f, .82f});

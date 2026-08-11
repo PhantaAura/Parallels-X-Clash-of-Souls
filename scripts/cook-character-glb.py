@@ -194,7 +194,7 @@ def main() -> None:
     animations = []
     if arguments.animations:
         authored = json.loads(arguments.animations.read_text(encoding="utf-8"))
-        if authored.get("version") != 1 or not isinstance(authored.get("clips"), list):
+        if authored.get("version") not in (1, 2) or not isinstance(authored.get("clips"), list):
             raise ValueError("Animation source must use version 1 and contain a clips list")
         named_joints = {joint["name"]: index for index, joint in enumerate(joints)}
         used_names: set[str] = set()

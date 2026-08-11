@@ -6,7 +6,6 @@
 #include <array>
 #include <cmath>
 #include <cstring>
-#include <sstream>
 
 namespace px::platform3ds {
 namespace {
@@ -71,6 +70,8 @@ bool WorldRenderer3ds::init(std::string* error) {
     staticWorld_.reserve(28000);
     frameVertices_.reserve(kMaximumFrameVertices);
     skinnedPositions_.reserve(3000);
+    activeVertexLimit_ = kMaximumFrameVertices;
+    staticGpuDirty_ = true;
     ready_ = true;
     return true;
 }
@@ -88,17 +89,29 @@ void WorldRenderer3ds::shutdown() {
     staticWorld_.clear();
     frameVertices_.clear();
     skinnedPositions_.clear();
-    staticWorldKey_.clear();
+    staticWorldStageId_.clear();
+    staticWorldDisabledBlockers_.clear();
+    staticGpuDirty_ = true;
+    activeVertexLimit_ = kMaximumFrameVertices;
     submittedVertexCount_ = 0;
     ready_ = false;
 }
 
-std::string WorldRenderer3ds::cacheKey(const WorldPresentationDefinition& stage,
-                                       const std::vector<std::string>& disabledBlockers) {
-    std::ostringstream key;
-    key << stage.id;
-    for (const auto& blocker : disabledBlockers) key << '|' << blocker;
-    return key.str();
+bool WorldRenderer3ds::staticWorldMatches(
+    const WorldPresentationDefinition& stage,
+    const std::vector<std::string>& disabledBlockers) const {
+    return staticWorldStageId_ == stage.id && staticWorldDisabledBlockers_ == disabledBlockers;
+}
+
+void WorldRenderer3ds::uploadStaticWorldIfNeeded() {
+    if (!staticGpuDirty_) return;
+    const std::size_t count = std::min(staticWorld_.size(), kMaximumFrameVertices);
+    if (count > 0) {
+        const std::size_t bytes = count * sizeof(Vertex);
+        std::memcpy(gpuVertices_, staticWorld_.data(), bytes);
+        GSPGPU_FlushDataCache(gpuVertices_, bytes);
+    }
+    staticGpuDirty_ = false;
 }
 
 bool WorldRenderer3ds::blockerDisabled(const std::vector<std::string>& disabledBlockers,
@@ -108,9 +121,9 @@ bool WorldRenderer3ds::blockerDisabled(const std::vector<std::string>& disabledB
 
 void WorldRenderer3ds::rebuildStaticWorld(const WorldPresentationDefinition& stage,
                                           const std::vector<std::string>& disabledBlockers) {
-    const auto key = cacheKey(stage, disabledBlockers);
-    if (key == staticWorldKey_) return;
+    if (staticWorldMatches(stage, disabledBlockers)) return;
 
+    activeVertexLimit_ = kMaximumFrameVertices;
     staticWorld_.clear();
     // Gameplay-bearing geography is submitted first and can never be crowded
     // out by decoration.
@@ -131,7 +144,9 @@ void WorldRenderer3ds::rebuildStaticWorld(const WorldPresentationDefinition& sta
     }
     if (staticWorld_.size() > kMaximumStaticWorldVertices)
         staticWorld_.resize(kMaximumStaticWorldVertices - kMaximumStaticWorldVertices % 3);
-    staticWorldKey_ = key;
+    staticWorldStageId_ = stage.id;
+    staticWorldDisabledBlockers_ = disabledBlockers;
+    staticGpuDirty_ = true;
 }
 
 WorldRenderer3ds::Point3 WorldRenderer3ds::transformPoint(Point3 local,
@@ -150,7 +165,7 @@ WorldRenderer3ds::Point3 WorldRenderer3ds::transformPoint(Point3 local,
 void WorldRenderer3ds::appendTriangle(std::vector<Vertex>& destination,
                                       Point3 a, Point3 b, Point3 c,
                                       PresentationColor color) {
-    if (destination.size() + 3 > kMaximumFrameVertices) return;
+    if (destination.size() + 3 > activeVertexLimit_) return;
     const Point3 ab{b.x-a.x,b.y-a.y,b.z-a.z};
     const Point3 ac{c.x-a.x,c.y-a.y,c.z-a.z};
     Point3 normal{ab.y*ac.z-ab.z*ac.y,ab.z*ac.x-ab.x*ac.z,ab.x*ac.y-ab.y*ac.x};
@@ -356,9 +371,19 @@ void WorldRenderer3ds::appendRuntimeMarkers(const RuntimeView& view) {
         else if(marker.kind=="fire-blast")appendCylinder(frameVertices_,{marker.position.x,72,marker.position.z,22,52,22,0},{1,.28f,.08f,.9f},8);
         else if(marker.kind=="object-swap-fx")appendCylinder(frameVertices_,{marker.position.x,5,marker.position.z,82,8,82,0},{.50f,.94f,1,.52f},10);
         else if(marker.kind=="lens-fx")appendCylinder(frameVertices_,{marker.position.x,92,marker.position.z,48,5,48,0},{1,.74f,.18f,.65f},10);
+        else if(marker.kind=="pursuit-lock"){
+            appendCylinder(frameVertices_,{marker.position.x,10,marker.position.z,marker.complete?88.0f:68.0f,5,marker.complete?88.0f:68.0f,0},{1,.67f,.12f,.72f},12);
+            appendBox(frameVertices_,{marker.position.x,94,marker.position.z,10,56,10,0},{1,.80f,.28f,.82f});
+        }
+        else if(marker.kind=="flow-cancel-fx")appendCylinder(frameVertices_,{marker.position.x,6,marker.position.z,96,6,96,0},{.42f,.94f,1,.72f},12);
+        else if(marker.kind=="dash-dust")appendCylinder(frameVertices_,{marker.position.x,4,marker.position.z,54,4,36,0},{.74f,.69f,.59f,.48f},8);
+        else if(marker.kind=="landing-dust")appendCylinder(frameVertices_,{marker.position.x,4,marker.position.z,76,4,76,0},{.74f,.69f,.59f,.52f},10);
         else if(marker.kind=="cliff-jump")appendBox(frameVertices_,{marker.position.x,18,marker.position.z,54,18,58,10},marker.complete?PresentationColor{.35f,.50f,.34f,1}:PresentationColor{.55f,.41f,.26f,1});
         else if(marker.kind=="swap-relay")appendCylinder(frameVertices_,{marker.position.x,42,marker.position.z,marker.complete?22.0f:34.0f,84,marker.complete?22.0f:34.0f,0},marker.complete?PresentationColor{.36f,.48f,.48f,.45f}:PresentationColor{.45f,.91f,1,.78f},8);
         else if(marker.kind=="transport-wheel")appendCylinder(frameVertices_,{marker.position.x,38,marker.position.z,72,24,72,90},{.24f,.20f,.16f,1},10);
+        else if(marker.kind=="return-anchor")appendCylinder(frameVertices_,{marker.position.x,34,marker.position.z,44,68,44,0},{.45f,.91f,1,.82f},10);
+        else if(marker.kind=="work-lane")appendBox(frameVertices_,{marker.position.x,12,marker.position.z,54,18,54,0},marker.complete?PresentationColor{.35f,.52f,.34f,.72f}:PresentationColor{.92f,.60f,.18f,.88f});
+        else if(marker.kind=="blue-bell")appendCylinder(frameVertices_,{marker.position.x,48,marker.position.z,26,70,26,0},marker.complete?PresentationColor{.28f,.46f,.52f,.55f}:PresentationColor{.20f,.62f,1,.92f},10);
         else if(marker.kind=="bird")appendBox(frameVertices_,{marker.position.x,145,marker.position.z,24,5,11,12},{.91f,.94f,1,.82f});
         else if(marker.kind=="delivery-cart"||marker.kind=="parked-cart"){
             const float scale=marker.kind=="parked-cart"?1.35f:1.0f;
@@ -411,11 +436,13 @@ void WorldRenderer3ds::configureCamera(const WorldPresentationDefinition& stage,
                                   stage.camera.focusCenterZ+stage.camera.focusClampZ);
     const float yaw=stage.camera.yawDegrees*kPi/180.0f;
     const C3D_FVec target=FVec4_New(focusX,stage.camera.targetHeight,focusZ,1.0f);
-    const C3D_FVec eye=FVec4_New(focusX+std::sin(yaw)*stage.camera.baseDistance,
+    const float handheldDistance = stage.camera.baseDistance * (view.opponentVisible ? 0.92f : 0.80f);
+    const float handheldFov = std::max(30.0f, stage.camera.fovDegrees - (view.opponentVisible ? 1.0f : 4.0f));
+    const C3D_FVec eye=FVec4_New(focusX+std::sin(yaw)*handheldDistance,
                                  stage.camera.height,
-                                 focusZ+std::cos(yaw)*stage.camera.baseDistance,1.0f);
+                                 focusZ+std::cos(yaw)*handheldDistance,1.0f);
     const C3D_FVec up=FVec4_New(0,1,0,0);
-    Mtx_PerspTilt(&projection_,C3D_AngleFromDegrees(stage.camera.fovDegrees),C3D_AspectRatioTop,
+    Mtx_PerspTilt(&projection_,C3D_AngleFromDegrees(handheldFov),C3D_AspectRatioTop,
                   stage.camera.nearPlane,stage.camera.farPlane,false);
     Mtx_LookAt(&view_,eye,target,up,false);
 }
@@ -429,16 +456,24 @@ void WorldRenderer3ds::render(const WorldPresentationDefinition& stage,
                               RrvvfoFaceExpression faceExpression) {
     if(!ready_)return;
     rebuildStaticWorld(stage,disabledBlockers);
-    frameVertices_=staticWorld_;
+
+    uploadStaticWorldIfNeeded();
+    frameVertices_.clear();
+    const std::size_t staticCount=std::min(staticWorld_.size(),kMaximumFrameVertices);
+    activeVertexLimit_=kMaximumFrameVertices-staticCount;
     appendRuntimeActors(stage,view,characters);
     appendRuntimeMarkers(view);
     appendPlayer(view,characters.get("rrvvfo"),playerModel,playerAnimation,faceExpression);
     appendOpponent(view,characters);
-    submittedVertexCount_=std::min(frameVertices_.size(),kMaximumFrameVertices);
-    if(submittedVertexCount_==0)return;
 
-    std::memcpy(gpuVertices_,frameVertices_.data(),submittedVertexCount_*sizeof(Vertex));
-    GSPGPU_FlushDataCache(gpuVertices_,submittedVertexCount_*sizeof(Vertex));
+    const std::size_t dynamicCount=std::min(frameVertices_.size(),activeVertexLimit_);
+    submittedVertexCount_=staticCount+dynamicCount;
+    if(submittedVertexCount_==0)return;
+    if(dynamicCount>0){
+        const std::size_t bytes=dynamicCount*sizeof(Vertex);
+        std::memcpy(gpuVertices_+staticCount,frameVertices_.data(),bytes);
+        GSPGPU_FlushDataCache(gpuVertices_+staticCount,bytes);
+    }
     configureCamera(stage,view);
 
     submitVertices();
@@ -452,6 +487,7 @@ void WorldRenderer3ds::renderPlayerPreview(C3D_RenderTarget* target,
                                             CharacterPreview3ds kind) {
     if(!ready_||!target||!playerModel.valid())return;
     frameVertices_.clear();
+    activeVertexLimit_=kMaximumFrameVertices;
     const bool bust=kind==CharacterPreview3ds::DialogueBust;
     // Keep the full head and face inside the route-select character bay.  The
     // previous framing centered the torso under an opaque header, which made
@@ -463,6 +499,7 @@ void WorldRenderer3ds::renderPlayerPreview(C3D_RenderTarget* target,
     if(submittedVertexCount_==0)return;
     std::memcpy(gpuVertices_,frameVertices_.data(),submittedVertexCount_*sizeof(Vertex));
     GSPGPU_FlushDataCache(gpuVertices_,submittedVertexCount_*sizeof(Vertex));
+    staticGpuDirty_=true;
 
     const float focusHeight=bust?131.0f:110.0f;
     const float distance=bust?185.0f:520.0f;

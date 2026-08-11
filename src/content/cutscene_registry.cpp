@@ -53,13 +53,13 @@ CutsceneRegistry::CutsceneRegistry() {
     cutscenes_.emplace("tournament_checkpoint_dialogue", CutsceneDefinition{
         "tournament_checkpoint_dialogue", CutsceneTier::FieldDialogue,
         {{"checkpoint", "TOURNAMENT CHECKPOINT", "Stop Rrvvfo at the authored road checkpoint.", "road_two_shot", "checkpoint_idle"}},
-        {{"rrvvfo", {915.0f, 0.0f}, 90.0f, true}, {"checkpoint_worker", {970.0f, 0.0f}, -90.0f, true}}
+        {{"rrvvfo", {1420.0f, 0.0f}, 90.0f, true}, {"checkpoint_worker", {1475.0f, 0.0f}, -90.0f, true}}
     });
 
     cutscenes_.emplace("lens_manual_reaction", CutsceneDefinition{
         "lens_manual_reaction", CutsceneTier::FieldDialogue,
         {{"lens_page", "RRVVFO", "React to Sage hiding the Lens explanation.", "rrvvfo_medium", "annoyed_reply"}},
-        {{"rrvvfo", {995.0f, 0.0f}, 90.0f, true}}
+        {{"rrvvfo", {1650.0f, 0.0f}, 90.0f, true}}
     });
 
     cutscenes_.emplace("tournament_outskirts_arrival", CutsceneDefinition{
@@ -68,8 +68,8 @@ CutsceneRegistry::CutsceneRegistry() {
             {"fan_recognizes", "TOURNAMENT FAN", "Recognize Rrvvfo from the transport rescue.", "outskirts_three_shot", "excited"},
             {"knockoff", "RRVVFO", "Preserve the tournament-company joke at the Chapter 1 boundary.", "rrvvfo_medium", "dry_reply"}
         },
-        {{"rrvvfo", {1280.0f, -10.0f}, 90.0f, true}, {"tournament_fan", {1320.0f, 70.0f}, -110.0f, true},
-         {"sign_painter", {1335.0f, -100.0f}, -70.0f, true}}
+        {{"rrvvfo", {1960.0f, -10.0f}, 90.0f, true}, {"tournament_fan", {2000.0f, 70.0f}, -110.0f, true},
+         {"sign_painter", {1900.0f, -100.0f}, -70.0f, true}}
     });
 }
 
