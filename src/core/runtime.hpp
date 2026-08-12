@@ -1,5 +1,6 @@
 #pragma once
 #include "content/adventure_registry.hpp"
+#include "content/arena_encounter_registry.hpp"
 #include "content/chapter_registry.hpp"
 #include "content/combat_manual_registry.hpp"
 #include "content/cutscene_registry.hpp"
@@ -141,7 +142,39 @@ struct RuntimeView {
     bool playerBlocking{false};
     bool playerCharging{false};
     bool playerAirborne{false};
+    std::string tournamentWorldState;
     bool playerFalling{false};
+
+// U7 shared cinematic state. Renderers consume these values directly;
+// story content never reaches into a platform camera implementation.
+bool cinematicCameraActive{false};
+Vec2 cinematicCameraFocus{};
+float cinematicCameraYawDegrees{38.0f};
+float cinematicCameraDistance{900.0f};
+float cinematicCameraHeight{410.0f};
+float cinematicCameraFovDegrees{43.0f};
+std::string cinematicExpression;
+std::string cinematicWorldEvent;
+
+// U7B ability presentation. Gold is Object Swap, purple is Lens.
+float objectSwapCooldownSeconds{0.0f};
+bool objectSwapTargetLocked{false};
+Vec2 objectSwapTargetPosition{};
+float objectSwapPhaseSeconds{0.0f};
+Vec2 objectSwapGhostFrom{};
+Vec2 objectSwapGhostTo{};
+float lensBlindnessAmount{0.0f};
+std::size_t storySequenceProgress{0};
+std::size_t storySequenceCount{0};
+float storySequenceSeconds{0.0f};
+TournamentCardState tournamentCard{"rrvvfo"};
+bool tournamentCardVisible{false};
+int tournamentBonusRoll{0};
+int playerStocksLost{0};
+int opponentStocksLost{0};
+int stockTarget{0};
+int recommendedLevel{0};
+bool officialTournamentMatch{false};
 };
 
 // One platform-independent gameplay session. macOS, Windows/Linux and 3DS shells
@@ -184,7 +217,15 @@ private:
     void syncView();
     void advanceDialogue();
     void tickCutscene(InputState& input, float dt);
+void applyCutsceneActions(float dt);
+bool cutsceneBeatReadyToAdvance() const;
+Vec2 cutsceneActorPosition(const std::string& actorId) const;
     void tickArena(InputState& input, float dt);
+void startStoryArena();
+void tickStoryArena(InputState& input, float dt);
+void resetStoryArenaStock();
+void finishStoryArena(bool playerWon);
+void resolveArenaRewardAndAdvance();
     void tickExploration(InputState& input, float dt);
     void tickTransientDialogue(InputState& input, float dt);
     void tickPause(InputState& input);
@@ -202,6 +243,9 @@ private:
     void resolveRoadsideEncounter(bool wonFight);
     void tickAdventureNpcs(InputState& input, float dt, const ExplorationDefinition& definition);
     bool tickAdventureSidePuzzle(const AbilitySlotDefinition* ability);
+void refreshFreeSwapObjects();
+bool tryFreeObjectSwap();
+void scheduleLensBlindness(float delaySeconds);
     const AdventureDefinition* currentAdventure() const;
     Vec2 adventureNpcPosition(const AdventureNpcDefinition& npc) const;
     void completeScene();
@@ -250,6 +294,18 @@ private:
     const TrainingRegistry& training_;
     const AdventureRegistry& adventures_;
     CombatManualRegistry manual_;
+ArenaEncounterRegistry arenaEncounters_{};
+bool storyArenaActive_{false};
+int storyPlayerStocksLost_{0};
+int storyOpponentStocksLost_{0};
+float storyArenaAiTimer_{0.0f};
+unsigned storyArenaAiDecisionIndex_{0};
+bool storyArenaRewardPending_{false};
+bool pendingArenaSceneComplete_{false};
+bool ploukeHighPerformance_{false};
+TournamentCardState tournamentCard_{"rrvvfo"};
+int tournamentBonusRoll_{0};
+float tournamentCardRevealTime_{0.0f};
     Game game_;
     Vec2 playerPosition_{};
     Vec2 opponentPosition_{};
@@ -293,6 +349,9 @@ private:
     std::size_t routeProgress_{0};
     float routeChallengeTime_{0.0f};
     float routeChoiceIntroTime_{0.0f};
+std::size_t sceneSequenceProgress_{0};
+float sceneSequenceSeconds_{0.0f};
+bool sceneSequenceStarted_{false};
     bool mainRouteFireCleared_{false};
     bool lensRouteChosen_{false};
     bool southernDetourChosen_{false};
@@ -326,6 +385,16 @@ private:
     float playerYawDegrees_{0.0f};
     float opponentYawDegrees_{180.0f};
     bool cutsceneOpponentVisible_{false};
+float cutsceneBeatTime_{0.0f};
+std::size_t cutsceneBeatIndex_{static_cast<std::size_t>(-1)};
+bool cinematicCameraActive_{false};
+Vec2 cinematicCameraFocus_{};
+float cinematicCameraYawDegrees_{38.0f};
+float cinematicCameraDistance_{900.0f};
+float cinematicCameraHeight_{410.0f};
+float cinematicCameraFovDegrees_{43.0f};
+std::string cinematicExpression_;
+std::string cinematicWorldEvent_;
     std::string transientDialogueId_;
     std::size_t transientDialogueIndex_{0};
     int transientDialogueContinuation_{0};
@@ -361,6 +430,15 @@ private:
     float adventureTime_{0.0f};
     std::vector<bool> cliffJumpComplete_;
     Vec2 farBankRockPosition_{230.0f, 0.0f};
+std::string freeSwapMapId_;
+std::vector<WorldObjectState> freeSwapObjects_;
+float objectSwapCooldownTime_{0.0f};
+float objectSwapPhaseTime_{0.0f};
+Vec2 objectSwapGhostFrom_{};
+Vec2 objectSwapGhostTo_{};
+float lensBlindnessDelay_{0.0f};
+float lensBlindnessTime_{0.0f};
+float lensBlindnessDuration_{0.65f};
     float relayReleaseTimer_{0.0f};
     bool mainRouteDialogueShown_{false};
     bool mainRouteReady_{false};

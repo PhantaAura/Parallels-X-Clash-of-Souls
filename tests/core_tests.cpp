@@ -272,7 +272,7 @@ int main() {
         assert(hasScene(ch1, scene));
     assert(!hasScene(ch1, "sage_energy_signature_training"));
     assert(!hasScene(ch1, "bark_wade_reunion"));
-    assert(ch1.nextChapterId == "rrvvfo_ch2" && !chapters.has("rrvvfo_ch2"));
+    assert(ch1.nextChapterId == "rrvvfo_ch2" && chapters.has("rrvvfo_ch2"));
     const std::vector<std::string> exactOpeningOrder{
         "ch1_object_swap_setup", "sage_object_swap_field_trial", "ch1_object_swap_result",
         "ch1_opening_sage_setup", "sage_tutorial_spar", "ch1_post_spar_banter",
@@ -284,6 +284,22 @@ int main() {
         "tournament_outskirts_arrival"
     };
     for (std::size_t i = 0; i < exactOpeningOrder.size(); ++i) assert(ch1.openingFlow[i].id == exactOpeningOrder[i]);
+    const auto& ch2 = chapters.get("rrvvfo_ch2");
+    assert(ch2.primaryMap == "tournament_grounds" && ch2.openingFlow.size() == 23);
+    assert(ch2.openingFlow.front().id == "tournament_gate_walk_in");
+    const std::vector<std::string> requiredTournamentOrder{
+        "ch2_vs_hamual", "ch2_vs_daniel", "ch2_bark_pouki", "ch2_vs_wade", "ch2_vs_plouke"
+    };
+    std::size_t previousTournamentIndex = 0;
+    for (const auto& sceneId : requiredTournamentOrder) {
+        const auto scene = std::find_if(ch2.openingFlow.begin(), ch2.openingFlow.end(), [&](const px::SceneStep& step) {
+            return step.id == sceneId;
+        });
+        assert(scene != ch2.openingFlow.end());
+        const auto sceneIndex = static_cast<std::size_t>(std::distance(ch2.openingFlow.begin(), scene));
+        assert(sceneIndex >= previousTournamentIndex);
+        previousTournamentIndex = sceneIndex;
+    }
     assert(std::none_of(ch1.openingFlow.begin(), ch1.openingFlow.end(), [](const px::SceneStep& scene){
         return scene.id.find("mission") != std::string::npos;
     }));
@@ -439,6 +455,19 @@ int main() {
     assert(automaticStats.hp == 104 && automaticStats.power == 11 && automaticStats.focus == 11);
     px::StoryProgressionSystem::applyBonusWheel(card, px::StoryStat::Defense, 3);
     assert(px::StoryProgressionSystem::statsFor(card).defense == 14 && card.pendingBonusChoices == 0);
+    card.acquired = true;
+    card.bonuses.hp = 1;
+    card.bonuses.power = 2;
+    card.bonuses.speed = 4;
+    card.bonuses.focus = 5;
+    px::SaveData tournamentCardSave;
+    tournamentCardSave.tournamentCard = card;
+    const auto tournamentCardRoundTrip = px::SaveCodec::deserialize(px::SaveCodec::serialize(tournamentCardSave)).tournamentCard;
+    assert(tournamentCardRoundTrip.ownerId == "rrvvfo" && tournamentCardRoundTrip.acquired);
+    assert(tournamentCardRoundTrip.level == card.level && tournamentCardRoundTrip.xp == card.xp);
+    assert(tournamentCardRoundTrip.bonuses.hp == 1 && tournamentCardRoundTrip.bonuses.power == 2);
+    assert(tournamentCardRoundTrip.bonuses.defense == 3 && tournamentCardRoundTrip.bonuses.speed == 4);
+    assert(tournamentCardRoundTrip.bonuses.focus == 5);
     px::QuestDefinition potion{"old_man_potion", px::QuestKind::Optional, "Old Man Potion Quest",
                                {"village_defended"}, {"potion_route_complete"}};
     px::QuestState potionState{px::QuestStatus::Active, {}};
@@ -814,11 +843,18 @@ int main() {
         [](const px::RuntimeMarkerView& marker){ return marker.kind == "corrected-sign" && marker.complete; }));
 
     moveToward(runtime, input, {1960.0f, -10.0f}, 28.0f);
-    finishDialogue(runtime);
-    assert(runtime.view().chapterComplete);
-    assert(runtime.view().nextChapterId == "rrvvfo_ch2");
+    assert(runtime.view().sceneId == "tournament_outskirts_arrival");
+    const auto finalChapterOneScene = runtime.view().sceneId;
+    int transitionGuard = 0;
+    while (runtime.view().dialogueVisible && runtime.view().sceneId == finalChapterOneScene && transitionGuard++ < 64)
+        runtime.confirm();
+    assert(transitionGuard < 64);
+    assert(!runtime.view().chapterComplete);
+    assert(runtime.view().chapterId == "rrvvfo_ch2");
+    assert(runtime.view().sceneId == "tournament_gate_walk_in");
+    assert(runtime.consumeManualSaveRequest());
     const auto save = px::SaveCodec::deserialize(px::SaveCodec::serialize(runtime.saveSnapshot("legacy")));
-    assert(save.story.chapterId == "rrvvfo_ch1" && save.world.routeChoice == "main");
+    assert(save.story.chapterId == "rrvvfo_ch2" && save.world.routeChoice == "main");
     assert(std::find(save.story.flags.begin(), save.story.flags.end(), "ch1_complete_at_outskirts") != save.story.flags.end());
     assert(std::find(save.story.flags.begin(), save.story.flags.end(), "ch1_transport_rescued") != save.story.flags.end());
     assert(std::find(save.story.flags.begin(), save.story.flags.end(), "ch1_precision_swap_mastered") != save.story.flags.end());
@@ -899,7 +935,7 @@ int main() {
         tap(goldenRuntime, goldenInput, px::Action::Pause);
         assert(goldenRuntime.view().pauseVisible);
         assert(std::find(goldenRuntime.view().pauseSections.begin(), goldenRuntime.view().pauseSections.end(),
-                         "BUILD • 3.0R / UPDATE 6 GOLDEN GATE") != goldenRuntime.view().pauseSections.end());
+                         "BUILD • 3.0R / UPDATE 10 TOURNAMENT GOLDEN") != goldenRuntime.view().pauseSections.end());
         for (int i = 0; i < 3; ++i) tap(goldenRuntime, goldenInput, px::Action::MoveDown);
         tap(goldenRuntime, goldenInput, px::Action::Confirm);
         assert(goldenRuntime.view().pausePageTitle == "OBJECTIVE HISTORY");

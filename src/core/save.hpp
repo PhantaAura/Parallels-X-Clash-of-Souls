@@ -1,5 +1,6 @@
 #pragma once
 #include "core/types.hpp"
+#include "core/story_progression.hpp"
 #include <string>
 
 namespace px {
@@ -27,12 +28,13 @@ struct QolSettings {
 };
 
 struct SaveData {
-    static constexpr int kSchemaVersion = 5;
+    static constexpr int kSchemaVersion = 6;
     int schemaVersion{kSchemaVersion};
     StoryState story;
     PlayerWorldState world;
     FrontendProgress frontend;
     QolSettings qol;
+    TournamentCardState tournamentCard{"rrvvfo"};
     std::string inputPreset{"modern"};
 };
 

@@ -163,6 +163,45 @@ ExplorationRegistry::ExplorationRegistry() {
     outskirts.target = {1960.0f, -10.0f};
     outskirts.radius = 35.0f;
     scenes_.emplace(outskirts.sceneId, outskirts);
+
+ExplorationDefinition bracket;
+bracket.sceneId="ch2_lost_bracket"; bracket.rule=ExplorationRuleKind::InteractionSequence;
+bracket.objective="THE LOST BRACKET • FIND THREE CONTESTANT CARDS";
+bracket.detail="Search the grounds while registration is delayed.";
+bracket.hasPlayerStart=true; bracket.playerStart={-760.0f,40.0f};
+bracket.sequenceMarkers={{-370.0f,-500.0f},{-20.0f,-360.0f},{250.0f,120.0f}};
+bracket.sequenceLabels={"WADE'S CARD","BARK'S CARD","QUALIFIER CARD"};
+bracket.sequenceDialogueIds={"ch2_bracket_wade","ch2_bracket_bark","ch2_bracket_qualifier"};
+bracket.sequenceRadius=92.0f; bracket.sequenceRequiresInteract=true;
+bracket.completionDialogueId="ch2_bracket_return";
+scenes_.emplace(bracket.sceneId,bracket);
+
+ExplorationDefinition wadeRace;
+wadeRace.sceneId="ch2_wade_shortcut"; wadeRace.rule=ExplorationRuleKind::TimedCheckpointSequence;
+wadeRace.objective="WADE'S SHORTCUT • FIVE DISTRICTS"; wadeRace.detail="Finish the route. Beat 24 seconds for the optional target.";
+wadeRace.hasPlayerStart=true; wadeRace.playerStart={-650.0f,80.0f};
+wadeRace.sequenceMarkers={{-420,-430},{-80,-520},{180,-120},{-40,430},{430,420}};
+wadeRace.sequenceRadius=95; wadeRace.sequenceTargetSeconds=24.0f; wadeRace.sequenceRequiresInteract=false;
+wadeRace.completionDialogueId="ch2_wade_shortcut_result"; scenes_.emplace(wadeRace.sceneId,wadeRace);
+
+ExplorationDefinition cracked;
+cracked.sceneId="ch2_cracked_ring"; cracked.rule=ExplorationRuleKind::InteractionSequence;
+cracked.objective="THE CRACKED RING • INSPECT THREE SUPPORTS"; cracked.detail="Bark and Wade are watching the practice ring.";
+cracked.hasPlayerStart=true; cracked.playerStart={-260,430};
+cracked.sequenceMarkers={{-260,520},{-75,620},{110,510}}; cracked.sequenceLabels={"WEST SUPPORT","SOUTH SUPPORT","EAST SUPPORT"};
+cracked.sequenceDialogueIds={"ch2_crack_west","ch2_crack_south","ch2_crack_east"}; cracked.sequenceRadius=82;
+cracked.completionDialogueId="ch2_cracked_ring_result"; scenes_.emplace(cracked.sceneId,cracked);
+
+const auto addClue=[&](std::string id,std::string objective,Vec2 point,std::string dialogue){
+    ExplorationDefinition clue; clue.sceneId=id; clue.rule=ExplorationRuleKind::InteractionSequence; clue.objective=objective;
+    clue.detail="Observe the clue before returning to the arena gate."; clue.hasPlayerStart=true; clue.playerStart={430,0};
+    clue.sequenceMarkers={point}; clue.sequenceLabels={"OBSERVE"}; clue.sequenceDialogueIds={dialogue}; clue.sequenceRadius=95;
+    scenes_.emplace(clue.sceneId,clue);
+};
+addClue("ch2_intermission_stillness","PLOUKE STUDY • STILLNESS",{560,-420},"ch2_clue_stillness");
+addClue("ch2_intermission_positioning","PLOUKE STUDY • POSITIONING",{-80,430},"ch2_clue_positioning");
+addClue("ch2_intermission_timing","PLOUKE STUDY • TIMING",{470,455},"ch2_clue_timing");
+addClue("ch2_intermission_edge","PLOUKE STUDY • RING EDGE",{840,80},"ch2_clue_edge");
 }
 
 const ExplorationDefinition& ExplorationRegistry::get(const std::string& sceneId) const {

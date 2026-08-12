@@ -32,6 +32,7 @@ add_library(px_core
     src/content/character_face.cpp
     src/content/skeletal_animation.cpp
     src/content/adventure_registry.cpp
+    src/content/arena_encounter_registry.cpp
     src/content/menu_registry.cpp
     src/content/story_route_registry.cpp
     src/content/story_recap_registry.cpp

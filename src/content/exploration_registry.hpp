@@ -17,7 +17,9 @@ enum class ExplorationRuleKind {
     CliffJumpRoute,
     QteSequence,
     RoadsideEncounter,
-    MandatoryAbilityReveal
+    MandatoryAbilityReveal,
+    InteractionSequence,
+    TimedCheckpointSequence
 };
 
 struct RouteChoiceDefinition {
@@ -72,6 +74,13 @@ struct ExplorationDefinition {
     Vec2 detourDashMarker{};
     float detourDashRadius{90.0f};
     std::string qteId;
+// Shared authored sequence data. Any chapter may use these; they are not tournament-specific engine code.
+std::vector<Vec2> sequenceMarkers;
+std::vector<std::string> sequenceLabels;
+std::vector<std::string> sequenceDialogueIds;
+float sequenceRadius{82.0f};
+float sequenceTargetSeconds{0.0f};
+bool sequenceRequiresInteract{true};
     std::string encounterId;
 };
 
