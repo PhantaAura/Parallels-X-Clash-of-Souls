@@ -1,5 +1,6 @@
 #include "content/cutscene_registry.hpp"
 #include <stdexcept>
+#include <utility>
 
 namespace px {
 
@@ -71,6 +72,119 @@ CutsceneRegistry::CutsceneRegistry() {
         {{"rrvvfo", {1960.0f, -10.0f}, 90.0f, true}, {"tournament_fan", {2000.0f, 70.0f}, -110.0f, true},
          {"sign_painter", {1900.0f, -100.0f}, -70.0f, true}}
     });
+
+
+cutscenes_.emplace("tournament_gate_walk_in", CutsceneDefinition{
+    "tournament_gate_walk_in", CutsceneTier::Major,
+    {{"threshold","","Walk through the tournament entrance instead of cutting to a menu.","long_track","walk"},
+     {"sage_rejoins","SAGE","Sage approaches from another direction while both keep moving.","walking_two_shot","walk"}},
+    {{"rrvvfo",{-1280.0f,40.0f},90.0f,true},{"sage",{-1140.0f,-180.0f},20.0f,true}},
+    {
+        {0,CutsceneActionKind::MoveTo,"rrvvfo","",{-1120.0f,40.0f},145.0f,.70f},
+        {0,CutsceneActionKind::CameraTrack,"rrvvfo","",{},0,.20f,32.0f,980.0f,390.0f,43.0f,"entrance_reveal"},
+        {0,CutsceneActionKind::MoveTo,"sage","",{-1050.0f,-30.0f},125.0f,.70f},
+        {1,CutsceneActionKind::CameraTrack,"rrvvfo","sage",{},0,.20f,36.0f,840.0f,340.0f,42.0f,"walking_two_shot"},
+        {1,CutsceneActionKind::MoveTo,"rrvvfo","",{-1010.0f,30.0f},150.0f,.55f},
+        {1,CutsceneActionKind::MoveTo,"sage","",{-940.0f,-20.0f},145.0f,.55f}
+    }
+});
+cutscenes_.emplace("ch2_arrival_delay", CutsceneDefinition{
+    "ch2_arrival_delay", CutsceneTier::Directed,
+    {{"announcer_delay","ANNOUNCER","Registration trouble becomes an active hub problem.","registration_wide","crowd_react"}},
+    {{"rrvvfo",{-820.0f,40.0f},90.0f,true},{"sage",{-740.0f,-80.0f},30.0f,true}},
+    {{0,CutsceneActionKind::CameraFocus,"","",{-760.0f,0.0f},0,.15f,35.0f,900.0f,360.0f,42.0f,"registration"}}
+});
+cutscenes_.emplace("ch2_u8_gate", CutsceneDefinition{
+    "ch2_u8_gate", CutsceneTier::FieldDialogue,
+    {{"practice_call","ANNOUNCER","Send the player toward the practice grounds without a menu break.","practice_pan","point"}},
+    {{"rrvvfo",{-520.0f,30.0f},80.0f,true}},
+    {{0,CutsceneActionKind::CameraFocus,"","",{-120.0f,430.0f},0,.15f,35.0f,960.0f,390.0f,43.0f,"practice_grounds"}}
+});
+
+cutscenes_.emplace("ch2_practice_brawl_intro", CutsceneDefinition{"ch2_practice_brawl_intro",CutsceneTier::Directed,
+    {{"sage_exit","SAGE","Sage slips behind the waiting tent.","practice_wide","walk"},{"fighter_steps","PRACTICE RING FIGHTER","The practice fighter steps into the ring.","fighter_medium","ready"}},
+    {{"rrvvfo",{-240,430},0,true},{"sage",{340,455},90,true},{"practice_fighter",{-20,520},180,true}},
+    {{0,CutsceneActionKind::MoveTo,"sage","",{470,455},145,.50f},{1,CutsceneActionKind::CameraFocus,"","",{-80,430},0,.15f,32,760,320,41,"practice"}}});
+cutscenes_.emplace("ch2_ninja_reunion", CutsceneDefinition{"ch2_ninja_reunion",CutsceneTier::Directed,
+    {{"reunion","WADE","Wade and Bark enter from the plaza while Rrvvfo keeps moving.","walking_three_shot","walk"}},
+    {{"rrvvfo",{-200,410},0,true},{"wade",{-480,300},70,true},{"bark",{-520,360},65,true}},
+    {{0,CutsceneActionKind::CameraTrack,"rrvvfo","",{},0,.15f,35,860,350,42,"reunion"}}});
+cutscenes_.emplace("ch2_registration_card", CutsceneDefinition{"ch2_registration_card",CutsceneTier::Directed,
+    {{"cards","REGISTRATION STAFF","All three ninjas receive spare Tournament Cards.","counter_three_shot","card_handoff"}},
+    {{"rrvvfo",{-800,20},90,true},{"wade",{-860,-60},80,true},{"bark",{-850,90},95,true}},
+    {{0,CutsceneActionKind::TriggerWorldEvent,"","",{},0,.10f,0,0,0,0,"tournament_card_handoff"},{0,CutsceneActionKind::CameraFocus,"","",{-760,0},0,.15f,35,760,310,40,"card"}}});
+cutscenes_.emplace("ch2_opening_ceremony", CutsceneDefinition{"ch2_opening_ceremony",CutsceneTier::Major,
+    {{"lineup","ANNOUNCER","Introduce the bracket and first preliminary.","arena_establish","lineup"}},
+    {{"rrvvfo",{700,100},90,true}},{{0,CutsceneActionKind::CameraFocus,"","",{0,0},0,.25f,30,1080,430,44,"ceremony"}}});
+cutscenes_.emplace("ch2_hailey_plouke", CutsceneDefinition{"ch2_hailey_plouke",CutsceneTier::Major,
+    {{"prelim","","Show Plouke's stillness and pebble ring-out visually.","spectator_track","fight_observe"}},
+    {{"rrvvfo",{520,-430},140,true},{"hailey",{-150,0},90,true},{"plouke",{150,0},-90,true}},
+    {{0,CutsceneActionKind::TriggerWorldEvent,"","",{},0,.10f,0,0,0,0,"plouke_pebble_ringout"}}});
+cutscenes_.emplace("ch2_bark_pouki", CutsceneDefinition{"ch2_bark_pouki",CutsceneTier::Major,
+    {{"bark_center","","Bark controls center.","ring_wide","block"},{"pouki_break","","Pouki changes rhythm and breaks defense.","ring_track","heavy"},{"last_counter","","Bark nearly lands the final counter.","reaction_close","counter"}},
+    {{"rrvvfo",{520,-430},140,true},{"bark",{-180,0},90,true},{"pouki",{180,0},-90,true},{"wade",{600,-380},150,true}},
+    {{0,CutsceneActionKind::Wait,"","",{},0,.35f},{1,CutsceneActionKind::TriggerWorldEvent,"","",{},0,.10f,0,0,0,0,"bark_guard_break"},{2,CutsceneActionKind::TriggerWorldEvent,"","",{},0,.10f,0,0,0,0,"bark_last_counter"}}});
+cutscenes_.emplace("ch2_pre_plouke", CutsceneDefinition{"ch2_pre_plouke",CutsceneTier::Directed,
+    {{"quiet_prep","BARK","Quiet contestant-lane preparation before the final.","bench_three_shot","idle"}},
+    {{"rrvvfo",{500,455},20,true},{"bark",{430,500},-20,true},{"wade",{590,500},20,true}},
+    {{0,CutsceneActionKind::CameraTrack,"rrvvfo","",{},0,.15f,28,780,315,40,"quiet_prep"},{2,CutsceneActionKind::Expression,"rrvvfo","",{},0,.10f,0,0,0,0,"focused"}}});
+cutscenes_.emplace("ch2_plouke_reveal", CutsceneDefinition{"ch2_plouke_reveal",CutsceneTier::Major,
+    {{"reveal","SAGE","Plouke reveals himself as Sage after the final.","reveal_orbit","reveal"}},
+    {{"rrvvfo",{720,80},90,true},{"sage",{820,80},-90,true}},
+    {{3,CutsceneActionKind::TriggerWorldEvent,"sage","",{},0,.10f,0,0,0,0,"plouke_to_sage"},{4,CutsceneActionKind::CameraFocus,"","rrvvfo",{},0,.15f,24,660,280,39,"reaction"}}});
+cutscenes_.emplace("ch2_tournament_aftermath", CutsceneDefinition{"ch2_tournament_aftermath",CutsceneTier::Directed,
+    {{"cleanup","ANNOUNCER","Tournament transitions to cleanup and later investigation state.","hub_wide","cleanup"}},
+    {{"rrvvfo",{600,100},90,true}},{{0,CutsceneActionKind::CameraFocus,"","",{0,0},0,.20f,35,1000,400,43,"cleanup"}}});
+// U7A: retrofit existing Chapter 1 beats with movement/camera intent while
+// preserving every existing story line and scene identity.
+const auto setActions = [&](const std::string& id, std::vector<CutsceneAction> actions) {
+    cutscenes_.at(id).actions = std::move(actions);
+};
+
+setActions("ch1_object_swap_setup", {
+    {0, CutsceneActionKind::CameraTrack, "rrvvfo", "", {-1325.0f, 65.0f}, 0.0f, .20f, 28.0f, 720.0f, 285.0f, 39.0f, "low_walk_in"},
+    {0, CutsceneActionKind::MoveTo, "rrvvfo", "", {-1325.0f, 65.0f}, 175.0f, .30f},
+    {0, CutsceneActionKind::PlayAnimation, "sage", "", {}, 0.0f, .30f, 0,0,0,0, "set_training_post"},
+    {1, CutsceneActionKind::Expression, "rrvvfo", "", {}, 0.0f, .20f, 0,0,0,0, "unimpressed"},
+    {2, CutsceneActionKind::FaceActor, "sage", "rrvvfo"},
+    {2, CutsceneActionKind::CameraFocus, "", "sage", {}, 0.0f, .15f, 34.0f, 760.0f, 310.0f, 41.0f, "anchor_explain"},
+    {3, CutsceneActionKind::CameraFocus, "", "rrvvfo", {}, 0.0f, .15f, 30.0f, 700.0f, 290.0f, 40.0f, "reaction"}
+});
+
+setActions("ch1_opening_sage_setup", {
+    {0, CutsceneActionKind::CameraTrack, "rrvvfo", "sage", {}, 0.0f, .20f, 38.0f, 850.0f, 360.0f, 42.0f, "walking_two_shot"},
+    {1, CutsceneActionKind::FaceActor, "sage", "rrvvfo"},
+    {2, CutsceneActionKind::Expression, "rrvvfo", "", {}, 0.0f, .10f, 0,0,0,0, "annoyed"},
+    {4, CutsceneActionKind::CameraFocus, "", "rrvvfo", {}, 0.0f, .15f, 24.0f, 660.0f, 275.0f, 39.0f, "pride_close"},
+    {6, CutsceneActionKind::TriggerWorldEvent, "sage", "", {}, 0.0f, .10f, 0,0,0,0, "manual_handoff"}
+});
+
+setActions("tournament_road_departure_dialogue", {
+    {0, CutsceneActionKind::CameraFocus, "", "", {-785.0f, 0.0f}, 0.0f, .25f, 38.0f, 960.0f, 420.0f, 44.0f, "show_road"},
+    {1, CutsceneActionKind::MoveTo, "rrvvfo", "", {-900.0f, 90.0f}, 155.0f, .40f},
+    {2, CutsceneActionKind::CameraTrack, "rrvvfo", "", {}, 0.0f, .15f, 35.0f, 820.0f, 340.0f, 42.0f, "walk_past_sage"},
+    {3, CutsceneActionKind::MoveTo, "rrvvfo", "", {-835.0f, 55.0f}, 180.0f, .35f},
+    {3, CutsceneActionKind::Wait, "", "", {}, 0.0f, .18f}
+});
+
+setActions("tournament_checkpoint_dialogue", {
+    {0, CutsceneActionKind::CameraTrack, "rrvvfo", "checkpoint_worker", {}, 0.0f, .12f, 38.0f, 760.0f, 320.0f, 41.0f, "checkpoint_two_shot"},
+    {1, CutsceneActionKind::Expression, "rrvvfo", "", {}, 0.0f, .10f, 0,0,0,0, "confident"}
+});
+
+setActions("lens_manual_reaction", {
+    {0, CutsceneActionKind::CameraFocus, "", "rrvvfo", {}, 0.0f, .12f, 25.0f, 650.0f, 280.0f, 39.0f, "lens_reaction"},
+    {0, CutsceneActionKind::Expression, "rrvvfo", "", {}, 0.0f, .12f, 0,0,0,0, "annoyed"}
+});
+
+setActions("tournament_outskirts_arrival", {
+    {0, CutsceneActionKind::MoveTo, "rrvvfo", "", {1990.0f, -10.0f}, 115.0f, .65f},
+    {0, CutsceneActionKind::CameraTrack, "rrvvfo", "", {}, 0.0f, .20f, 32.0f, 980.0f, 390.0f, 43.0f, "long_approach"},
+    {1, CutsceneActionKind::Expression, "rrvvfo", "", {}, 0.0f, .10f, 0,0,0,0, "dry"},
+    {3, CutsceneActionKind::CameraFocus, "", "", {2050.0f, 0.0f}, 0.0f, .18f, 30.0f, 900.0f, 360.0f, 42.0f, "entrance_reveal"},
+    {4, CutsceneActionKind::MoveTo, "rrvvfo", "", {2075.0f, 0.0f}, 165.0f, .45f},
+    {4, CutsceneActionKind::TriggerWorldEvent, "", "", {}, 0.0f, .10f, 0,0,0,0, "cross_tournament_threshold"}
+});
 }
 
 const CutsceneDefinition& CutsceneRegistry::get(const std::string& id) const {

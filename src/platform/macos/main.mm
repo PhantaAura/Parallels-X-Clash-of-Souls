@@ -824,7 +824,7 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
     _dialoguePanel.frame=NSMakeRect(28,26,self.bounds.size.width-56,panelHeight);
     _objectivePanel.frame=NSMakeRect(22,v.mode==px::GameMode::ArenaCombat?self.bounds.size.height-226:self.bounds.size.height-144,std::min(620.0,self.bounds.size.width-44),120);
     _objectivePanel.hidden=v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
-    _objectivePanel.kicker=ns("CHAPTER 1 • "+v.currentArea);
+    _objectivePanel.kicker=ns(v.currentArea);
     _objectivePanel.body=ns(v.objective+(v.objectiveDetail.empty()?"":"\n"+v.objectiveDetail));
     [_objectivePanel setNeedsDisplay:YES];
 
@@ -872,8 +872,19 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
     _interactionPanel.hidden=v.nearbyInteractionLabel.empty()||v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
     _interactionPanel.kicker=@"INTERACT";_interactionPanel.body=ns("E • "+v.nearbyInteractionLabel);[_interactionPanel setNeedsDisplay:YES];
     const bool hasCombatFeedback=!v.combatFeedback.empty();
-    _noticePanel.hidden=(v.gameplayNotice.empty()&&!hasCombatFeedback)||v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
-    _noticePanel.kicker=hasCombatFeedback?@"COMBAT IMPACT":(v.flowCancelReady?@"COMBAT TIMING":@"ROAD MOMENT");_noticePanel.body=ns(hasCombatFeedback?v.combatFeedback:v.gameplayNotice);[_noticePanel setNeedsDisplay:YES];
+    const bool showTournamentCard=v.tournamentCardVisible;
+    _noticePanel.hidden=(v.gameplayNotice.empty()&&!hasCombatFeedback&&!showTournamentCard)||v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
+    if(showTournamentCard){
+        const auto stats=px::StoryProgressionSystem::statsFor(v.tournamentCard);
+        _noticePanel.kicker=@"TOURNAMENT CARD";
+        _noticePanel.body=ns("RRVVFO  •  LV "+std::to_string(v.tournamentCard.level)+"  •  XP "+std::to_string(v.tournamentCard.xp)+
+            "  •  HP "+std::to_string(stats.hp)+"  PWR "+std::to_string(stats.power)+"  DEF "+std::to_string(stats.defense)+
+            "  SPD "+std::to_string(stats.speed)+"  FOC "+std::to_string(stats.focus));
+    }else{
+        _noticePanel.kicker=hasCombatFeedback?@"COMBAT IMPACT":(v.flowCancelReady?@"COMBAT TIMING":@"STORY MOMENT");
+        _noticePanel.body=ns(hasCombatFeedback?v.combatFeedback:v.gameplayNotice);
+    }
+    [_noticePanel setNeedsDisplay:YES];
     _combatHUD.hidden=v.mode!=px::GameMode::ArenaCombat||v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
     _combatHUD.playerHP=v.player.hp/std::max(1.0f,v.player.maxHp);_combatHUD.opponentHP=v.opponent.hp/std::max(1.0f,v.opponent.maxHp);_combatHUD.energy=v.player.energy/100.0f;_combatHUD.guard=v.player.guard/100.0f;
     _combatHUD.showPlayerHealth=v.showPlayerHealth;_combatHUD.showOpponentHealth=v.showOpponentHealth;_combatHUD.showEnergy=v.showEnergy;_combatHUD.showGuard=v.showGuard;
@@ -931,9 +942,15 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
         }else if(marker.kind=="fire-blast"){
             pushCylinder(vertices,{marker.position.x,72.0f,marker.position.z,22.0f,52.0f,22.0f,0.0f},{1.0f,.28f,.08f,.90f},14);
         }else if(marker.kind=="object-swap-fx"){
-            pushCylinder(vertices,{marker.position.x,5.0f,marker.position.z,82.0f,8.0f,82.0f,0.0f},{.50f,.94f,1.0f,.52f},18);
+            pushCylinder(vertices,{marker.position.x,5.0f,marker.position.z,82.0f,8.0f,82.0f,0.0f},{1.0f,.78f,.12f,.56f},18);
         }else if(marker.kind=="lens-fx"){
-            pushCylinder(vertices,{marker.position.x,92.0f,marker.position.z,48.0f,5.0f,48.0f,0.0f},{1.0f,.74f,.18f,.65f},18);
+            pushCylinder(vertices,{marker.position.x,92.0f,marker.position.z,48.0f,5.0f,48.0f,0.0f},{.63f,.22f,.92f,.68f},18);
+}else if(marker.kind=="object-swap-lock"){
+    pushCylinder(vertices,{marker.position.x,42.0f,marker.position.z,54.0f,84.0f,54.0f,0.0f},{1.0f,.78f,.12f,.38f},16);
+}else if(marker.kind=="object-swap-ghost"||marker.kind=="object-swap-phase"){
+    pushCylinder(vertices,{marker.position.x,76.0f,marker.position.z,46.0f,152.0f,46.0f,0.0f},{1.0f,.72f,.08f,.28f},14);
+}else if(marker.kind=="free-swap-object"){
+    pushBox(vertices,{marker.position.x,26.0f,marker.position.z,46.0f,52.0f,46.0f,0.0f},{.60f,.42f,.25f,1.0f});
         }else if(marker.kind=="pursuit-lock"){
             pushCylinder(vertices,{marker.position.x,10.0f,marker.position.z,marker.complete?90.0f:70.0f,5.0f,marker.complete?90.0f:70.0f,0.0f},{1.0f,.67f,.12f,.72f},18);
             pushBox(vertices,{marker.position.x,94.0f,marker.position.z,10.0f,58.0f,10.0f,0.0f},{1.0f,.80f,.28f,.82f});
@@ -992,12 +1009,24 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
     const float shakeSign=std::sin((v.playerPosition.x+v.playerPosition.z)*.017f)>=0.0f?1.0f:-1.0f;const float shake=std::min(8.0f,v.cameraImpulse*1.15f)*shakeSign;
     const float focusX=std::clamp(requestedFocusX+shake,stage.camera.focusCenterX-stage.camera.focusClampX,stage.camera.focusCenterX+stage.camera.focusClampX);
     const float focusZ=std::clamp(requestedFocusZ-shake*.45f,stage.camera.focusCenterZ-stage.camera.focusClampZ,stage.camera.focusCenterZ+stage.camera.focusClampZ);
-    const float yaw=stage.camera.yawDegrees*kPi/180.0f;
-    const vector_float3 target={(float)focusX,stage.camera.targetHeight,(float)focusZ};
-    const vector_float3 eye={focusX+std::sin(yaw)*stage.camera.baseDistance,stage.camera.height,focusZ+std::cos(yaw)*stage.camera.baseDistance};
-    SceneUniforms uniforms{};uniforms.viewProjection=simd_mul(perspective(stage.camera.fovDegrees,aspect,stage.camera.nearPlane,stage.camera.farPlane),lookAt(eye,target));
+const float cameraFocusX=v.cinematicCameraActive?v.cinematicCameraFocus.x:focusX;
+const float cameraFocusZ=v.cinematicCameraActive?v.cinematicCameraFocus.z:focusZ;
+const float cameraYaw=v.cinematicCameraActive?v.cinematicCameraYawDegrees:stage.camera.yawDegrees;
+const float cameraDistance=v.cinematicCameraActive?v.cinematicCameraDistance:stage.camera.baseDistance;
+const float cameraHeight=v.cinematicCameraActive?v.cinematicCameraHeight:stage.camera.height;
+const float cameraFov=v.cinematicCameraActive?v.cinematicCameraFovDegrees:stage.camera.fovDegrees;
+const float yaw=cameraYaw*kPi/180.0f;
+const vector_float3 target={(float)cameraFocusX,stage.camera.targetHeight,(float)cameraFocusZ};
+const vector_float3 eye={cameraFocusX+std::sin(yaw)*cameraDistance,cameraHeight,cameraFocusZ+std::cos(yaw)*cameraDistance};
+SceneUniforms uniforms{};uniforms.viewProjection=simd_mul(perspective(cameraFov,aspect,stage.camera.nearPlane,stage.camera.farPlane),lookAt(eye,target));
     uniforms.lightDirection=(vector_float4){-.45f,-1.0f,-.35f,0};uniforms.cameraPosition=(vector_float4){eye.x,eye.y,eye.z,1};
-    uniforms.fogParameters=(vector_float4){stage.fogNear,stage.fogFar,0,0};uniforms.fogColor=(vector_float4){stage.fogColor.r,stage.fogColor.g,stage.fogColor.b,1};
+    const float lensBlind=std::clamp(v.lensBlindnessAmount,0.0f,1.0f);
+const float fogNear=stage.fogNear*(1.0f-lensBlind*.92f);
+const float fogFar=stage.fogFar*(1.0f-lensBlind*.72f);
+uniforms.fogParameters=(vector_float4){fogNear,fogFar,0,0};
+uniforms.fogColor=(vector_float4){stage.fogColor.r*(1.0f-lensBlind*.55f)+.16f*lensBlind,
+                                   stage.fogColor.g*(1.0f-lensBlind*.72f)+.04f*lensBlind,
+                                   stage.fogColor.b*(1.0f-lensBlind*.40f)+.24f*lensBlind,1};
     const NSUInteger bytes=vertices.size()*sizeof(Vertex);
     if(!_vertexBuffer||_vertexBuffer.length<bytes){_vertexBuffer=[self.device newBufferWithLength:std::max<NSUInteger>(bytes,1024*1024) options:MTLResourceStorageModeShared];}
     std::memcpy(_vertexBuffer.contents,vertices.data(),bytes);

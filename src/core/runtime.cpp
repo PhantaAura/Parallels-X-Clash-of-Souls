@@ -155,6 +155,12 @@ void RuntimeSession::startChapter(const std::string& chapterId) {
     adventureTime_ = 0.0f;
     cliffJumpComplete_.clear();
     farBankRockPosition_ = {230.0f, 0.0f};
+freeSwapMapId_.clear();
+freeSwapObjects_.clear();
+objectSwapCooldownTime_ = 0.0f;
+objectSwapPhaseTime_ = 0.0f;
+lensBlindnessDelay_ = 0.0f;
+lensBlindnessTime_ = 0.0f;
     relayReleaseTimer_ = 0.0f;
     mainRouteDialogueShown_ = false;
     mainRouteReady_ = false;
@@ -229,6 +235,7 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     standaloneTrainingMode_ = false;
     replayMode_ = false;
     game_.loadSave(data);
+    tournamentCard_ = data.tournamentCard;
     player_ = FighterState{game_.chapter().playableCharacter};
     opponent_ = FighterState{"sage"};
     clearCombatInputBuffer();
@@ -286,7 +293,7 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     detourSwapDone_ = containsFlag(data.story.flags, "ch1_detour_swap_done");
     const bool migratedPastNewDetour = !terrainCollapseSeen_ && game_.story().sceneIndex > 15;
     if (migratedPastNewDetour) terrainCollapseSeen_ = true;
-    chapterComplete_ = containsFlag(data.story.flags, "ch1_complete_at_outskirts");
+    chapterComplete_ = game_.story().chapterId == "rrvvfo_ch1" && containsFlag(data.story.flags, "ch1_complete_at_outskirts");
     objectiveHistory_ = data.frontend.objectiveHistory;
     qolSettings_ = data.qol;
     pauseSelection_ = 0;
@@ -323,6 +330,11 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     });
     if (rock != data.world.objects.end()) farBankRockPosition_ = rock->position;
     enterCurrentScene();
+refreshFreeSwapObjects();
+for (auto& object : freeSwapObjects_) {
+    const auto savedObject = std::find_if(data.world.objects.begin(), data.world.objects.end(), [&](const WorldObjectState& saved){ return saved.id == object.id; });
+    if (savedObject != data.world.objects.end()) object = *savedObject;
+}
     routeProgress_ = savedUnsignedFlag(data.story.flags, "ch1_route_progress=", 8);
     const auto cliffMask = savedUnsignedFlag(data.story.flags, "ch1_cliff_mask=", 31);
     if (!cliffJumpComplete_.empty()) {
@@ -370,7 +382,10 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
 
 const MapDefinition& RuntimeSession::map() const {
     if (roadsideFightActive_) return maps_.get("roadside_arena");
-    if (game_.scene().kind == SceneKind::Arena) return maps_.get("sage_training_arena");
+    if (game_.scene().kind == SceneKind::Arena) {
+        if (arenaEncounters_.has(game_.scene().id)) return maps_.get(arenaEncounters_.get(game_.scene().id).mapId);
+        return maps_.get("sage_training_arena");
+    }
     return maps_.get(game_.chapter().primaryMap);
 }
 
@@ -384,6 +399,9 @@ const TrainingStepDefinition* RuntimeSession::currentTrainingStep() const {
 void RuntimeSession::enterCurrentScene() {
     dialogueIndex_ = 0;
     sceneComplete_ = false;
+    sceneSequenceProgress_ = 0;
+    sceneSequenceSeconds_ = 0.0f;
+    sceneSequenceStarted_ = false;
     attackCooldown_ = 0.0f;
     sparCleanHits_ = 0;
     blockHeld_ = false;
@@ -405,6 +423,16 @@ void RuntimeSession::enterCurrentScene() {
     lensTrialHp_ = 100.0f;
     trainingMovementDistance_ = 0.0f;
     cutsceneOpponentVisible_ = false;
+cutsceneBeatTime_ = 0.0f;
+cutsceneBeatIndex_ = static_cast<std::size_t>(-1);
+cinematicCameraActive_ = false;
+cinematicCameraFocus_ = {};
+cinematicCameraYawDegrees_ = 38.0f;
+cinematicCameraDistance_ = 900.0f;
+cinematicCameraHeight_ = 410.0f;
+cinematicCameraFovDegrees_ = 43.0f;
+cinematicExpression_.clear();
+cinematicWorldEvent_.clear();
     transientDialogueId_.clear();
     transientDialogueIndex_ = 0;
     transientDialogueContinuation_ = 0;
@@ -447,6 +475,9 @@ void RuntimeSession::enterCurrentScene() {
         }
     }
     if (scene.kind == SceneKind::Arena) {
+    if (arenaEncounters_.has(scene.id)) {
+        startStoryArena();
+    } else {
         player_ = FighterState{game_.chapter().playableCharacter};
         opponent_ = FighterState{"sage"};
         trainingManualVisible_ = training_.has(scene.id);
@@ -459,8 +490,8 @@ void RuntimeSession::enterCurrentScene() {
             beginTrainingAt(trainingCheckpointStep_);
         }
     }
-
-    if (scene.kind == SceneKind::Exploration && exploration_.has(scene.id)) {
+}
+if (scene.kind == SceneKind::Exploration && exploration_.has(scene.id)) {
         const auto& definition = exploration_.get(scene.id);
         if (definition.hasPlayerStart) playerPosition_ = definition.playerStart;
         if (definition.companionVisible) opponentPosition_ = definition.companionPosition;
@@ -493,6 +524,7 @@ void RuntimeSession::enterCurrentScene() {
             beginTransientDialogue(definition.openingDialogueId, 5);
         }
     }
+    refreshFreeSwapObjects();
     previousPlayerPosition_ = playerPosition_;
     syncView();
     sceneCheckpointSnapshot_ = saveSnapshot();
@@ -520,6 +552,15 @@ void RuntimeSession::resetCurrentScene() {
 void RuntimeSession::tick(InputState& input, float dt) {
     dt = std::clamp(std::max(0.0f, dt), 0.0f, 0.1f);
     playerCharging_ = false;
+    objectSwapCooldownTime_ = std::max(0.0f, objectSwapCooldownTime_ - dt);
+    objectSwapPhaseTime_ = std::max(0.0f, objectSwapPhaseTime_ - dt);
+    tournamentCardRevealTime_ = std::max(0.0f, tournamentCardRevealTime_ - dt);
+    if (lensBlindnessDelay_ > 0.0f) {
+        lensBlindnessDelay_ = std::max(0.0f, lensBlindnessDelay_ - dt);
+        if (lensBlindnessDelay_ <= 0.0f) lensBlindnessTime_ = lensBlindnessDuration_;
+    } else {
+        lensBlindnessTime_ = std::max(0.0f, lensBlindnessTime_ - dt);
+    }
 
     // Presentation timers continue during hit-freeze; combat/world simulation does not.
     gameplayNoticeTime_ = std::max(0.0f, gameplayNoticeTime_ - dt);
@@ -594,9 +635,103 @@ void RuntimeSession::tickCutscene(InputState& input, float dt) {
     const auto& id = game_.scene().id;
     const bool seen = std::find(seenCutscenes_.begin(), seenCutscenes_.end(), id) != seenCutscenes_.end();
     if (seen && input.pressed(Action::Cancel)) { completeScene(); return; }
-    if (dialogueAdvanceRequested(input, dt)) advanceDialogue();
+    applyCutsceneActions(dt);
+    if (dialogueAdvanceRequested(input, dt) && cutsceneBeatReadyToAdvance()) advanceDialogue();
 }
 
+
+Vec2 RuntimeSession::cutsceneActorPosition(const std::string& actorId) const {
+    if (actorId.empty() || actorId == "rrvvfo" || actorId == game_.chapter().playableCharacter) return playerPosition_;
+    if (actorId == "sage") return opponentPosition_;
+    if (cutscenes_.has(game_.scene().id)) {
+        for (const auto& actor : cutscenes_.get(game_.scene().id).staging)
+            if (actor.actorId == actorId) return actor.position;
+    }
+    return playerPosition_;
+}
+
+void RuntimeSession::applyCutsceneActions(float dt) {
+    if (!cutscenes_.has(game_.scene().id)) return;
+    const auto& definition = cutscenes_.get(game_.scene().id);
+    if (cutsceneBeatIndex_ != dialogueIndex_) {
+        cutsceneBeatIndex_ = dialogueIndex_;
+        cutsceneBeatTime_ = 0.0f;
+        cinematicWorldEvent_.clear();
+        cinematicExpression_.clear();
+    }
+    cutsceneBeatTime_ += dt;
+    const bool firstFrame = cutsceneBeatTime_ <= dt + .0001f;
+    const auto moveActor = [&](const CutsceneAction& action, Vec2& actorPosition, float& yaw) {
+        const Vec2 delta{action.position.x - actorPosition.x, action.position.z - actorPosition.z};
+        const float remaining = distance(actorPosition, action.position);
+        if (remaining <= 1.0f) { actorPosition = action.position; return; }
+        const float step = std::min(remaining, std::max(1.0f, action.speed) * dt);
+        const Vec2 direction{delta.x / remaining, delta.z / remaining};
+        actorPosition = {actorPosition.x + direction.x * step, actorPosition.z + direction.z * step};
+        yaw = turnTowardDegrees(yaw, yawForDirection(direction), kExplorationTurnDegreesPerSecond * dt);
+    };
+
+    for (const auto& action : definition.actions) {
+        if (action.dialogueIndex != dialogueIndex_) continue;
+        switch (action.kind) {
+            case CutsceneActionKind::MoveTo:
+                if (action.actorId == "rrvvfo" || action.actorId == game_.chapter().playableCharacter)
+                    moveActor(action, playerPosition_, playerYawDegrees_);
+                else if (action.actorId == "sage")
+                    moveActor(action, opponentPosition_, opponentYawDegrees_);
+                break;
+            case CutsceneActionKind::FaceActor:
+            case CutsceneActionKind::LookAt: {
+                const Vec2 target = cutsceneActorPosition(action.targetActorId);
+                if (action.actorId == "rrvvfo" || action.actorId == game_.chapter().playableCharacter)
+                    playerYawDegrees_ = turnTowardDegrees(playerYawDegrees_, yawForDirection({target.x-playerPosition_.x,target.z-playerPosition_.z}), kExplorationTurnDegreesPerSecond*dt);
+                else if (action.actorId == "sage")
+                    opponentYawDegrees_ = turnTowardDegrees(opponentYawDegrees_, yawForDirection({target.x-opponentPosition_.x,target.z-opponentPosition_.z}), kExplorationTurnDegreesPerSecond*dt);
+                break;
+            }
+            case CutsceneActionKind::PlayAnimation:
+                if (firstFrame && (action.actorId == "rrvvfo" || action.actorId == game_.chapter().playableCharacter) && !action.cue.empty())
+                    triggerAbilityAnimation(action.cue, std::max(.10f, action.durationSeconds));
+                break;
+            case CutsceneActionKind::CameraTrack:
+            case CutsceneActionKind::CameraFocus: {
+                cinematicCameraActive_ = true;
+                const Vec2 target = !action.targetActorId.empty() ? cutsceneActorPosition(action.targetActorId) :
+                                    (!action.actorId.empty() ? cutsceneActorPosition(action.actorId) : action.position);
+                cinematicCameraFocus_ = target;
+                cinematicCameraYawDegrees_ = action.cameraYawDegrees;
+                cinematicCameraDistance_ = action.cameraDistance;
+                cinematicCameraHeight_ = action.cameraHeight;
+                cinematicCameraFovDegrees_ = action.cameraFovDegrees;
+                break;
+            }
+            case CutsceneActionKind::TriggerWorldEvent:
+                if (firstFrame) cinematicWorldEvent_ = action.cue;
+                break;
+            case CutsceneActionKind::Expression:
+                cinematicExpression_ = action.cue;
+                break;
+            case CutsceneActionKind::Dialogue:
+            case CutsceneActionKind::Wait:
+                break;
+        }
+    }
+}
+
+bool RuntimeSession::cutsceneBeatReadyToAdvance() const {
+    if (!cutscenes_.has(game_.scene().id)) return true;
+    const auto& definition = cutscenes_.get(game_.scene().id);
+    float minimumTime = 0.0f;
+    for (const auto& action : definition.actions) {
+        if (action.dialogueIndex != dialogueIndex_) continue;
+        if (action.kind == CutsceneActionKind::Wait) minimumTime = std::max(minimumTime, action.durationSeconds);
+        if (action.kind == CutsceneActionKind::MoveTo) {
+            const Vec2 actor = cutsceneActorPosition(action.actorId);
+            if (distance(actor, action.position) > 14.0f) return false;
+        }
+    }
+    return cutsceneBeatTime_ >= minimumTime;
+}
 bool RuntimeSession::dialogueAdvanceRequested(const InputState& input, float dt) {
     const bool pressed = input.pressed(Action::Confirm) || input.pressed(Action::Interact);
     const bool held = input.down(Action::Confirm) || input.down(Action::Interact);
@@ -766,6 +901,7 @@ void RuntimeSession::tickTrainingOpponent(float dt, bool blockPressedThisFrame) 
 }
 
 void RuntimeSession::tickArena(InputState& input, float dt) {
+    if (arenaEncounters_.has(game_.scene().id)) { tickStoryArena(input, dt); return; }
     if (trainingManualVisible_) {
         const bool hasResume = trainingCheckpointStep_ > 0;
         const std::size_t optionCount = hasResume ? 4 : 3;
@@ -904,6 +1040,7 @@ void RuntimeSession::tickArena(InputState& input, float dt) {
                 player_.hp -= ability->hpCost;
                 lensActive_ = true;
                 triggerAbilityAnimation("lens_activate", 0.30f);
+                scheduleLensBlindness(1.10f);
                 trainingSignals_ |= 2u;
             }
         } else if (opponentAttackTelegraphed_ && movementState_.dashStartedThisFrame) {
@@ -925,6 +1062,170 @@ void RuntimeSession::tickArena(InputState& input, float dt) {
     if (sceneComplete_ && (input.pressed(Action::Confirm) || input.pressed(Action::Interact))) completeScene();
 }
 
+
+void RuntimeSession::startStoryArena() {
+    const auto& encounter = arenaEncounters_.get(game_.scene().id);
+    storyArenaActive_ = true;
+    storyPlayerStocksLost_ = 0;
+    storyOpponentStocksLost_ = 0;
+    storyArenaAiTimer_ = .45f;
+    storyArenaAiDecisionIndex_ = 0;
+    storyArenaRewardPending_ = false;
+    pendingArenaSceneComplete_ = false;
+    player_ = FighterState{game_.chapter().playableCharacter};
+    opponent_ = FighterState{encounter.opponentId};
+    player_.energy = encounter.startingEnergy;
+    opponent_.energy = encounter.startingEnergy;
+    playerPosition_ = encounter.playerStart;
+    opponentPosition_ = encounter.opponentStart;
+    movementState_ = {};
+    opponentHeight_ = 0.0f;
+    opponentVerticalVelocity_ = 0.0f;
+    combatReadyAnimationTime_ = .30f;
+    updateCombatFacing(0.0f, true);
+}
+
+void RuntimeSession::resetStoryArenaStock() {
+    const auto& encounter = arenaEncounters_.get(game_.scene().id);
+    player_ = FighterState{game_.chapter().playableCharacter};
+    opponent_ = FighterState{encounter.opponentId};
+    player_.energy = encounter.startingEnergy;
+    opponent_.energy = encounter.startingEnergy;
+    playerPosition_ = encounter.playerStart;
+    opponentPosition_ = encounter.opponentStart;
+    movementState_ = {};
+    opponentHeight_ = 0.0f;
+    opponentVerticalVelocity_ = 0.0f;
+    attackCooldown_ = 0.0f;
+    clearCombatInputBuffer();
+    combatReadyAnimationTime_ = .22f;
+    updateCombatFacing(0.0f, true);
+}
+
+void RuntimeSession::tickStoryArena(InputState& input, float dt) {
+    const auto& encounter = arenaEncounters_.get(game_.scene().id);
+    if (!storyArenaActive_) { startStoryArena(); return; }
+
+    FieldMovementConfig movement;
+    movement.walkSpeed = 250.0f;
+    movement.dashSpeed = 720.0f;
+    movement.dashSeconds = .22f;
+    movement.dashCooldownSeconds = .30f;
+    const bool dashRequested = input.pressed(Action::Dash) || (bufferedDash_ && bufferedDashTime_ > 0.0f);
+    if (dashRequested) {
+        bool consumed=false;
+        if (player_.pursuitWindow>0.0f && CombatSystem::startPursuit(player_)) {
+            playerPosition_={opponentPosition_.x-78.0f,opponentPosition_.z}; movementState_.dashCooldown=0.0f; consumed=true;
+        } else if (tryFlowCancel()) consumed=true;
+        else if (movementState_.height>0.0f) { CombatSystem::startAirDash(player_); consumed=true; }
+        else { CombatSystem::startDash(player_); consumed=true; }
+        if(consumed){bufferedDash_=false;bufferedDashTime_=0.0f;}
+    }
+    previousPlayerPosition_=playerPosition_;
+    InputState locked; locked.beginFrame();
+    const InputState& moveInput=(player_.stunTimer>0||player_.knockdownTimer>0)?locked:input;
+    playerPosition_=FieldMovementSystem::tick(map(),playerPosition_,movementState_,moveInput,dt,movement,disabledBlockers_);
+    player_.airborne=movementState_.height>0.0f;
+    updateCombatFacing(dt);
+
+    const bool blockNow=input.down(Action::Block);
+    if(blockNow&&!blockHeld_)CombatSystem::startBlock(player_);
+    if(!blockNow&&blockHeld_)CombatSystem::stopBlock(player_);
+    blockHeld_=blockNow;
+    if(input.pressed(Action::Counter)&&CombatSystem::startCounter(player_))triggerAbilityAnimation("counter",.216f);
+    if(input.pressed(Action::Breaker)&&CombatSystem::comboBreaker(player_))triggerAbilityAnimation("breaker",.150f);
+    for(const auto action:{Action::Light,Action::Heavy,Action::Launcher,Action::Grab}) if(input.pressed(action)) requestArenaAttack(action);
+    handleRoadsideAbilities(input);
+
+    Vec2 toward{playerPosition_.x-opponentPosition_.x,playerPosition_.z-opponentPosition_.z};
+    float separation=std::max(.001f,std::sqrt(toward.x*toward.x+toward.z*toward.z));
+    storyArenaAiTimer_-=dt;
+    if(storyArenaAiTimer_<=0.0f){
+        storyArenaAiTimer_=encounter.ai==AiArchetype::Adaptive?.34f:.44f;
+        const auto decision=CombatSystem::chooseAiAction(encounter.ai,opponent_,player_,separation,storyArenaAiDecisionIndex_++);
+        if(decision.block)CombatSystem::startBlock(opponent_);else CombatSystem::stopBlock(opponent_);
+        if(opponent_.stunTimer<=0&&decision.approach&&separation>105){
+            opponentPosition_.x+=toward.x/separation*encounter.opponentMoveSpeed*.28f;
+            opponentPosition_.z+=toward.z/separation*encounter.opponentMoveSpeed*.28f;
+        }
+        if(opponent_.stunTimer<=0&&decision.retreat){opponentPosition_.x-=toward.x/separation*72.0f;opponentPosition_.z-=toward.z/separation*72.0f;}
+        if(opponent_.stunTimer<=0&&decision.counter)CombatSystem::startCounter(opponent_);
+        if(opponent_.stunTimer<=0&&decision.attack!=AttackKind::None)CombatSystem::startAttack(opponent_,decision.attack);
+    }
+
+    const AttackKind playerAttack=player_.activeAttack;
+    const AttackKind opponentAttack=opponent_.activeAttack;
+    const bool playerInRange=playerAttack==AttackKind::Projectile||playerAttack==AttackKind::Beam||
+        separation<=CombatSystem::attackFor(player_.id,playerAttack).range+72.0f;
+    const bool opponentInRange=separation<=CombatSystem::attackFor(opponent_.id,opponentAttack).range+72.0f;
+    const auto playerHit=CombatSystem::advanceAttack(player_,opponent_,dt,playerInRange,{false,false});
+    emitCombatFeedback(playerHit,playerAttack,true);
+    if(playerHit.connected&&!playerHit.blocked&&!playerHit.countered){
+        const float push=std::min(150.0f,playerHit.knockback*.88f);
+        Vec2 away{opponentPosition_.x-playerPosition_.x,opponentPosition_.z-playerPosition_.z};
+        const float len=std::max(.001f,std::sqrt(away.x*away.x+away.z*away.z));
+        opponentPosition_.x+=away.x/len*push; opponentPosition_.z+=away.z/len*push;
+    }
+    tryBufferedArenaAttack();
+    const auto opponentHit=CombatSystem::advanceAttack(opponent_,player_,dt,opponentInRange,{false,false});
+    emitCombatFeedback(opponentHit,opponentAttack,false);
+    if(opponentHit.connected&&!opponentHit.blocked&&!opponentHit.countered){
+        const float push=std::min(145.0f,opponentHit.knockback*.84f);
+        Vec2 away{playerPosition_.x-opponentPosition_.x,playerPosition_.z-opponentPosition_.z};
+        const float len=std::max(.001f,std::sqrt(away.x*away.x+away.z*away.z));
+        playerPosition_.x+=away.x/len*push; playerPosition_.z+=away.z/len*push;
+    }
+    updateCombatFacing(dt);
+
+    const auto outside=[&](Vec2 p){return p.x<encounter.ringBounds.minX||p.x>encounter.ringBounds.maxX||p.z<encounter.ringBounds.minZ||p.z>encounter.ringBounds.maxZ;};
+    const bool playerLostStock=player_.hp<=0.0f||outside(playerPosition_);
+    const bool opponentLostStock=opponent_.hp<=0.0f||outside(opponentPosition_);
+    if(playerLostStock||opponentLostStock){
+        if(playerLostStock)++storyPlayerStocksLost_;
+        if(opponentLostStock)++storyOpponentStocksLost_;
+        if(encounter.resolution==StoryArenaResolution::PloukeStoryFinal &&
+           (storyPlayerStocksLost_>=encounter.stockTarget||storyOpponentStocksLost_>=encounter.stockTarget)){
+            ploukeHighPerformance_=storyOpponentStocksLost_>=2;
+            finishStoryArena(false); return;
+        }
+        if(storyOpponentStocksLost_>=encounter.stockTarget){finishStoryArena(true);return;}
+        if(storyPlayerStocksLost_>=encounter.stockTarget){
+            storyPlayerStocksLost_=0;storyOpponentStocksLost_=0;
+            resetStoryArenaStock();showGameplayNotice("OFFICIAL MATCH • TRY AGAIN",1.25f);return;
+        }
+        resetStoryArenaStock();
+    }
+}
+
+void RuntimeSession::finishStoryArena(bool playerWon) {
+    const auto& encounter=arenaEncounters_.get(game_.scene().id);
+    storyArenaActive_=false;
+    pendingArenaSceneComplete_=true;
+    storyArenaRewardPending_=playerWon||encounter.resolution==StoryArenaResolution::PloukeStoryFinal;
+    triggerAbilityAnimation("combat_relax",.28f);
+    if(encounter.resolution==StoryArenaResolution::PloukeStoryFinal){
+        beginTransientDialogue(ploukeHighPerformance_?"ch2_plouke_final_ringout":"ch2_plouke_final_exhausted",70);
+    }else if(!encounter.postDialogueId.empty()) beginTransientDialogue(encounter.postDialogueId,70);
+    else resolveArenaRewardAndAdvance();
+}
+
+void RuntimeSession::resolveArenaRewardAndAdvance() {
+    if(!pendingArenaSceneComplete_)return;
+    pendingArenaSceneComplete_=false;
+    if(storyArenaRewardPending_&&arenaEncounters_.has(game_.scene().id)){
+        const auto& encounter=arenaEncounters_.get(game_.scene().id);
+        storyArenaRewardPending_=false;
+        const auto result=StoryProgressionSystem::grantXp(tournamentCard_,encounter.xpReward);
+        if(result.levelsGained>0){
+            tournamentBonusRoll_=1+((tournamentCard_.level+encounter.recommendedLevel)%3);
+            choiceKind_=20;choiceIndex_=0;
+            tournamentCardRevealTime_=4.5f;
+            showGameplayNotice("LEVEL UP • BONUS +"+std::to_string(tournamentBonusRoll_),1.25f);
+            return;
+        }
+    }
+    completeScene();
+}
 void RuntimeSession::showGameplayNotice(const std::string& text, float seconds) {
     gameplayNotice_ = text;
     gameplayNoticeTime_ = std::max(0.0f, seconds);
@@ -1361,6 +1662,17 @@ void RuntimeSession::recordObjective(const std::string& objective) {
 }
 
 void RuntimeSession::finishTransientDialogue() {
+if (transientDialogueContinuation_ == 60) {
+    transientDialogueId_.clear();
+    transientDialogueIndex_ = 0;
+    transientDialogueContinuation_ = 0;
+    if (exploration_.has(game_.scene().id)) {
+        const auto& definition = exploration_.get(game_.scene().id);
+        if (!definition.sequenceMarkers.empty() && sceneSequenceProgress_ >= definition.sequenceMarkers.size()) completeScene();
+    }
+    return;
+}
+
     const int continuation = transientDialogueContinuation_;
     transientDialogueId_.clear();
     transientDialogueIndex_ = 0;
@@ -1404,49 +1716,47 @@ void RuntimeSession::finishTransientDialogue() {
         case 32:
             completeScene();
             break;
+        case 70: resolveArenaRewardAndAdvance(); break;
         default: break;
     }
 }
 
 void RuntimeSession::tickChoice(InputState& input) {
-    const std::size_t optionCount = choiceKind_ == 4 ? 3 : 2;
+    const std::size_t optionCount = choiceKind_ == 20 ? 5 : choiceKind_ == 4 ? 3 : 2;
     if (input.pressed(Action::MoveLeft) || input.pressed(Action::MoveUp))
         choiceIndex_ = choiceIndex_ == 0 ? optionCount - 1 : choiceIndex_ - 1;
     if (input.pressed(Action::MoveRight) || input.pressed(Action::MoveDown))
         choiceIndex_ = (choiceIndex_ + 1) % optionCount;
     if (!input.pressed(Action::Confirm) && !input.pressed(Action::Interact) && !input.pressed(Action::Cancel)) return;
-    if ((choiceKind_ == 4 || choiceKind_ == 5) && input.pressed(Action::Cancel)) return;
+    if ((choiceKind_ == 4 || choiceKind_ == 5 || choiceKind_ == 20) && input.pressed(Action::Cancel)) return;
     const bool second = input.pressed(Action::Cancel) || choiceIndex_ == 1;
     const int kind = choiceKind_;
     choiceKind_ = 0;
     if (kind == 1) {
-        lostCompetitorHelped_ = !second;
-        lostCompetitorDeclined_ = second;
+        lostCompetitorHelped_ = !second; lostCompetitorDeclined_ = second;
         beginTransientDialogue(second ? "road_npc_lost_competitor_decline" : "road_npc_lost_competitor_help");
     } else if (kind == 2) {
-        if (second) beginTransientDialogue("roadside_challenger_leave", 11);
-        else beginTransientDialogue("roadside_challenger_intro", 10);
+        if (second) beginTransientDialogue("roadside_challenger_leave", 11); else beginTransientDialogue("roadside_challenger_intro", 10);
     } else if (kind == 3) {
-        if (second) resolveRoadsideEncounter(false);
-        else startRoadsideFight();
+        if (second) resolveRoadsideEncounter(false); else startRoadsideFight();
     } else if (kind == 4) {
         static const std::string routes[] = {"main", "forest", "cliff"};
         routeChoice_ = routes[std::min<std::size_t>(choiceIndex_, 2)];
-        if (routeChoice_ == "main") {
-            disableBlocker("fallen_tree_north");
-            disableBlocker("fallen_tree_south");
-        } else if (routeChoice_ == "forest") {
-            disableBlocker("fallen_tree_north");
-        } else {
-            disableBlocker("fallen_tree_south");
-            cliffRouteHintLevel_ = 0;
-        }
+        if (routeChoice_ == "main") { disableBlocker("fallen_tree_north"); disableBlocker("fallen_tree_south"); }
+        else if (routeChoice_ == "forest") disableBlocker("fallen_tree_north");
+        else { disableBlocker("fallen_tree_south"); cliffRouteHintLevel_ = 0; }
         completeScene();
     } else if (kind == 5) {
-        lensRouteChosen_ = !second;
-        southernDetourChosen_ = second;
+        lensRouteChosen_ = !second; southernDetourChosen_ = second;
         if (southernDetourChosen_) showGameplayNotice("SOUTH DETOUR • LONG WAY AROUND", 1.45f);
         else showGameplayNotice("LENS ROUTE • READ THE ROADBLOCK", 1.35f);
+    } else if (kind == 20) {
+        static const StoryStat stats[] = {StoryStat::Hp,StoryStat::Power,StoryStat::Defense,StoryStat::Speed,StoryStat::Focus};
+        StoryProgressionSystem::applyBonusWheel(tournamentCard_,stats[std::min<std::size_t>(choiceIndex_,4)],tournamentBonusRoll_);
+        tournamentCardRevealTime_=3.0f;
+        tournamentBonusRoll_=0;
+        showGameplayNotice("TOURNAMENT CARD UPDATED",1.15f);
+        completeScene();
     }
 }
 
@@ -1561,6 +1871,7 @@ void RuntimeSession::handleRoadsideAbilities(const InputState& input) {
         triggerAbilityAnimation("lens_activate", 0.30f);
         combatLensTimer_ = 4.0f;
         lensActive_ = true;
+        scheduleLensBlindness(4.0f);
     }
 }
 
@@ -1711,7 +2022,9 @@ void RuntimeSession::tickRoadsideFight(InputState& input, float dt) {
 void RuntimeSession::tickRoadsideEncounter(InputState& input, float dt, const ExplorationDefinition& definition) {
     if (roadsideFightActive_) { tickRoadsideFight(input, dt); return; }
     if (roadsideEncounterResolved_) { completeScene(); return; }
-    if (distance(playerPosition_, definition.target) <= definition.radius || playerPosition_.x >= definition.target.x) {
+    // The lost competitor stands just west of the clearing but well off-axis.
+    // A global X threshold could skip the optional story while approaching him.
+    if (distance(playerPosition_, definition.target) <= definition.radius) {
         if (lostCompetitorHelped_) { choiceKind_ = 2; choiceIndex_ = 0; }
         else resolveRoadsideEncounter(false);
     }
@@ -1741,6 +2054,61 @@ void RuntimeSession::tickAdventureNpcs(InputState& input, float, const Explorati
     } else beginTransientDialogue(nearest->dialogueId);
 }
 
+
+void RuntimeSession::refreshFreeSwapObjects() {
+    const auto& currentMap = map();
+    if (freeSwapMapId_ == currentMap.id && !freeSwapObjects_.empty()) return;
+    freeSwapMapId_ = currentMap.id;
+    freeSwapObjects_.clear();
+    for (const auto& landmark : currentMap.landmarks) {
+        if (landmark.id.rfind("free_swap_", 0) == 0)
+            freeSwapObjects_.push_back({landmark.id, landmark.position, true});
+    }
+}
+
+bool RuntimeSession::tryFreeObjectSwap() {
+    refreshFreeSwapObjects();
+    if (objectSwapCooldownTime_ > 0.0f) {
+        showGameplayNotice("OBJECT SWAP • RECHARGING " + std::to_string(static_cast<int>(std::ceil(objectSwapCooldownTime_))) + "s", .85f);
+        return false;
+    }
+    constexpr float kFreeSwapRange = 225.0f;
+    int bestIndex = -1;
+    float bestDistance = kFreeSwapRange;
+    for (std::size_t i = 0; i < freeSwapObjects_.size(); ++i) {
+        if (!freeSwapObjects_[i].active) continue;
+        const float d = distance(playerPosition_, freeSwapObjects_[i].position);
+        if (d <= bestDistance) { bestDistance = d; bestIndex = static_cast<int>(i); }
+    }
+    if (bestIndex < 0) {
+        showGameplayNotice("OBJECT SWAP • NO OBJECT IN RANGE", .85f);
+        return false;
+    }
+    const auto& layout = AbilityHotbarCatalog::rrvvfoChapter1();
+    const auto ability = std::find_if(layout.begin(), layout.end(), [](const AbilitySlotDefinition& slot){ return slot.id == "objectSwap"; });
+    const float cost = ability == layout.end() ? 20.0f : ability->energyCost;
+    if (player_.energy < cost) {
+        showGameplayNotice("OBJECT SWAP • NOT ENOUGH ENERGY", .85f);
+        return false;
+    }
+    player_.energy -= cost;
+    auto& object = freeSwapObjects_[static_cast<std::size_t>(bestIndex)];
+    objectSwapGhostFrom_ = playerPosition_;
+    objectSwapGhostTo_ = object.position;
+    const Vec2 old = playerPosition_;
+    playerPosition_ = object.position;
+    object.position = old;
+    objectSwapPhaseTime_ = .12f;
+    objectSwapCooldownTime_ = 4.5f;
+    triggerAbilityAnimation("object_swap", .32f);
+    showGameplayNotice("OBJECT SWAP", .55f);
+    return true;
+}
+
+void RuntimeSession::scheduleLensBlindness(float delaySeconds) {
+    lensBlindnessDelay_ = std::max(lensBlindnessDelay_, std::max(0.0f, delaySeconds));
+    lensBlindnessTime_ = 0.0f;
+}
 bool RuntimeSession::tickAdventureSidePuzzle(const AbilitySlotDefinition* ability) {
     const auto* adventure = currentAdventure();
     if (!adventure || adventure->sidePuzzle.id.empty() || !ability || signPuzzleStage_ <= 0 || signPuzzleStage_ >= 3)
@@ -1750,6 +2118,7 @@ bool RuntimeSession::tickAdventureSidePuzzle(const AbilitySlotDefinition* abilit
         withinAbilityTarget(playerPosition_, puzzle.lensTarget, puzzle.radius)) {
         signPuzzleStage_ = 2;
         triggerAbilityAnimation("lens_activate", 0.30f);
+        scheduleLensBlindness(.30f);
         beginTransientDialogue(puzzle.lensDialogueId);
         return true;
     }
@@ -1791,6 +2160,11 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
     else if (!explorationMoving && explorationWasMoving_) { explorationRunStopAnimationTime_ = 0.180f; explorationRunStartAnimationTime_ = 0.0f; }
     explorationWasMoving_ = explorationMoving;
     const auto* ability = pressedAbility(input);
+
+    const bool storyOwnsObjectSwap = definition.rule == ExplorationRuleKind::UseAbilityPoint ||
+        definition.rule == ExplorationRuleKind::SwapRelay || definition.rule == ExplorationRuleKind::TerrainDetour;
+    if (ability && ability->id == "objectSwap" && !storyOwnsObjectSwap &&
+        game_.scene().id != "reach_tournament_outskirts" && tryFreeObjectSwap()) return;
 
     if (game_.scene().id == "reach_tournament_outskirts" && tickAdventureSidePuzzle(ability)) return;
 
@@ -1997,10 +2371,50 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
                 player_.hp = std::max(1.0f, player_.hp - 1.0f);
                 lensActive_ = true;
                 triggerAbilityAnimation("lens_activate", 0.30f);
+                scheduleLensBlindness(.30f);
                 for (const auto& blocker : definition.blockersToDisable) disableBlocker(blocker);
                 completeScene();
             }
             break;
+case ExplorationRuleKind::InteractionSequence: {
+    sceneSequenceStarted_ = true;
+    sceneSequenceSeconds_ += dt;
+    if (sceneSequenceProgress_ >= definition.sequenceMarkers.size()) { completeScene(); break; }
+    const Vec2 target = definition.sequenceMarkers[sceneSequenceProgress_];
+    const bool close = distance(playerPosition_, target) <= definition.sequenceRadius;
+    if (close && (!definition.sequenceRequiresInteract || input.pressed(Action::Interact))) {
+        const std::size_t completedIndex = sceneSequenceProgress_++;
+        const std::string label = completedIndex < definition.sequenceLabels.size()
+            ? definition.sequenceLabels[completedIndex] : "OBJECTIVE";
+        showGameplayNotice(label + " • " + std::to_string(sceneSequenceProgress_) + " / " + std::to_string(definition.sequenceMarkers.size()), 1.0f);
+        if (completedIndex < definition.sequenceDialogueIds.size() && !definition.sequenceDialogueIds[completedIndex].empty()) {
+            beginTransientDialogue(definition.sequenceDialogueIds[completedIndex], 60);
+            break;
+        }
+        if (sceneSequenceProgress_ >= definition.sequenceMarkers.size()) {
+            if (!definition.completionDialogueId.empty()) beginTransientDialogue(definition.completionDialogueId, 60);
+            else completeScene();
+        }
+    }
+    break;
+}
+case ExplorationRuleKind::TimedCheckpointSequence: {
+    sceneSequenceStarted_ = true;
+    sceneSequenceSeconds_ += dt;
+    if (sceneSequenceProgress_ >= definition.sequenceMarkers.size()) { completeScene(); break; }
+    const Vec2 target = definition.sequenceMarkers[sceneSequenceProgress_];
+    if (distance(playerPosition_, target) <= definition.sequenceRadius) {
+        ++sceneSequenceProgress_;
+        showGameplayNotice("CHECKPOINT • " + std::to_string(sceneSequenceProgress_) + " / " + std::to_string(definition.sequenceMarkers.size()), .75f);
+        if (sceneSequenceProgress_ >= definition.sequenceMarkers.size()) {
+            if (definition.sequenceTargetSeconds > 0.0f && sceneSequenceSeconds_ <= definition.sequenceTargetSeconds)
+                showGameplayNotice("WADE SHORTCUT • TARGET BEAT", 1.35f);
+            if (!definition.completionDialogueId.empty()) beginTransientDialogue(definition.completionDialogueId, 60);
+            else completeScene();
+        }
+    }
+    break;
+}
         case ExplorationRuleKind::CliffJumpRoute:
             break;
     }
@@ -2030,6 +2444,11 @@ void RuntimeSession::confirm() {
 void RuntimeSession::completeScene() {
     recordObjective(view_.objective);
     const auto completedId = game_.scene().id;
+    if (completedId == "ch2_registration_card" && !tournamentCard_.acquired) {
+        tournamentCard_.acquired = true;
+        tournamentCardRevealTime_ = 4.5f;
+        showGameplayNotice("TOURNAMENT CARD ACQUIRED", 1.35f);
+    }
     if (completedId == "sage_tutorial_spar" && standaloneTrainingMode_) {
         returnToTitleRequested_ = true;
         return;
@@ -2040,18 +2459,41 @@ void RuntimeSession::completeScene() {
     if (completedId == "runaway_tournament_cart") showGameplayNotice("CHECKPOINT • TOURNAMENT ROAD", 1.15f);
     else if (completedId == "roadside_encounter") showGameplayNotice("CHECKPOINT • ROADSIDE", 1.15f);
     else if (completedId == "lens_roadblock_reveal") showGameplayNotice("CHECKPOINT • OUTSKIRTS AHEAD", 1.15f);
+
     const auto& chapter = game_.chapter();
     const bool finalScene = game_.story().sceneIndex + 1 >= chapter.openingFlow.size();
-    if (finalScene) {
-        game_.advanceScene();
-        chapterComplete_ = true;
-        sceneComplete_ = true;
+    const auto beforeChapter = game_.story().chapterId;
+    const auto beforeIndex = game_.story().sceneIndex;
+
+    if (finalScene && beforeChapter == "rrvvfo_ch1" && chapters_.has(chapter.nextChapterId)) {
+        // Preserve every completed Chapter-1 flag before the internal
+        // content boundary advances into Tournament Grounds.
+        auto transitionSave = saveSnapshot();
+        if (!containsFlag(transitionSave.story.flags, "ch1_complete_at_outskirts"))
+            transitionSave.story.flags.push_back("ch1_complete_at_outskirts");
+        game_.loadSave(transitionSave);
+    }
+    game_.advanceScene();
+
+    if (game_.story().chapterId != beforeChapter) {
+        // Internal chapter IDs are save/content boundaries, never a player-facing menu break.
+        chapterComplete_ = false;
+        sceneComplete_ = false;
+        enterCurrentScene();
+        manualSaveRequested_ = true;
+        saveStatus_ = "AUTOSAVING…";
+        saveStatusTime_ = 2.0f;
+        showGameplayNotice("STORY CONTINUES • TOURNAMENT GROUNDS", 1.10f);
         return;
     }
-    const auto beforeChapter = game_.story().chapterId;
-    const auto before = game_.story().sceneIndex;
-    game_.advanceScene();
-    if (game_.story().chapterId != beforeChapter || game_.story().sceneIndex != before) enterCurrentScene();
+    if (game_.story().sceneIndex != beforeIndex) {
+        enterCurrentScene();
+        return;
+    }
+    if (finalScene) {
+        chapterComplete_ = true;
+        sceneComplete_ = true;
+    }
 }
 
 SaveData RuntimeSession::saveSnapshot(const std::string& inputPreset) const {
@@ -2062,62 +2504,78 @@ SaveData RuntimeSession::saveSnapshot(const std::string& inputPreset) const {
     data.world.hp = player_.hp;
     data.world.energy = player_.energy;
     data.world.guard = player_.guard;
+
+    // Free-swap props are physical world state in every chapter that authors them.
     data.world.objects.erase(std::remove_if(data.world.objects.begin(), data.world.objects.end(), [](const WorldObjectState& object){
-        return object.id == "far_bank_rock" || object.id.rfind("relay_marker_", 0) == 0;
+        return object.id.rfind("free_swap_", 0) == 0;
     }), data.world.objects.end());
-    data.world.objects.push_back({"far_bank_rock", farBankRockPosition_, true});
-    for (std::size_t i = 0; i < relayMarkers_.size(); ++i)
-        data.world.objects.push_back({"relay_marker_" + std::to_string(i), relayMarkers_[i], true});
-    data.story.flags.erase(std::remove_if(data.story.flags.begin(), data.story.flags.end(), [](const std::string& flag){
-        return flag.rfind("ch1_tutorial_checkpoint=", 0) == 0 ||
-               flag.rfind("ch1_route_progress=", 0) == 0 ||
-               flag.rfind("ch1_relay_index=", 0) == 0 ||
-               flag.rfind("ch1_cliff_mask=", 0) == 0 ||
-               flag == "ch1_spectator_pass_pending";
-    }), data.story.flags.end());
+    for (const auto& object : freeSwapObjects_) data.world.objects.push_back(object);
+
     const auto addFlag = [&](const std::string& flag) {
         if (!containsFlag(data.story.flags, flag)) data.story.flags.push_back(flag);
     };
-    addFlag("ch1_tutorial_checkpoint=" + std::to_string(trainingCheckpointStep_));
-    addFlag("ch1_route_progress=" + std::to_string(routeProgress_));
-    addFlag("ch1_relay_index=" + std::to_string(std::max(0, relayIndex_)));
-    unsigned cliffMask = 0;
-    for (std::size_t i = 0; i < cliffJumpComplete_.size() && i < 31; ++i) if (cliffJumpComplete_[i]) cliffMask |= (1u << i);
-    addFlag("ch1_cliff_mask=" + std::to_string(cliffMask));
-    if (mainRouteFireCleared_) addFlag("ch1_main_fire_cleared");
-    if (lensRouteChosen_) addFlag("ch1_lens_route_chosen");
-    if (southernDetourChosen_) addFlag("ch1_southern_detour_chosen");
-    if (southernDetourComplete_) { addFlag("ch1_southern_detour_complete"); addFlag("world_delight_southern_detour"); }
-    if (terrainCollapseSeen_) addFlag("ch1_terrain_collapse_seen");
-    if (detourDashDone_) addFlag("ch1_detour_dash_done");
-    if (detourSwapDone_) addFlag("ch1_detour_swap_done");
-    if (lostCompetitorHelped_) addFlag("ch1_lost_competitor_helped");
-    if (lostCompetitorDeclined_) addFlag("ch1_lost_competitor_declined");
-    if (roadsideEncounterResolved_) addFlag("ch1_roadside_encounter_resolved");
-    if (spectatorPassWon_) addFlag("ch1_spectator_pass_won");
-    if (spectatorPassWon_ && !spectatorPassDelivered_) addFlag("ch1_spectator_pass_pending");
-    if (spectatorPassDelivered_) addFlag("ch1_spectator_pass_delivered");
-    if (tutorialSkipped_) addFlag("ch1_tutorial_skipped");
-    if (signPuzzleStage_ >= 1) addFlag("ch1_sign_that_points_back_started");
-    if (signPuzzleStage_ >= 2) addFlag("ch1_sign_that_points_back_revealed");
-    if (signPuzzleStage_ >= 3) {
-        addFlag("ch1_sign_that_points_back_complete");
-        addFlag("ch1_wayfinder_badge");
+
+    if (game_.story().chapterId == "rrvvfo_ch1") {
+        data.world.objects.erase(std::remove_if(data.world.objects.begin(), data.world.objects.end(), [](const WorldObjectState& object){
+            return object.id == "far_bank_rock" || object.id.rfind("relay_marker_", 0) == 0;
+        }), data.world.objects.end());
+        data.world.objects.push_back({"far_bank_rock", farBankRockPosition_, true});
+        for (std::size_t i = 0; i < relayMarkers_.size(); ++i)
+            data.world.objects.push_back({"relay_marker_" + std::to_string(i), relayMarkers_[i], true});
+
+        data.story.flags.erase(std::remove_if(data.story.flags.begin(), data.story.flags.end(), [](const std::string& flag){
+            return flag.rfind("ch1_tutorial_checkpoint=", 0) == 0 ||
+                   flag.rfind("ch1_route_progress=", 0) == 0 ||
+                   flag.rfind("ch1_relay_index=", 0) == 0 ||
+                   flag.rfind("ch1_cliff_mask=", 0) == 0 ||
+                   flag == "ch1_spectator_pass_pending";
+        }), data.story.flags.end());
+
+        addFlag("ch1_tutorial_checkpoint=" + std::to_string(trainingCheckpointStep_));
+        addFlag("ch1_route_progress=" + std::to_string(routeProgress_));
+        addFlag("ch1_relay_index=" + std::to_string(std::max(0, relayIndex_)));
+        unsigned cliffMask = 0;
+        for (std::size_t i = 0; i < cliffJumpComplete_.size() && i < 31; ++i)
+            if (cliffJumpComplete_[i]) cliffMask |= (1u << i);
+        addFlag("ch1_cliff_mask=" + std::to_string(cliffMask));
+        if (mainRouteFireCleared_) addFlag("ch1_main_fire_cleared");
+        if (lensRouteChosen_) addFlag("ch1_lens_route_chosen");
+        if (southernDetourChosen_) addFlag("ch1_southern_detour_chosen");
+        if (southernDetourComplete_) { addFlag("ch1_southern_detour_complete"); addFlag("world_delight_southern_detour"); }
+        if (terrainCollapseSeen_) addFlag("ch1_terrain_collapse_seen");
+        if (detourDashDone_) addFlag("ch1_detour_dash_done");
+        if (detourSwapDone_) addFlag("ch1_detour_swap_done");
+        if (lostCompetitorHelped_) addFlag("ch1_lost_competitor_helped");
+        if (lostCompetitorDeclined_) addFlag("ch1_lost_competitor_declined");
+        if (roadsideEncounterResolved_) addFlag("ch1_roadside_encounter_resolved");
+        if (spectatorPassWon_) addFlag("ch1_spectator_pass_won");
+        if (spectatorPassWon_ && !spectatorPassDelivered_) addFlag("ch1_spectator_pass_pending");
+        if (spectatorPassDelivered_) addFlag("ch1_spectator_pass_delivered");
+        if (tutorialSkipped_) addFlag("ch1_tutorial_skipped");
+        if (signPuzzleStage_ >= 1) addFlag("ch1_sign_that_points_back_started");
+        if (signPuzzleStage_ >= 2) addFlag("ch1_sign_that_points_back_revealed");
+        if (signPuzzleStage_ >= 3) { addFlag("ch1_sign_that_points_back_complete"); addFlag("ch1_wayfinder_badge"); }
+        if (transportRescued_) { addFlag("ch1_transport_rescued"); addFlag("ch1_object_swap_token"); }
+        if (runawayCartSaved_) addFlag(qteAttempts_ <= 1 ? "ch1_cart_perfect_intercept" : "ch1_cart_supplies_saved");
+        if (precisionSwapMastered_) addFlag("ch1_precision_swap_mastered");
+        if (flowCancelLearned_) addFlag("ch1_flow_cancel_learned");
+        if (cliffRewardEarned_) {
+            addFlag("ch1_road_dare_badge");
+            addFlag("ch1_title_road_runner");
+            addFlag("ch1_cliff_overlook_discovered");
+        }
+        if (chapterComplete_) addFlag("ch1_complete_at_outskirts");
+        for (const auto& sceneId : seenCutscenes_) addFlag("seen_ch1_scene=" + sceneId);
     }
-    if (transportRescued_) {
-        addFlag("ch1_transport_rescued");
-        addFlag("ch1_object_swap_token");
-    }
-    if (runawayCartSaved_) addFlag(qteAttempts_ <= 1 ? "ch1_cart_perfect_intercept" : "ch1_cart_supplies_saved");
-    if (precisionSwapMastered_) addFlag("ch1_precision_swap_mastered");
-    if (flowCancelLearned_) addFlag("ch1_flow_cancel_learned");
-    if (cliffRewardEarned_) {
-        addFlag("ch1_road_dare_badge");
-        addFlag("ch1_title_road_runner");
-        addFlag("ch1_cliff_overlook_discovered");
-    }
-    if (chapterComplete_) addFlag("ch1_complete_at_outskirts");
-    for (const auto& sceneId : seenCutscenes_) addFlag("seen_ch1_scene=" + sceneId);
+
+    // Generic authored sequence progress belongs to the current scene only.
+    const std::string sceneProgressPrefix = "scene_progress=" + game_.story().chapterId + ":" + game_.scene().id + ":";
+    data.story.flags.erase(std::remove_if(data.story.flags.begin(), data.story.flags.end(), [&](const std::string& flag){
+        return flag.rfind(sceneProgressPrefix, 0) == 0;
+    }), data.story.flags.end());
+    if (sceneSequenceProgress_ > 0) data.story.flags.push_back(sceneProgressPrefix + std::to_string(sceneSequenceProgress_));
+
+    data.tournamentCard = tournamentCard_;
     data.frontend.objectiveHistory = objectiveHistory_;
     data.qol = qolSettings_;
     data.inputPreset = inputPreset;
@@ -2238,7 +2696,7 @@ void RuntimeSession::syncView() {
         view_.pauseSections = {
             "CURRENT OBJECTIVE • " + (objectiveBeforePause_.empty() ? std::string{"Continue Chapter 1"} : objectiveBeforePause_),
             "CHECKPOINT • " + game_.story().checkpointId,
-            "BUILD • 3.0R / UPDATE 6 GOLDEN GATE"
+            "BUILD • 3.0R / UPDATE 10 TOURNAMENT GOLDEN"
         };
         if (standaloneMode()) {
             const std::string sessionName = replayMode_ ? "CHAPTER REPLAY • STORY SAVE PROTECTED" :
@@ -2317,7 +2775,38 @@ void RuntimeSession::syncView() {
     view_.playerAirborne = movementState_.height > 0.0f || player_.airborne;
     view_.playerFalling = movementState_.height > 0.0f && movementState_.verticalVelocity < -35.0f;
 
-    if (choiceKind_ == 1) {
+view_.cinematicCameraActive = cinematicCameraActive_ && game_.mode() == GameMode::Cutscene && !qolSettings_.reducedMotion;
+view_.cinematicCameraFocus = cinematicCameraFocus_;
+view_.cinematicCameraYawDegrees = cinematicCameraYawDegrees_;
+view_.cinematicCameraDistance = cinematicCameraDistance_;
+view_.cinematicCameraHeight = cinematicCameraHeight_;
+view_.cinematicCameraFovDegrees = cinematicCameraFovDegrees_;
+view_.cinematicExpression = cinematicExpression_;
+view_.cinematicWorldEvent = cinematicWorldEvent_;
+view_.tournamentCard = tournamentCard_;
+view_.tournamentCardVisible = tournamentCard_.acquired && tournamentCardRevealTime_ > 0.0f;
+view_.tournamentBonusRoll = tournamentBonusRoll_;
+view_.playerStocksLost = storyPlayerStocksLost_;
+view_.opponentStocksLost = storyOpponentStocksLost_;
+view_.stockTarget = arenaEncounters_.has(view_.sceneId) ? arenaEncounters_.get(view_.sceneId).stockTarget : 0;
+view_.recommendedLevel = arenaEncounters_.has(view_.sceneId) ? arenaEncounters_.get(view_.sceneId).recommendedLevel : 0;
+view_.officialTournamentMatch = arenaEncounters_.has(view_.sceneId) && arenaEncounters_.get(view_.sceneId).official;
+view_.tournamentWorldState.clear();
+if (view_.chapterId == "rrvvfo_ch2") {
+    if (view_.sceneId == "ch2_tournament_aftermath" || view_.sceneId == "ch2_plouke_reveal")
+        view_.tournamentWorldState = "cleanup";
+    else if (view_.sceneId == "ch2_pre_plouke" || view_.sceneId == "ch2_vs_plouke")
+        view_.tournamentWorldState = "final";
+    else if (view_.sceneId == "ch2_opening_ceremony" || view_.sceneId.rfind("ch2_vs_",0)==0 ||
+             view_.sceneId.rfind("ch2_intermission_",0)==0 || view_.sceneId == "ch2_bark_pouki")
+        view_.tournamentWorldState = "tournament";
+    else
+        view_.tournamentWorldState = "festival";
+}
+    if (choiceKind_ == 20) {
+        view_.choiceTitle = "LEVEL UP • BONUS +" + std::to_string(tournamentBonusRoll_) + " • CHOOSE A STAT";
+        view_.choiceOptions = {"HP","POWER","DEFENSE","SPEED","FOCUS"};
+    } else if (choiceKind_ == 1) {
         view_.choiceTitle = "HELP HIM?";
         view_.choiceOptions = {"HELP HIM", "DON’T HELP"};
     } else if (choiceKind_ == 2) {
@@ -2410,6 +2899,63 @@ void RuntimeSession::syncView() {
         }
     }
 
+view_.objectSwapCooldownSeconds = objectSwapCooldownTime_;
+view_.objectSwapPhaseSeconds = objectSwapPhaseTime_;
+view_.objectSwapGhostFrom = objectSwapGhostFrom_;
+view_.objectSwapGhostTo = objectSwapGhostTo_;
+view_.objectSwapTargetLocked = false;
+view_.objectSwapTargetPosition = {};
+if (game_.mode() == GameMode::Exploration && objectSwapCooldownTime_ <= 0.0f) {
+    constexpr float kFreeSwapRange = 225.0f;
+    float best = kFreeSwapRange;
+    for (const auto& object : freeSwapObjects_) {
+        const float d = distance(playerPosition_, object.position);
+        if (object.active && d <= best) { best = d; view_.objectSwapTargetLocked = true; view_.objectSwapTargetPosition = object.position; }
+    }
+}
+view_.lensBlindnessAmount = lensBlindnessTime_ <= 0.0f ? 0.0f : std::clamp(lensBlindnessTime_ / lensBlindnessDuration_, 0.0f, 1.0f);
+if (view_.objectSwapTargetLocked)
+    view_.worldMarkers.push_back({"rrvvfo_free_swap_lock", view_.objectSwapTargetPosition, "object-swap-lock", false});
+if (objectSwapPhaseTime_ > 0.0f) {
+    view_.worldMarkers.push_back({"rrvvfo_swap_ghost_from", objectSwapGhostFrom_, "object-swap-ghost", false});
+    view_.worldMarkers.push_back({"rrvvfo_swap_ghost_to", objectSwapGhostTo_, "object-swap-ghost", true});
+    view_.worldMarkers.push_back({"rrvvfo_swap_phase", playerPosition_, "object-swap-phase", true});
+}
+for (const auto& object : freeSwapObjects_)
+    view_.worldMarkers.push_back({object.id, object.position, "free-swap-object", false});
+view_.storySequenceProgress = sceneSequenceProgress_;
+view_.storySequenceSeconds = sceneSequenceSeconds_;
+view_.storySequenceCount = 0;
+if (exploration_.has(view_.sceneId)) {
+    const auto& sequenceDefinition = exploration_.get(view_.sceneId);
+    if (!sequenceDefinition.sequenceMarkers.empty()) {
+        view_.storySequenceCount = sequenceDefinition.sequenceMarkers.size();
+        for (std::size_t i = 0; i < sequenceDefinition.sequenceMarkers.size(); ++i) {
+            view_.worldMarkers.push_back({"story_sequence_" + std::to_string(i), sequenceDefinition.sequenceMarkers[i],
+                i < sceneSequenceProgress_ ? "sequence-complete" : i == sceneSequenceProgress_ ? "sequence-active" : "sequence-upcoming",
+                i < sceneSequenceProgress_});
+        }
+        if (sceneSequenceProgress_ < sequenceDefinition.sequenceMarkers.size() &&
+            distance(playerPosition_, sequenceDefinition.sequenceMarkers[sceneSequenceProgress_]) <= sequenceDefinition.sequenceRadius + 25.0f &&
+            sequenceDefinition.sequenceRequiresInteract) {
+            view_.nearbyInteractionLabel = sceneSequenceProgress_ < sequenceDefinition.sequenceLabels.size()
+                ? sequenceDefinition.sequenceLabels[sceneSequenceProgress_] : "CHECK";
+        }
+    }
+}
+if (view_.chapterId == "rrvvfo_ch2" && view_.presentationStageId == "tournament-hub") {
+    if (view_.tournamentWorldState == "festival") {
+        view_.worldMarkers.push_back({"festival_delivery_cart", {-180.0f,-540.0f}, "delivery-cart", false});
+    } else if (view_.tournamentWorldState == "tournament") {
+        view_.worldMarkers.push_back({"medical_supply_cart", {650.0f,500.0f}, "parked-cart", true});
+        view_.worldMarkers.push_back({"bracket_update", {-630.0f,170.0f}, "work-lane", true});
+    } else if (view_.tournamentWorldState == "final") {
+        view_.worldMarkers.push_back({"final_waiting_supply", {470.0f,455.0f}, "parked-cart", true});
+    } else if (view_.tournamentWorldState == "cleanup") {
+        view_.worldMarkers.push_back({"cleanup_cart", {260.0f,-430.0f}, "delivery-cart", true});
+        view_.worldMarkers.push_back({"repair_marker", {-80.0f,430.0f}, "work-lane", true});
+    }
+}
     // Lightweight shared ability VFX markers keep the three Chapter-1 techniques
     // readable on every renderer tier. They are presentation only; gameplay remains
     // authoritative in the existing ability/combat systems.
@@ -2444,6 +2990,15 @@ void RuntimeSession::syncView() {
     }
 
     if (!transientDialogueId_.empty()) {
+        if (game_.mode() == GameMode::Exploration && exploration_.has(view_.sceneId)) {
+            const auto& definition = exploration_.get(view_.sceneId);
+            view_.objective = definition.objective;
+            view_.objectiveDetail = definition.detail;
+            if (spectatorPassWon_ && !spectatorPassDelivered_) {
+                if (!view_.objectiveDetail.empty()) view_.objectiveDetail += " • ";
+                view_.objectiveDetail += "OPTIONAL: Return the spectator pass to the lost competitor.";
+            }
+        }
         const auto& lines = dialogue_.get(transientDialogueId_);
         view_.dialogueVisible = !lines.empty();
         view_.dialogueIndex = std::min(transientDialogueIndex_, lines.empty() ? std::size_t{0} : lines.size() - 1);

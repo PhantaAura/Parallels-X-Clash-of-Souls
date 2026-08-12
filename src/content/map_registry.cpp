@@ -82,6 +82,9 @@ MapRegistry::MapRegistry() {
         {"tournament_fan", "Tournament Fan", {1480.0f, 285.0f}},
         {"vendor", "Road Vendor", {1750.0f, 260.0f}},
         {"sign_painter", "Sign Painter", {1840.0f, -300.0f}}
+,{"free_swap_road_crate_a", "Loose Supply Crate", {-585.0f, 265.0f}}
+,{"free_swap_road_crate_b", "Loose Supply Crate", {815.0f, 300.0f}}
+,{"free_swap_outskirts_barrel", "Tournament Barrel", {1510.0f, -305.0f}}
     };
     maps_.emplace(training.id, training);
 
@@ -108,6 +111,52 @@ MapRegistry::MapRegistry() {
     };
     maps_.emplace(roadsideArena.id, roadsideArena);
 
+
+MapDefinition tournament;
+tournament.id = "tournament_grounds";
+tournament.name = "Tournament Grounds";
+tournament.bounds = {-1450.0f, 1450.0f, -980.0f, 980.0f};
+tournament.playerStart = {-1280.0f, 40.0f};
+tournament.zones = {
+    {"entrance_plaza", "Tournament Entrance Plaza", {-1120.0f, 0.0f}, "arrival and crowd threshold"},
+    {"registration_plaza", "Registration Plaza", {-760.0f, 0.0f}, "cards, bracket and official entry"},
+    {"market_street", "Market Street", {-260.0f, -520.0f}, "vendors and festival side stories"},
+    {"practice_grounds", "Practice Grounds", {-120.0f, 430.0f}, "sparring, race and cracked ring"},
+    {"spectator_district", "Spectator District", {420.0f, -460.0f}, "fans, rumors and match reactions"},
+    {"main_arena_gate", "Main Arena Gate", {930.0f, 0.0f}, "official bracket reporting"},
+    {"contestant_lane", "Contestant Lane", {500.0f, 420.0f}, "medical tent, waiting tent and intermissions"}
+};
+tournament.links = {
+    {"entrance_plaza","registration_plaza","main"}, {"registration_plaza","market_street","south_loop"},
+    {"registration_plaza","practice_grounds","north_loop"}, {"market_street","spectator_district","south_loop"},
+    {"practice_grounds","contestant_lane","north_loop"}, {"spectator_district","main_arena_gate","main"},
+    {"contestant_lane","main_arena_gate","main"}, {"practice_grounds","market_street","service_lane"}
+};
+tournament.blockers = {
+    {"arena_gate_lock", {850.0f, 1030.0f, -180.0f, 180.0f}, true}
+};
+tournament.landmarks = {
+    {"tournament_entrance", "Tournament Entrance", {-1280.0f, 0.0f}},
+    {"registration_desk", "Registration Desk", {-760.0f, 0.0f}},
+    {"bracket_board", "Bracket Board", {-630.0f, 170.0f}},
+    {"practice_ring", "Practice Ring", {-80.0f, 430.0f}},
+    {"waiting_tent", "Contestant Waiting Tent", {470.0f, 455.0f}},
+    {"medical_tent", "Medical Tent", {650.0f, 500.0f}},
+    {"main_arena_gate", "Main Arena Gate", {930.0f, 0.0f}},
+    {"free_swap_market_crate", "Market Supply Crate", {-300.0f, -390.0f}},
+    {"free_swap_practice_barrel", "Practice Barrel", {85.0f, 300.0f}},
+    {"free_swap_spectator_box", "Spectator Supply Box", {455.0f, -330.0f}}
+};
+maps_.emplace(tournament.id, tournament);
+
+MapDefinition tournamentArena;
+tournamentArena.id = "tournament_arena";
+tournamentArena.name = "Tournament Main Ring";
+tournamentArena.bounds = {-720.0f, 720.0f, -560.0f, 560.0f};
+tournamentArena.playerStart = {-300.0f, 0.0f};
+tournamentArena.zones = {{"official_ring", "Main Tournament Ring", {0.0f,0.0f}, "first-to-three stock combat and ring-outs"}};
+tournamentArena.landmarks = {{"ring_center", "Ring Center", {0.0f,0.0f}}};
+maps_.emplace(tournamentArena.id, tournamentArena);
     maps_.emplace("tangai_dojo", MapDefinition{"tangai_dojo", "Tangai's Dojo", {-500,500,-400,400}, {0,0}, {}, {}, {}, {}});
     maps_.emplace("paper_world", MapDefinition{"paper_world", "Paper World", {-500,500,-400,400}, {0,0}, {}, {}, {}, {}});
     maps_.emplace("virek_island", MapDefinition{"virek_island", "Virek's Island", {-500,500,-400,400}, {0,0}, {}, {}, {}, {}});

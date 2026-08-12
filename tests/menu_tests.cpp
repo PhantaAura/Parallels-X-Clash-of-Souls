@@ -36,7 +36,9 @@ int main() {
     px::CombatManualRegistry manual;
     px::FactionRegistry factions;
 
-    assert(chapters.ids() == std::vector<std::string>{"rrvvfo_ch1"});
+    assert(chapters.ids().size() == 2);
+    assert(chapters.has("rrvvfo_ch1"));
+    assert(chapters.has("rrvvfo_ch2"));
     assert(!chapters.has("bark_ch1"));
     assert(!chapters.has("wade_ch1"));
     assert(!chapters.has("virek_ch1"));

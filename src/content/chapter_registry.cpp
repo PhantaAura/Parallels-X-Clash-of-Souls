@@ -37,6 +37,35 @@ ChapterRegistry::ChapterRegistry() {
         "rrvvfo_ch2"
     });
 
+chapters_.emplace("rrvvfo_ch2", ChapterDefinition{
+    "rrvvfo_ch2", "Tournament Grounds", "tournament_grounds", "rrvvfo",
+    {
+        {SceneKind::Cutscene, "tournament_gate_walk_in", "rrvvfo-ch2-arrival", "tournament-hub"},
+        {SceneKind::Cutscene, "ch2_arrival_delay", "rrvvfo-ch2-delay", "tournament-hub"},
+        {SceneKind::Exploration, "ch2_lost_bracket", "rrvvfo-ch2-bracket", "tournament-hub"},
+        {SceneKind::Cutscene, "ch2_practice_brawl_intro", "rrvvfo-ch2-practice-intro", "tournament-hub"},
+        {SceneKind::Arena, "ch2_practice_brawl", "rrvvfo-ch2-practice", "tournament-arena"},
+        {SceneKind::Cutscene, "ch2_ninja_reunion", "rrvvfo-ch2-reunion", "tournament-hub"},
+        {SceneKind::Exploration, "ch2_wade_shortcut", "rrvvfo-ch2-wade-race", "tournament-hub"},
+        {SceneKind::Exploration, "ch2_cracked_ring", "rrvvfo-ch2-cracked-ring", "tournament-hub"},
+        {SceneKind::Cutscene, "ch2_registration_card", "rrvvfo-ch2-card", "tournament-hub"},
+        {SceneKind::Cutscene, "ch2_opening_ceremony", "rrvvfo-ch2-ceremony", "tournament-hub"},
+        {SceneKind::Cutscene, "ch2_hailey_plouke", "rrvvfo-ch2-hailey-plouke", "tournament-arena"},
+        {SceneKind::Arena, "ch2_vs_hamual", "rrvvfo-ch2-hamual", "tournament-arena"},
+        {SceneKind::Exploration, "ch2_intermission_stillness", "rrvvfo-ch2-clue-stillness", "tournament-hub"},
+        {SceneKind::Arena, "ch2_vs_daniel", "rrvvfo-ch2-daniel", "tournament-arena"},
+        {SceneKind::Exploration, "ch2_intermission_positioning", "rrvvfo-ch2-clue-position", "tournament-hub"},
+        {SceneKind::Cutscene, "ch2_bark_pouki", "rrvvfo-ch2-bark-pouki", "tournament-arena"},
+        {SceneKind::Exploration, "ch2_intermission_timing", "rrvvfo-ch2-clue-timing", "tournament-hub"},
+        {SceneKind::Arena, "ch2_vs_wade", "rrvvfo-ch2-wade", "tournament-arena"},
+        {SceneKind::Exploration, "ch2_intermission_edge", "rrvvfo-ch2-clue-edge", "tournament-hub"},
+        {SceneKind::Cutscene, "ch2_pre_plouke", "rrvvfo-ch2-pre-final", "tournament-hub"},
+        {SceneKind::Arena, "ch2_vs_plouke", "rrvvfo-ch2-plouke", "tournament-arena"},
+        {SceneKind::Cutscene, "ch2_plouke_reveal", "rrvvfo-ch2-reveal", "tournament-hub"},
+        {SceneKind::Cutscene, "ch2_tournament_aftermath", "rrvvfo-ch2-aftermath", "tournament-hub"}
+    }, "rrvvfo_ch3"
+});
+
 }
 
 const ChapterDefinition& ChapterRegistry::get(const std::string& id) const {

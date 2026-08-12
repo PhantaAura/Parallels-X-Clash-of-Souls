@@ -36,6 +36,16 @@ std::string SaveCodec::serialize(const SaveData& data) {
     out << "qolHighContrast=" << (data.qol.highContrastHud ? 1 : 0) << '\n';
     out << "qolLargerText=" << (data.qol.largerText ? 1 : 0) << '\n';
     out << "qolCombatMessages=" << data.qol.combatMessages << '\n';
+    out << "cardOwner=" << data.tournamentCard.ownerId << '\n';
+    out << "cardLevel=" << data.tournamentCard.level << '\n';
+    out << "cardXp=" << data.tournamentCard.xp << '\n';
+    out << "cardPending=" << data.tournamentCard.pendingBonusChoices << '\n';
+    out << "cardAcquired=" << (data.tournamentCard.acquired ? 1 : 0) << '\n';
+    out << "cardBonusHp=" << data.tournamentCard.bonuses.hp << '\n';
+    out << "cardBonusPower=" << data.tournamentCard.bonuses.power << '\n';
+    out << "cardBonusDefense=" << data.tournamentCard.bonuses.defense << '\n';
+    out << "cardBonusSpeed=" << data.tournamentCard.bonuses.speed << '\n';
+    out << "cardBonusFocus=" << data.tournamentCard.bonuses.focus << '\n';
     for (const auto& flag : data.story.flags) out << "flag=" << flag << '\n';
     return out.str();
 }
@@ -88,10 +98,20 @@ SaveData SaveCodec::deserialize(const std::string& text) {
         else if (key == "qolHighContrast") data.qol.highContrastHud = value != "0";
         else if (key == "qolLargerText") data.qol.largerText = value != "0";
         else if (key == "qolCombatMessages") data.qol.combatMessages = value;
+        else if (key == "cardOwner") data.tournamentCard.ownerId = value;
+        else if (key == "cardLevel") data.tournamentCard.level = std::stoi(value);
+        else if (key == "cardXp") data.tournamentCard.xp = std::stoi(value);
+        else if (key == "cardPending") data.tournamentCard.pendingBonusChoices = std::stoi(value);
+        else if (key == "cardAcquired") data.tournamentCard.acquired = value != "0";
+        else if (key == "cardBonusHp" || key == "cardBonus0") data.tournamentCard.bonuses.hp = std::stoi(value);
+        else if (key == "cardBonusPower" || key == "cardBonus1") data.tournamentCard.bonuses.power = std::stoi(value);
+        else if (key == "cardBonusDefense" || key == "cardBonus2") data.tournamentCard.bonuses.defense = std::stoi(value);
+        else if (key == "cardBonusSpeed" || key == "cardBonus3") data.tournamentCard.bonuses.speed = std::stoi(value);
+        else if (key == "cardBonusFocus" || key == "cardBonus4") data.tournamentCard.bonuses.focus = std::stoi(value);
         else if (key == "flag") data.story.flags.push_back(value);
     }
     if (data.schemaVersion != 2 && data.schemaVersion != 3 && data.schemaVersion != 4 &&
-        data.schemaVersion != SaveData::kSchemaVersion)
+        data.schemaVersion != 5 && data.schemaVersion != SaveData::kSchemaVersion)
         throw std::runtime_error("Unsupported save schema");
 
     auto replacePrefix = [](std::string& value, const std::string& oldPrefix, const std::string& newPrefix) {

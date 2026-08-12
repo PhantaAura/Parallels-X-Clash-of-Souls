@@ -587,7 +587,17 @@ void LegacyUi3ds::utility(const RuntimeView& view) {
     fitted(view.currentArea, 49, 35, 244, .43f, .31f, kWhite);
     fitted(view.objective, 25, 57, 268, .23f, .18f, kMuted);
 
-    if (view.hotbarVisible && !view.hotbar.empty()) {
+    if (view.tournamentCardVisible) {
+        const auto stats = StoryProgressionSystem::statsFor(view.tournamentCard);
+        remakePanel(10, 87, 300, 91, kPaper, kYellow, true);
+        label("TOURNAMENT CARD", 24, 96, .29f, kRed);
+        fitted("RRVVFO   LV " + std::to_string(view.tournamentCard.level) + "   XP " + std::to_string(view.tournamentCard.xp),
+               24, 117, 272, .34f, .26f, kInk);
+        fitted("HP " + std::to_string(stats.hp) + "  PWR " + std::to_string(stats.power) + "  DEF " + std::to_string(stats.defense),
+               24, 139, 272, .27f, .22f, kBlue);
+        fitted("SPD " + std::to_string(stats.speed) + "  FOC " + std::to_string(stats.focus),
+               24, 158, 272, .27f, .22f, kBlue);
+    } else if (view.hotbarVisible && !view.hotbar.empty()) {
         const float gap = 4;
         const float width = (300.0f - gap * static_cast<float>(view.hotbar.size() - 1)) /
                             static_cast<float>(view.hotbar.size());
