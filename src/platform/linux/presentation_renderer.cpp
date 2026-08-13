@@ -668,7 +668,7 @@ void PresentationRenderer::drawTitle() {
     outline({338, 444, 604, 66}, theme.offWhite, 3);
     centered("PRESS ANY BUTTON", 640, 465, 4, theme.offWhite, true);
     centered("KEYBOARD  /  CONTROLLER  /  PHYSICAL BUTTONS", 640, 548, 2, theme.mutedText);
-    text("3.0R  /  0.4H GOLDEN GATE QOL  /  LINUX VALIDATION", 42, 674, 2, theme.mutedText);
+    text("3.0R  /  STORY • BATTLE • TRAINING", 42, 674, 2, theme.mutedText);
 }
 
 void PresentationRenderer::drawMode(const MenuSnapshot& menu) {
@@ -690,7 +690,7 @@ void PresentationRenderer::drawMode(const MenuSnapshot& menu) {
     if (menu.selectedMode.id == MenuModeId::Story) {
         if (!characterModel("rrvvfo", 852, 485, 248, 0.0f, true,
                             RrvvfoFaceExpression::Confident))
-            text("RRVVFO MODEL REQUIRED", 760, 350, 2, theme.fireRed, true);
+            text("CHARACTER ASSET UNAVAILABLE", 760, 350, 2, theme.fireRed, true);
         fighter(1058, 474, 2, {185, 199, 205, 255}, theme.nearBlack, true);
         line(760, 480, 1140, 480, theme.ember, 5);
     } else if (menu.selectedMode.id == MenuModeId::ArenaBattle) {
@@ -699,6 +699,15 @@ void PresentationRenderer::drawMode(const MenuSnapshot& menu) {
         fighter(850, 440, 2, theme.fireRed, theme.nearBlack);
         fighter(1050, 440, 2, {86, 49, 99, 255}, theme.nearBlack);
         centered("VS", 950, 300, 6, theme.offWhite, true);
+    } else if (menu.selectedMode.id == MenuModeId::Continue && menu.continueAvailable) {
+        fill({742, 206, 410, 256}, {20, 18, 24, 246});
+        outline({742, 206, 410, 256}, theme.warmGold, 4);
+        text(menu.continueCharacter, 772, 232, 4, theme.offWhite, true);
+        text(menu.continueArea, 772, 282, 2, theme.warmGold);
+        wrapped(menu.continueObjective, {772, 318, 350, 65}, 2, theme.offWhite, 5);
+        text("STORY  " + std::to_string(menu.continueProgressPercent) + "%", 772, 404, 2, theme.mutedText);
+        const int minutes = std::max(0, static_cast<int>(menu.continuePlaytimeSeconds)) / 60;
+        text("PLAYTIME  " + std::to_string(minutes / 60) + "H " + std::to_string(minutes % 60) + "M", 930, 404, 2, theme.mutedText);
     } else if (menu.selectedMode.id == MenuModeId::OnlinePlay) {
         color(accent);
         for (int radius : {48, 92, 136}) {
@@ -719,7 +728,7 @@ void PresentationRenderer::drawMode(const MenuSnapshot& menu) {
     text(menu.selectedMode.label, 122 + motion, 248, menu.selectedMode.label.size() > 14 ? 5 : 7, theme.offWhite, true);
     wrapped(menu.selectedMode.description, {128 + motion, 342, 510, 104}, 2, theme.mutedText, 6);
     const std::string number = (menu.modeIndex + 1 < 10 ? "0" : "") + std::to_string(menu.modeIndex + 1);
-    text(number + " / 10", 128, 458, 3, accent);
+    text(number + " / " + std::to_string(menus_.modes().size()), 128, 458, 3, accent);
 
     if (!menu.selectedMode.implemented) {
         diagonalBand({430, 532, 420, 54}, -12, accent);
@@ -753,7 +762,7 @@ void PresentationRenderer::drawStoryCharacter(const MenuSnapshot& menu) {
     text(menu.selectedRoute.characterName, 120 + motion, 218, 7, theme.offWhite, true);
     text(menu.selectedRoute.title, 122 + motion, 292, 3, theme.warmGold);
     wrapped(menu.selectedRoute.description, {124, 345, 590, 96}, 2, theme.offWhite, 6);
-    text(menu.selectedRoute.id == "rrvvfo" ? "LIVE REPAIRED MODEL + EXPRESSIVE FACE" : "ROUTE ART PENDING",
+    text(menu.selectedRoute.id == "rrvvfo" ? "FIRE NINJA • SPEED / STRIKER" : "STORY ROUTE",
          124, 466, 2, theme.mutedText);
     text("<", 38, 302, 8, theme.warmGold, true);
     text(">", 1212, 302, 8, theme.warmGold, true);
@@ -761,7 +770,7 @@ void PresentationRenderer::drawStoryCharacter(const MenuSnapshot& menu) {
     if (menu.selectedRoute.id == "rrvvfo") {
         if (!characterModel("rrvvfo", 1005, 565, 430, 0.0f, true,
                             RrvvfoFaceExpression::Confident))
-            text("RRVVFO MODEL REQUIRED", 866, 340, 3, theme.fireRed, true);
+            text("CHARACTER ASSET UNAVAILABLE", 842, 340, 2, theme.fireRed, true);
     } else {
         fighter(1005, 555, 4, accent, theme.nearBlack, menu.selectedRoute.id == "bark");
     }
@@ -835,10 +844,51 @@ void PresentationRenderer::drawUnlock(const MenuSnapshot& menu) {
     centered("AVAILABLE IN STORY CHARACTER SELECT", 640, 510, 2, theme.mutedText);
 }
 
+void PresentationRenderer::drawSubmenu(const MenuSnapshot& menu) {
+    const auto& theme = ui_.theme();
+    drawBackdrop(theme.warmGold);
+    text("PARALLELS X  /  " + menu.submenuTitle, 54, 34, 3, theme.warmGold);
+    text(menu.submenuTitle, 54, 74, menu.submenuTitle.size() > 22 ? 4 : 5, theme.offWhite, true);
+    fill({54, 142, 760, 466}, {21, 18, 24, 248});
+    outline({54, 142, 760, 466}, theme.offWhite, 4);
+    int y = 168;
+    if (!menu.submenuOptions.empty()) {
+        const std::size_t count = menu.submenuOptions.size();
+        const std::size_t visible = std::min<std::size_t>(count, 9);
+        const std::size_t start = count <= visible ? 0 : std::min(menu.submenuSelection, count - visible);
+        for (std::size_t row = 0; row < visible; ++row) {
+            const std::size_t index = start + row;
+            const bool selected = index == menu.submenuSelection;
+            if (selected) fill({74, y - 8, 716, 42}, theme.warmGold);
+            text(menu.submenuOptions[index], 92, y, 2, selected ? theme.nearBlack : theme.offWhite);
+            y += 47;
+        }
+    } else {
+        for (const auto& lineValue : menu.informationLines) {
+            if (y > 570) break;
+            text(lineValue, 86, y, 2, theme.offWhite);
+            y += 39;
+        }
+    }
+    fill({842, 142, 384, 466}, {24, 21, 27, 248});
+    outline({842, 142, 384, 466}, theme.warmGold, 4);
+    wrapped(menu.submenuDetail.empty() ? menu.primaryPrompt : menu.submenuDetail,
+            {870, 178, 328, 270}, 2, theme.offWhite, 7);
+    text(menu.primaryPrompt, 870, 536, 2, theme.warmGold);
+    text("ESC / B  BACK", 54, 674, 2, theme.mutedText);
+}
+
 void PresentationRenderer::renderMenu(const MenuSnapshot& menu) {
     switch (menu.screen) {
         case MenuScreen::Title: drawTitle(); break;
         case MenuScreen::ModeSelect: drawMode(menu); break;
+        case MenuScreen::BattleSelect:
+        case MenuScreen::ExtrasSelect:
+        case MenuScreen::Options:
+        case MenuScreen::AdventureRecords:
+        case MenuScreen::CharacterProfiles:
+        case MenuScreen::Credits: drawSubmenu(menu); break;
+        case MenuScreen::CombatManual: renderManual(menu.manualPageIndex); break;
         case MenuScreen::StoryCharacterSelect: drawStoryCharacter(menu); break;
         case MenuScreen::StorySoFar: drawRecap(menu); break;
         case MenuScreen::StoryComingLater: drawComingLater(menu); break;
@@ -853,7 +903,7 @@ void PresentationRenderer::renderManual(std::size_t pageIndex, const RuntimeView
     diagonalBand({18, 18, 1244, 684}, -22, theme.manualPaper);
     outline({22, 22, 1236, 676}, theme.nearBlack, 6);
     text("THE SAGE'S COMBAT MANUAL", 48, 42, 3, theme.crimson);
-    text("CHAPTER 1 EDITION", 48, 76, 5, theme.nearBlack);
+    text("STORY EDITION", 48, 76, 5, theme.nearBlack);
     text(training ? "LEFT / RIGHT  PAGES" : "M / ESC  CLOSE", training ? 974 : 1040, 58, 2, theme.crimson);
 
     const auto& pages = manual_.pages();
@@ -1063,14 +1113,17 @@ void PresentationRenderer::drawWorld(const RuntimeView& view) {
 void PresentationRenderer::drawHud(const RuntimeView& view) {
     const auto& theme = ui_.theme();
     const auto& layout = ui_.layout();
-    if (!view.objective.empty()) {
-        const UiRect objective = view.mode == GameMode::ArenaCombat ? UiRect{392, 74, 496, 54} : layout.objective;
+    if (!view.objective.empty() && view.objectiveDisplay != "off") {
+        const bool minimalObjective = view.objectiveDisplay == "minimal";
+        const UiRect objective = view.mode == GameMode::ArenaCombat ? UiRect{392, 74, 496, 54} :
+                                 minimalObjective ? UiRect{layout.objective.x, layout.objective.y, layout.objective.w, 48} : layout.objective;
         fill(objective, {12, 10, 14, 224});
         fill({objective.x, objective.y, 9, objective.h}, theme.crimson);
         outline(objective, theme.offWhite, 2);
-        text("CURRENT OBJECTIVE", objective.x + 24, objective.y + 9, 1, theme.warmGold);
-        wrapped(view.objective, {objective.x + 24, objective.y + 28, objective.w - 48, 21}, 1, theme.offWhite, 2);
-        if (!view.objectiveDetail.empty() && view.mode != GameMode::ArenaCombat)
+        if (!minimalObjective) text("CURRENT OBJECTIVE", objective.x + 24, objective.y + 9, 1, theme.warmGold);
+        wrapped(view.objective, {objective.x + 24, objective.y + (minimalObjective ? 15 : 28), objective.w - 48, 24},
+                view.hudScale > 1.05f ? 2 : 1, theme.offWhite, 2);
+        if (!minimalObjective && !view.objectiveDetail.empty() && view.mode != GameMode::ArenaCombat)
             wrapped(view.objectiveDetail, {objective.x + 24, objective.y + objective.h + 7,
                     objective.w - 48, 34}, 1, theme.mutedText, 2);
     }
@@ -1108,7 +1161,12 @@ void PresentationRenderer::drawHud(const RuntimeView& view) {
         outline({392, 138, 496, 70}, view.opponentAttackTelegraphed ? theme.fireRed : theme.warmGold, 3);
         centered(view.trainingPrompt, 640, 158, 2, theme.offWhite);
     }
-    if (!view.gameplayNotice.empty() && !view.dialogueVisible) {
+    if (view.battleRankVisible && !view.dialogueVisible) {
+        fill({470, 376, 340, 92}, {10, 8, 12, 244});
+        outline({470, 376, 340, 92}, theme.warmGold, 4);
+        centered("BATTLE RANK", 640, 392, 2, theme.warmGold);
+        centered(view.battleRank + "  •  " + std::to_string(view.battleRankScore), 640, 422, 5, theme.offWhite, true);
+    } else if (!view.gameplayNotice.empty() && !view.dialogueVisible) {
         fill({410, 420, 460, 42}, {10, 8, 12, 238});
         outline({410, 420, 460, 42}, view.flowCancelReady ? theme.fireRed : theme.warmGold, 2);
         centered(view.gameplayNotice, 640, 434, 1, theme.offWhite);

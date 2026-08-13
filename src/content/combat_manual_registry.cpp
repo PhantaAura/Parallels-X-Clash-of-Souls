@@ -55,7 +55,7 @@ CombatManualRegistry::CombatManualRegistry() {
              {"Counter", "Q", "RIGHT SHOULDER", "Commit to a read and punish an incoming normal.", "manual_counter"},
              {"Combo Breaker", "R", "LEFT TRIGGER", "Spend the defensive resource to break a valid combo state.", "manual_breaker"},
          }},
-        {"rrvvfo_techniques", "TECHNIQUES", "RRVVFO'S CURRENT TECHNIQUES", "CHAPTER 1 CHRONOLOGY",
+        {"rrvvfo_techniques", "TECHNIQUES", "RRVVFO'S CURRENT TECHNIQUES", "STORY CHRONOLOGY",
          "Only techniques Rrvvfo actually has at this point appear. Future abilities do not occupy empty or question-mark slots.",
          {
              {"Fire Blast", "1", "ABILITY SLOT 1", "Ranged fire pressure.", "manual_fire_blast"},

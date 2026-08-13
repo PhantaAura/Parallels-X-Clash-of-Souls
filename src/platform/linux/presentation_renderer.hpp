@@ -57,6 +57,7 @@ private:
     void drawBackdrop(UiColor accent);
     void drawTitle();
     void drawMode(const MenuSnapshot& menu);
+    void drawSubmenu(const MenuSnapshot& menu);
     void drawStoryCharacter(const MenuSnapshot& menu);
     void drawRecap(const MenuSnapshot& menu);
     void drawComingLater(const MenuSnapshot& menu);

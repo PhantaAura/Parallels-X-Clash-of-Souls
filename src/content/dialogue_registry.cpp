@@ -402,6 +402,83 @@ scenes_.emplace("ch2_festival_photo", std::vector<DialogueLine>{
 scenes_.emplace("ch2_bracket_board_status", std::vector<DialogueLine>{
     {"BRACKET BOARD","Current round and next opponent updated. Another match is already in the ring."}
 });
+
+scenes_.emplace("ch2_missing_prize_start", std::vector<DialogueLine>{
+    {"PRIZE WORKER","The winner's prize envelope disappeared between registration and the supply cart."},
+    {"RRVVFO","You lost the winner's prize before there is a winner? That's efficient."},
+    {"PRIZE WORKER","Please check the market lane. Quietly."},
+    {"RRVVFO","Sure. I'll quietly save the entire tournament from an empty podium."}
+});
+scenes_.emplace("ch2_missing_prize_found", std::vector<DialogueLine>{
+    {"RRVVFO","There it is. Under a banner crate, exactly where important money belongs."},
+    {"MARKET WORKER","I thought that envelope was spare bracket paper."},
+    {"RRVVFO","Then the handwriting saying GRAND PRIZE was a subtle clue."}
+});
+scenes_.emplace("ch2_missing_prize_done", std::vector<DialogueLine>{
+    {"PRIZE WORKER","Sealed, untouched, and back in time. Thank you."},
+    {"RRVVFO","Good. If I win, I don't want my prize smelling like crate dust."},
+    {"PRIZE WORKER","The vendors owe you a discount too. I made sure of it."}
+});
+
+scenes_.emplace("ch2_one_match_anyway_start", std::vector<DialogueLine>{
+    {"ELIMINATED FIGHTER","I trained for weeks and got knocked out before I learned anything."},
+    {"RRVVFO","You learned not to stand where the ring ends."},
+    {"ELIMINATED FIGHTER","One real match anyway? No bracket. No crowd. Just one chance to improve."},
+    {"RRVVFO","Fine. But if you fall off again, that's the lesson."}
+});
+scenes_.emplace("ch2_one_match_anyway_done", std::vector<DialogueLine>{
+    {"ELIMINATED FIGHTER","That was what I needed. You noticed where I kept opening my guard."},
+    {"RRVVFO","I noticed because I kept hitting it."},
+    {"ELIMINATED FIGHTER","Then take the training note. It can sharpen either your Power or Speed."}
+});
+
+scenes_.emplace("ch2_controlled_flame_start", std::vector<DialogueLine>{
+    {"FOOD VENDOR","The warming plate died, and the next batch has to be ready before the official match."},
+    {"RRVVFO","You saw the fire ninja and thought kitchen equipment."},
+    {"FOOD VENDOR","Controlled fire ninja. One small blast. No heroic crater."},
+    {"RRVVFO","That last rule feels aimed at me."}
+});
+scenes_.emplace("ch2_controlled_flame_done", std::vector<DialogueLine>{
+    {"FOOD VENDOR","Perfect heat. Nothing burned."},
+    {"RRVVFO","Obviously. I can be precise when food is threatened."},
+    {"FOOD VENDOR","Your next official match meal is on me."}
+});
+
+scenes_.emplace("ch2_alt_rover_start", std::vector<DialogueLine>{
+    {"MAINTENANCE FOREMAN","Alt and Rover lured one of my maintenance workers through the service gate. They are using him to move carts and mess with your route."},
+    {"RRVVFO","Alt and Rover. They always enter through the door marked DO NOT ENTER."},
+    {"MAINTENANCE FOREMAN","Check the old cart, the backward sign, and the service awning. Bring my worker back."}
+});
+scenes_.emplace("ch2_alt_rover_cart", std::vector<DialogueLine>{
+    {"RRVVFO","Fresh wheel marks, heavy on one side. Rover pushed this while Alt made him carry everything else."},
+    {"ROVER","You're assuming a lot from a wheel."},
+    {"RRVVFO","I'm assuming from knowing you."}
+});
+scenes_.emplace("ch2_alt_rover_sign", std::vector<DialogueLine>{
+    {"RRVVFO","The sign points away from the service lane. Too clean. Alt turned it around."},
+    {"ALT","Or the sign has excellent instincts."},
+    {"RRVVFO","Your hiding place just talked."}
+});
+scenes_.emplace("ch2_alt_rover_service", std::vector<DialogueLine>{
+    {"ROVER","We only borrowed the lane. Alt said the guards would never check somewhere useful."},
+    {"RRVVFO","For once, he was almost right."},
+    {"ALT","Stop narrating and keep moving, Rover."}
+});
+scenes_.emplace("ch2_alt_rover_confrontation", std::vector<DialogueLine>{
+    {"MAINTENANCE WORKER","Rrvvfo! They made me reroute every cart you were about to use."},
+    {"RRVVFO","End of the lane, Alt. Put back whatever you took."},
+    {"ALT","You chased footprints while I watched every shortcut you chose."},
+    {"RRVVFO","Then watch this one."},
+    {"ALT","Too slow."},
+    {"NARRATION","Alt catches Rrvvfo's wrist, turns his momentum aside, and leaves with Rover through the outer gate."},
+    {"RRVVFO","...He did not win. He aggressively left."}
+});
+scenes_.emplace("ch2_alt_rover_necklace", std::vector<DialogueLine>{
+    {"RRVVFO","He dropped this weighted necklace."},
+    {"RRVVFO","Why was Alt WALKING AROUND WITH THIS?"},
+    {"MAINTENANCE WORKER","Training weight. It slows movement and charging until you master it, but it builds power."},
+    {"RRVVFO","So it's annoying on purpose. Definitely Alt's."}
+});
 }
 
 const std::vector<DialogueLine>& DialogueRegistry::get(const std::string& sceneId) const {

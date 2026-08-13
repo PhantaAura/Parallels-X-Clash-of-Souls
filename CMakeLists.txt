@@ -21,6 +21,7 @@ add_library(px_core
     src/core/quest.cpp
     src/core/runtime.cpp
     src/core/camera_policy.cpp
+    src/core/rpg_progress.cpp
     src/content/chapter_registry.cpp
     src/content/map_registry.cpp
     src/content/cutscene_registry.cpp
@@ -99,7 +100,7 @@ if(APPLE)
     set_target_properties(ParallelsX PROPERTIES
         MACOSX_BUNDLE_BUNDLE_NAME "Parallels X: Clash of Souls"
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.phantaaura.parallelsx.clashofsouls"
-        MACOSX_BUNDLE_BUNDLE_VERSION "0.4.8"
+        MACOSX_BUNDLE_BUNDLE_VERSION "0.4.16"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "3.0.0"
         OUTPUT_NAME "Parallels X - Clash of Souls")
 endif()

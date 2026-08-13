@@ -41,6 +41,10 @@ bool containsFlag(const std::vector<std::string>& flags, const std::string& valu
     return std::find(flags.begin(), flags.end(), value) != flags.end();
 }
 
+void addUnique(std::vector<std::string>& values, const std::string& value) {
+    if (std::find(values.begin(), values.end(), value) == values.end()) values.push_back(value);
+}
+
 bool withinAbilityTarget(Vec2 player, Vec2 target, float authoredRadius) {
     // Small input-device forgiveness around an authored Legacy target. It never
     // changes the target or solves the route; it only accepts the aim the player
@@ -128,6 +132,13 @@ void RuntimeSession::startChapter(const std::string& chapterId) {
     recentDialogue_.clear();
     lastRecordedDialogueKey_.clear();
     seenSceneSkipHoldTime_ = 0.0f;
+    adventureRecords_ = {};
+    rpgProgress_ = {};
+    battleRankTime_ = 0.0f;
+    pendingRankDialogueId_.clear();
+    pendingRankDialogueContinuation_ = pendingRankChoiceKind_ = 0;
+    storyPlaytimeSeconds_ = 0.0f;
+    userCameraYawOffset_ = userCameraHeightOffset_ = 0.0f;
     game_.startChapter(chapterId);
     player_ = FighterState{game_.chapter().playableCharacter};
     opponent_ = FighterState{"sage"};
@@ -195,6 +206,10 @@ void RuntimeSession::startChapter(const std::string& chapterId) {
     fakeChampionContacted_ = fakeChampionRevealed_ = fakeChampionComplete_ = false;
     runawayDummyComplete_ = false;
     festivalFoodComplete_ = festivalPhotoComplete_ = false;
+    missingPrizeStarted_ = missingPrizeFound_ = missingPrizeComplete_ = false;
+    oneMatchComplete_ = false;
+    controlledFlameStarted_ = controlledFlameComplete_ = false;
+    altRoverQuestStage_ = 0;
     barkPracticeWins_ = 0;
     activeOptionalEncounterId_.clear();
     roadsideFightActive_ = false;
@@ -237,17 +252,26 @@ lensBlindnessTime_ = 0.0f;
 
 void RuntimeSession::startReplayChapter(const SaveData& source) {
     const auto sourceQol = source.qol;
+    const auto sourceCard = source.tournamentCard;
+    const auto sourceRecords = source.records;
+    const auto sourceRpg = source.rpg;
     std::vector<std::string> sourceSeen;
     constexpr const char* seenPrefix = "seen_ch1_scene=";
+    constexpr const char* genericSeenPrefix = "seen_scene=";
     for (const auto& flag : source.story.flags) {
         if (flag.rfind(seenPrefix, 0) == 0)
             sourceSeen.push_back(flag.substr(std::char_traits<char>::length(seenPrefix)));
+        else if (flag.rfind(genericSeenPrefix, 0) == 0)
+            sourceSeen.push_back(flag.substr(std::char_traits<char>::length(genericSeenPrefix)));
     }
     startChapter("rrvvfo_ch1");
     replayMode_ = true;
     qolSettings_ = sourceQol;
+    tournamentCard_ = sourceCard;
+    adventureRecords_ = sourceRecords;
+    rpgProgress_ = sourceRpg;
     seenCutscenes_ = std::move(sourceSeen);
-    showGameplayNotice("CHAPTER REPLAY • STORY SAVE PROTECTED", 1.65f);
+    showGameplayNotice("STORY REPLAY • MAIN SAVE PROTECTED", 1.65f);
     syncView();
 }
 
@@ -294,6 +318,13 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     seenSceneSkipHoldTime_ = 0.0f;
     game_.loadSave(data);
     tournamentCard_ = data.tournamentCard;
+    adventureRecords_ = data.records;
+    rpgProgress_ = data.rpg;
+    storyPlaytimeSeconds_ = data.frontend.playtimeSeconds;
+    battleRankTime_ = 0.0f;
+    pendingRankDialogueId_.clear();
+    pendingRankDialogueContinuation_ = pendingRankChoiceKind_ = 0;
+    userCameraYawOffset_ = userCameraHeightOffset_ = 0.0f;
     player_ = FighterState{game_.chapter().playableCharacter};
     opponent_ = FighterState{"sage"};
     clearCombatInputBuffer();
@@ -359,6 +390,13 @@ void RuntimeSession::loadSnapshot(const SaveData& data) {
     runawayDummyComplete_ = containsFlag(data.story.flags, "ch2_runaway_dummy_complete");
     festivalFoodComplete_ = containsFlag(data.story.flags, "ch2_festival_food_complete");
     festivalPhotoComplete_ = containsFlag(data.story.flags, "ch2_festival_photo_complete");
+    missingPrizeStarted_ = containsFlag(data.story.flags, "ch2_missing_prize_started");
+    missingPrizeFound_ = containsFlag(data.story.flags, "ch2_missing_prize_found");
+    missingPrizeComplete_ = containsFlag(data.story.flags, "ch2_missing_prize_complete");
+    oneMatchComplete_ = containsFlag(data.story.flags, "ch2_one_match_anyway_complete");
+    controlledFlameStarted_ = containsFlag(data.story.flags, "ch2_controlled_flame_started");
+    controlledFlameComplete_ = containsFlag(data.story.flags, "ch2_controlled_flame_complete");
+    altRoverQuestStage_ = static_cast<int>(savedUnsignedFlag(data.story.flags, "ch2_alt_rover_stage=", 6));
     barkPracticeWins_ = static_cast<int>(savedUnsignedFlag(data.story.flags, "ch2_bark_practice_wins=", 999));
     fireAwakeningUnlocked_ = containsFlag(data.story.flags, "rrvvfo_fire_awakening_unlocked") ||
         data.story.pendingChapterId == "rrvvfo_ch3";
@@ -650,6 +688,37 @@ void RuntimeSession::resetCurrentScene() {
 
 void RuntimeSession::tick(InputState& input, float dt) {
     dt = std::clamp(std::max(0.0f, dt), 0.0f, 0.1f);
+    if (!standaloneMode() && game_.mode() != GameMode::Title && game_.mode() != GameMode::MainMenu &&
+        game_.mode() != GameMode::Pause)
+        storyPlaytimeSeconds_ += dt;
+    battleRankTime_ = std::max(0.0f, battleRankTime_ - dt);
+    if (!pendingRankDialogueId_.empty() || pendingRankChoiceKind_ != 0) {
+        if (battleRankTime_ <= 0.0f) {
+            if (pendingRankChoiceKind_ != 0) {
+                choiceKind_ = pendingRankChoiceKind_;
+                choiceIndex_ = 0;
+            } else {
+                const std::string dialogueId = pendingRankDialogueId_;
+                const int continuation = pendingRankDialogueContinuation_;
+                pendingRankDialogueId_.clear();
+                pendingRankDialogueContinuation_ = 0;
+                beginTransientDialogue(dialogueId, continuation);
+            }
+            pendingRankChoiceKind_ = 0;
+        }
+        syncView();
+        return;
+    }
+    const float cameraX = input.cameraX() * (qolSettings_.invertCameraX ? -1.0f : 1.0f);
+    const float cameraY = input.cameraY() * (qolSettings_.invertCameraY ? -1.0f : 1.0f);
+    if (std::abs(cameraX) > .01f || std::abs(cameraY) > .01f) {
+        userCameraYawOffset_ = std::clamp(userCameraYawOffset_ + cameraX * 95.0f * qolSettings_.cameraSensitivity * dt, -38.0f, 38.0f);
+        userCameraHeightOffset_ = std::clamp(userCameraHeightOffset_ + cameraY * 110.0f * qolSettings_.cameraSensitivity * dt, -90.0f, 90.0f);
+    } else if (qolSettings_.gentleCameraRecenter && !cinematicCameraActive_) {
+        const float blend = std::clamp(dt * 1.25f, 0.0f, 1.0f);
+        userCameraYawOffset_ *= 1.0f - blend;
+        userCameraHeightOffset_ *= 1.0f - blend;
+    }
     playerCharging_ = false;
     pureEnergyBeamActive_ = player_.activeAttack == AttackKind::Beam;
     if (fireAwakeningTime_ > 0.0f) {
@@ -721,6 +790,12 @@ void RuntimeSession::tick(InputState& input, float dt) {
 
     if (!transientDialogueId_.empty()) {
         tickTransientDialogue(input, dt);
+        syncView();
+        return;
+    }
+
+    if (choiceKind_ != 0) {
+        tickChoice(input);
         syncView();
         return;
     }
@@ -877,10 +952,21 @@ bool RuntimeSession::dialogueAdvanceRequested(const InputState& input, float dt)
     const bool held = input.down(Action::Confirm) || input.down(Action::Interact);
     if (pressed) {
         dialogueHoldTime_ = 0.0f;
+        dialogueAutoAdvanceTime_ = 0.0f;
         return true;
     }
     if (!held || !qolSettings_.holdToAdvanceDialogue) {
         dialogueHoldTime_ = 0.0f;
+        const bool protectedInstruction = training_.has(game_.scene().id) || trainingManualVisible_ || choiceKind_ != 0;
+        if (qolSettings_.dialogueAutoAdvance && !protectedInstruction) {
+            dialogueAutoAdvanceTime_ += dt;
+            const float wait = qolSettings_.dialogueSpeed == "slow" ? 2.8f :
+                               qolSettings_.dialogueSpeed == "fast" ? 1.35f : 2.0f;
+            if (dialogueAutoAdvanceTime_ >= wait) {
+                dialogueAutoAdvanceTime_ = 0.0f;
+                return true;
+            }
+        } else dialogueAutoAdvanceTime_ = 0.0f;
         return false;
     }
     dialogueHoldTime_ += dt;
@@ -1079,6 +1165,9 @@ void RuntimeSession::tickArena(InputState& input, float dt) {
     }
     FieldMovementConfig movement;
     movement.walkSpeed = 250.0f;
+    const float speedReward = 1.0f + static_cast<float>(std::max(0, tournamentCard_.bonuses.speed)) * .01f;
+    movement.walkSpeed *= speedReward * RpgProgressSystem::necklaceMovementMultiplier(rpgProgress_);
+    movement.dashSpeed *= speedReward * RpgProgressSystem::necklaceDashMultiplier(rpgProgress_);
     previousPlayerPosition_ = playerPosition_;
     InputState lockedMovementInput; lockedMovementInput.beginFrame();
     const InputState& movementInput = (player_.stunTimer > 0.0f || player_.knockdownTimer > 0.0f) ? lockedMovementInput : input;
@@ -1087,7 +1176,7 @@ void RuntimeSession::tickArena(InputState& input, float dt) {
     updateCombatFacing(dt);
     if (movementState_.landedThisFrame) {
         hardLanding_ = preLandingVelocity < -520.0f;
-        landingAnimationTime_ = hardLanding_ ? 0.22f : 0.13f;
+        landingAnimationTime_ = hardLanding_ ? 0.16f : 0.08f;
     }
     player_.airborne = movementState_.height > 0.0f;
 
@@ -1214,6 +1303,14 @@ void RuntimeSession::startStoryArena() {
     pendingArenaSceneComplete_ = false;
     player_ = FighterState{game_.chapter().playableCharacter};
     opponent_ = FighterState{encounter.opponentId};
+    activeMealBoost_ = encounter.official && rpgProgress_.nextOfficialMealBoost;
+    if (activeMealBoost_) {
+        rpgProgress_.nextOfficialMealBoost = false;
+        manualSaveRequested_ = true;
+        showGameplayNotice("CONTROLLED FLAME MEAL • NEXT-MATCH BOOST ACTIVE", 1.35f);
+    }
+    configurePlayerProgression();
+    resetBattlePerformance();
     player_.energy = encounter.startingEnergy;
     opponent_.energy = encounter.startingEnergy;
     playerPosition_ = encounter.playerStart;
@@ -1244,6 +1341,7 @@ void RuntimeSession::resetStoryArenaStock() {
     const auto& encounter = activeArenaEncounter();
     player_ = FighterState{game_.chapter().playableCharacter};
     opponent_ = FighterState{encounter.opponentId};
+    configurePlayerProgression();
     player_.energy = encounter.startingEnergy;
     opponent_.energy = encounter.startingEnergy;
     playerPosition_ = encounter.playerStart;
@@ -1255,6 +1353,51 @@ void RuntimeSession::resetStoryArenaStock() {
     clearCombatInputBuffer();
     combatReadyAnimationTime_ = .22f;
     updateCombatFacing(0.0f, true);
+}
+
+void RuntimeSession::configurePlayerProgression() {
+    const float hpBonus = static_cast<float>(std::max(0, tournamentCard_.bonuses.hp));
+    player_.maxHp = 100.0f + hpBonus + (activeMealBoost_ ? 10.0f : 0.0f);
+    player_.hp = player_.maxHp;
+    player_.powerMultiplier = (1.0f + static_cast<float>(std::max(0, tournamentCard_.bonuses.power)) * .02f) *
+                              RpgProgressSystem::necklacePowerMultiplier(rpgProgress_);
+    player_.defenseMultiplier = 1.0f + static_cast<float>(std::max(0, tournamentCard_.bonuses.defense)) * .02f +
+                                (activeMealBoost_ ? .05f : 0.0f);
+    player_.chargeRate = 42.0f * (1.0f + static_cast<float>(std::max(0, tournamentCard_.bonuses.focus)) * .01f) *
+                         RpgProgressSystem::necklaceChargeMultiplier(rpgProgress_);
+}
+
+void RuntimeSession::resetBattlePerformance() {
+    battlePerformance_ = {};
+}
+
+void RuntimeSession::recordBattleAction(AttackKind kind) {
+    const auto value = static_cast<unsigned>(kind);
+    if (value > 0 && value < 31) battlePerformance_.actionVarietyMask |= (1u << value);
+}
+
+void RuntimeSession::addNecklaceMastery(float amount, const char* reason) {
+    if (!RpgProgressSystem::addNecklaceMastery(rpgProgress_, amount)) return;
+    if (!rpgProgress_.weightedNecklaceMasteryRewardGranted) {
+        rpgProgress_.weightedNecklaceMasteryRewardGranted = true;
+        ++tournamentCard_.bonuses.power;
+        ++tournamentCard_.bonuses.speed;
+        showGameplayNotice(std::string{"NECKLACE MASTERED • POWER +1 • SPEED +1 • "} + reason, 2.0f);
+        manualSaveRequested_ = true;
+    }
+}
+
+void RuntimeSession::finalizeBattleRank(bool playerWon) {
+    battlePerformance_.playerWon = playerWon;
+    battlePerformance_.stocksLost = storyPlayerStocksLost_;
+    const auto result = RpgProgressSystem::evaluate(battlePerformance_);
+    RpgProgressSystem::commitBattle(adventureRecords_, battlePerformance_, result);
+    battleRankLabel_ = RpgProgressSystem::rankLabel(result.rank);
+    battleRankScore_ = result.score;
+    battleRankTime_ = 1.65f;
+    addNecklaceMastery(playerWon ? 6.0f : 2.5f, "BATTLE TRAINING");
+    manualSaveRequested_ = true;
+    showGameplayNotice("BATTLE RANK • " + battleRankLabel_ + " • " + std::to_string(battleRankScore_), 1.65f);
 }
 
 void RuntimeSession::tickStoryArena(InputState& input, float dt) {
@@ -1290,6 +1433,9 @@ void RuntimeSession::tickStoryArena(InputState& input, float dt) {
     movement.dashSpeed = 720.0f;
     movement.dashSeconds = .22f;
     movement.dashCooldownSeconds = .30f;
+    const float speedReward = 1.0f + static_cast<float>(std::max(0, tournamentCard_.bonuses.speed)) * .01f;
+    movement.walkSpeed *= speedReward * RpgProgressSystem::necklaceMovementMultiplier(rpgProgress_);
+    movement.dashSpeed *= speedReward * RpgProgressSystem::necklaceDashMultiplier(rpgProgress_);
     const bool dashRequested = input.pressed(Action::Dash) || (bufferedDash_ && bufferedDashTime_ > 0.0f);
     if (dashRequested) {
         bool consumed=false;
@@ -1385,8 +1531,11 @@ void RuntimeSession::tickStoryArena(InputState& input, float dt) {
         if(storyOpponentStocksLost_>=encounter.stockTarget){finishStoryArena(true);return;}
         if(storyPlayerStocksLost_>=encounter.stockTarget){
             if (!encounter.official) { finishStoryArena(false); return; }
-            storyPlayerStocksLost_=0;storyOpponentStocksLost_=0;
-            resetStoryArenaStock();showGameplayNotice("OFFICIAL MATCH • TRY AGAIN",1.25f);return;
+            finalizeBattleRank(false);
+            storyArenaActive_ = false;
+            pendingRankChoiceKind_ = 31;
+            showGameplayNotice("OFFICIAL MATCH • RETRY REQUIRED",1.25f);
+            return;
         }
         resetStoryArenaStock();
     }
@@ -1434,20 +1583,33 @@ void RuntimeSession::finishPloukeFinalClash(bool strongFinish) {
 
 void RuntimeSession::finishStoryArena(bool playerWon) {
     const auto& encounter=activeArenaEncounter();
+    finalizeBattleRank(playerWon);
     storyArenaActive_=false;
     if (!activeOptionalEncounterId_.empty()) {
         optionalArenaWon_ = playerWon;
-        pendingOptionalDialogueId_ = playerWon ? encounter.postDialogueId : std::string{};
-        if (playerWon && !encounter.postDialogueId.empty()) beginTransientDialogue(encounter.postDialogueId, 80);
-        else resolveOptionalTournamentFight(false);
+        if (!playerWon) {
+            pendingRankChoiceKind_ = 30;
+            showGameplayNotice("OPTIONAL FIGHT • RETRY OR LEAVE", 1.25f);
+            return;
+        }
+        pendingOptionalDialogueId_ = encounter.postDialogueId;
+        if (playerWon && !encounter.postDialogueId.empty()) {
+            pendingRankDialogueId_ = encounter.postDialogueId;
+            pendingRankDialogueContinuation_ = 80;
+        }
+        else resolveOptionalTournamentFight(true);
         return;
     }
     pendingArenaSceneComplete_=true;
     storyArenaRewardPending_=playerWon||encounter.resolution==StoryArenaResolution::PloukeStoryFinal;
     triggerAbilityAnimation("combat_relax",.28f);
     if(encounter.resolution==StoryArenaResolution::PloukeStoryFinal){
-        beginTransientDialogue(ploukeHighPerformance_?"ch2_plouke_final_ringout":"ch2_plouke_final_exhausted",70);
-    }else if(!encounter.postDialogueId.empty()) beginTransientDialogue(encounter.postDialogueId,70);
+        pendingRankDialogueId_ = ploukeHighPerformance_?"ch2_plouke_final_ringout":"ch2_plouke_final_exhausted";
+        pendingRankDialogueContinuation_ = 70;
+    }else if(!encounter.postDialogueId.empty()) {
+        pendingRankDialogueId_ = encounter.postDialogueId;
+        pendingRankDialogueContinuation_ = 70;
+    }
     else resolveArenaRewardAndAdvance();
 }
 
@@ -1498,8 +1660,19 @@ void RuntimeSession::resolveOptionalTournamentFight(bool won) {
         if (completed == "ch2_fake_champion_optional") fakeChampionComplete_ = true;
         else if (completed == "ch2_runaway_dummy_optional") runawayDummyComplete_ = true;
         else if (completed == "ch2_bark_practice_optional") ++barkPracticeWins_;
+        else if (completed == "ch2_one_match_anyway_optional") {
+            choiceKind_ = 22;
+            choiceIndex_ = 0;
+        }
+        if (completed == "ch2_fake_champion_optional") {
+            ++tournamentCard_.bonuses.defense;
+            addUnique(rpgProgress_.titles, "Truth Breaker");
+        } else if (completed == "ch2_runaway_dummy_optional") {
+            ++tournamentCard_.bonuses.speed;
+        }
         manualSaveRequested_ = true;
-        showGameplayNotice(completed == "ch2_bark_practice_optional" ? "FREE PRACTICE COMPLETE" : "OPTIONAL ACTIVITY COMPLETE", 1.45f);
+        if (completed != "ch2_one_match_anyway_optional")
+            showGameplayNotice(completed == "ch2_bark_practice_optional" ? "FREE PRACTICE COMPLETE" : "OPTIONAL ACTIVITY COMPLETE", 1.45f);
     }
 }
 void RuntimeSession::showGameplayNotice(const std::string& text, float seconds) {
@@ -1544,6 +1717,14 @@ void RuntimeSession::queueCombatInputsDuringFreeze(const InputState& input) {
 
 void RuntimeSession::emitCombatFeedback(const HitResult& result, AttackKind kind, bool playerAttacker) {
     if (!result.connected) return;
+    if (storyArenaActive_) {
+        if (playerAttacker) battlePerformance_.bestCombo = std::max(battlePerformance_.bestCombo, player_.comboHits);
+        else battlePerformance_.damageTaken += result.damage;
+        if (result.perfectBlocked && !playerAttacker) ++battlePerformance_.perfectBlocks;
+        if (result.guardBroken && playerAttacker) ++battlePerformance_.guardBreaks;
+        if (kind == AttackKind::PursuitHeavy && playerAttacker && !result.blocked && !result.countered)
+            ++battlePerformance_.pursuitFinishers;
+    }
     int frames = std::max(1, result.hitstopFrames);
     float impulse = result.blocked ? 1.7f : 2.35f;
     float flash = result.blocked ? 0.055f : 0.075f;
@@ -1554,6 +1735,7 @@ void RuntimeSession::emitCombatFeedback(const HitResult& result, AttackKind kind
         impulse = 4.8f;
         flash = 0.16f;
         if (!playerAttacker) {
+            addNecklaceMastery(.75f, "PERFECT BLOCK");
             label = "PERFECT BLOCK";
             perfectBlockFlash_ = true;
             triggerAbilityAnimation("perfect_block", 0.14f);
@@ -1567,6 +1749,7 @@ void RuntimeSession::emitCombatFeedback(const HitResult& result, AttackKind kind
         guardBreakFlash_ = true;
     }
     if (kind == AttackKind::PursuitHeavy && !result.blocked && !result.countered) {
+        if (playerAttacker) addNecklaceMastery(.75f, "PURSUIT");
         frames = std::max(frames, 8);
         impulse = 5.8f;
         flash = 0.20f;
@@ -1719,6 +1902,7 @@ RuntimeSession::ArenaAttackAttempt RuntimeSession::performArenaAttack(Action act
         kind = AttackKind::Launcher;
     } else if (action == Action::Grab) kind = AttackKind::Grab;
     attempt.started = CombatSystem::startAttack(player_, kind);
+    if (attempt.started && storyArenaActive_) recordBattleAction(kind);
     if (attempt.started && kind >= AttackKind::Light1 && kind <= AttackKind::Light3)
         player_.lightStep = (player_.lightStep + 1) % 3;
     return attempt;
@@ -1802,6 +1986,7 @@ void RuntimeSession::tickTransientDialogue(InputState& input, float dt) {
     const auto& lines = dialogue_.get(transientDialogueId_);
     if (transientDialogueIndex_ + 1 < lines.size()) {
         ++transientDialogueIndex_;
+        dialogueAutoAdvanceTime_ = 0.0f;
         return;
     }
     finishTransientDialogue();
@@ -1873,7 +2058,7 @@ void RuntimeSession::tickPause(InputState& input) {
             }
             return;
         }
-        constexpr std::size_t optionCount = 8;
+        constexpr std::size_t optionCount = 9;
         if (input.pressed(Action::MoveUp))
             pauseSelection_ = pauseSelection_ == 0 ? optionCount - 1 : pauseSelection_ - 1;
         if (input.pressed(Action::MoveDown)) pauseSelection_ = (pauseSelection_ + 1) % optionCount;
@@ -1898,8 +2083,9 @@ void RuntimeSession::tickPause(InputState& input) {
             case 3: pausePage_ = 1; pauseSelection_ = 0; break;
             case 4: pausePage_ = 2; pauseSelection_ = 0; break;
             case 5: pausePage_ = 4; pauseSelection_ = 0; break;
-            case 6: pausePage_ = 3; pauseSelection_ = 0; break;
-            case 7:
+            case 6: pausePage_ = 5; pauseSelection_ = 0; break;
+            case 7: pausePage_ = 3; pauseSelection_ = 0; break;
+            case 8:
                 game_.resume();
                 returnToTitleRequested_ = true;
                 break;
@@ -1908,8 +2094,18 @@ void RuntimeSession::tickPause(InputState& input) {
         return;
     }
 
+    if (pausePage_ == 5) {
+        if (!input.pressed(Action::Confirm) && !input.pressed(Action::Interact)) return;
+        if (rpgProgress_.weightedNecklaceAcquired) {
+            const bool equipped = rpgProgress_.equippedAccessoryId == "alts_weighted_necklace";
+            rpgProgress_.equippedAccessoryId = equipped ? std::string{} : "alts_weighted_necklace";
+            manualSaveRequested_ = true;
+            showGameplayNotice(equipped ? "ALT'S WEIGHTED NECKLACE • REMOVED" : "ALT'S WEIGHTED NECKLACE • EQUIPPED", 1.35f);
+        }
+        return;
+    }
     if (pausePage_ != 3) return;
-    constexpr std::size_t settingCount = 8;
+    constexpr std::size_t settingCount = 16;
     if (input.pressed(Action::MoveUp))
         pauseSelection_ = pauseSelection_ == 0 ? settingCount - 1 : pauseSelection_ - 1;
     if (input.pressed(Action::MoveDown)) pauseSelection_ = (pauseSelection_ + 1) % settingCount;
@@ -1917,16 +2113,21 @@ void RuntimeSession::tickPause(InputState& input) {
         !input.pressed(Action::MoveLeft) && !input.pressed(Action::MoveRight)) return;
     switch (pauseSelection_) {
         case 0: qolSettings_.holdToAdvanceDialogue = !qolSettings_.holdToAdvanceDialogue; break;
-        case 1: qolSettings_.firstTimeHints = !qolSettings_.firstTimeHints; break;
-        case 2: qolSettings_.reducedMotion = !qolSettings_.reducedMotion; break;
-        case 3: qolSettings_.reducedCameraShake = !qolSettings_.reducedCameraShake; break;
-        case 4: qolSettings_.reducedFlashes = !qolSettings_.reducedFlashes; break;
-        case 5: qolSettings_.highContrastHud = !qolSettings_.highContrastHud; break;
-        case 6: qolSettings_.largerText = !qolSettings_.largerText; break;
-        case 7:
-            qolSettings_.combatMessages = qolSettings_.combatMessages == "full" ? "important" :
-                                          qolSettings_.combatMessages == "important" ? "off" : "full";
-            break;
+        case 1: qolSettings_.dialogueAutoAdvance = !qolSettings_.dialogueAutoAdvance; break;
+        case 2: qolSettings_.dialogueSpeed = qolSettings_.dialogueSpeed == "slow" ? "normal" : qolSettings_.dialogueSpeed == "normal" ? "fast" : "slow"; break;
+        case 3: qolSettings_.firstTimeHints = !qolSettings_.firstTimeHints; break;
+        case 4: qolSettings_.reducedMotion = !qolSettings_.reducedMotion; break;
+        case 5: qolSettings_.reducedCameraShake = !qolSettings_.reducedCameraShake; break;
+        case 6: qolSettings_.reducedFlashes = !qolSettings_.reducedFlashes; break;
+        case 7: qolSettings_.highContrastHud = !qolSettings_.highContrastHud; break;
+        case 8: qolSettings_.cameraSensitivity = qolSettings_.cameraSensitivity < .9f ? 1.0f : qolSettings_.cameraSensitivity < 1.1f ? 1.25f : .75f; break;
+        case 9: qolSettings_.invertCameraX = !qolSettings_.invertCameraX; break;
+        case 10: qolSettings_.invertCameraY = !qolSettings_.invertCameraY; break;
+        case 11: qolSettings_.gentleCameraRecenter = !qolSettings_.gentleCameraRecenter; break;
+        case 12: qolSettings_.hudScale = qolSettings_.hudScale < .95f ? 1.0f : qolSettings_.hudScale < 1.05f ? 1.10f : .90f; break;
+        case 13: qolSettings_.dialogueScale = qolSettings_.dialogueScale < 1.08f ? 1.15f : qolSettings_.dialogueScale < 1.22f ? 1.30f : 1.0f; break;
+        case 14: qolSettings_.combatMessages = qolSettings_.combatMessages == "full" ? "minimal" : qolSettings_.combatMessages == "minimal" ? "off" : "full"; break;
+        case 15: qolSettings_.objectiveDisplay = qolSettings_.objectiveDisplay == "full" ? "minimal" : qolSettings_.objectiveDisplay == "minimal" ? "off" : "full"; break;
         default: break;
     }
 }
@@ -2031,8 +2232,10 @@ if (transientDialogueContinuation_ == 60) {
             break;
         case 83:
             wadeLostFanComplete_ = true;
+            ++tournamentCard_.bonuses.focus;
+            addUnique(rpgProgress_.profileUnlocks, "wade");
             manualSaveRequested_ = true;
-            showGameplayNotice("SIDE STORY COMPLETE • WADE'S LOST FAN", 1.65f);
+            showGameplayNotice("WADE'S LOST FAN • FOCUS +1 • PROFILE UNLOCKED", 1.85f);
             break;
         case 84:
             fakeChampionContacted_ = true;
@@ -2051,8 +2254,55 @@ if (transientDialogueContinuation_ == 60) {
             break;
         case 89:
             festivalPhotoComplete_ = true;
+            addUnique(rpgProgress_.mementos, "Tournament Festival Photo");
             triggerAbilityAnimation("victory_pose", .65f);
             showGameplayNotice("FESTIVAL PHOTO • POSE SAVED TO STORY RECORD", 1.35f);
+            break;
+        case 90:
+            missingPrizeStarted_ = true;
+            showGameplayNotice("SIDE STORY • FIND THE MISSING PRIZE ENVELOPE", 1.45f);
+            break;
+        case 91:
+            missingPrizeFound_ = true;
+            showGameplayNotice("PRIZE ENVELOPE FOUND • RETURN TO THE WORKER", 1.35f);
+            break;
+        case 92:
+            missingPrizeComplete_ = true;
+            rpgProgress_.coins += 60;
+            rpgProgress_.vendorDiscountPercent = std::max(rpgProgress_.vendorDiscountPercent, 10);
+            addUnique(rpgProgress_.mementos, "Recovered Prize Seal");
+            manualSaveRequested_ = true;
+            showGameplayNotice("MISSING PRIZE • 60 COINS • VENDOR DISCOUNT", 1.85f);
+            break;
+        case 93: startOptionalTournamentFight("ch2_one_match_anyway_optional"); break;
+        case 94:
+            controlledFlameStarted_ = true;
+            showGameplayNotice("CONTROLLED FLAME • WARM THE PLATE WITH FIRE BLAST", 1.55f);
+            break;
+        case 95:
+            controlledFlameComplete_ = true;
+            rpgProgress_.nextOfficialMealBoost = true;
+            manualSaveRequested_ = true;
+            showGameplayNotice("CONTROLLED FLAME • NEXT OFFICIAL MATCH MEAL READY", 1.85f);
+            break;
+        case 96:
+            altRoverQuestStage_ = 1;
+            showGameplayNotice("SIDE STORY • FOLLOW ALT & ROVER'S SERVICE-LANE TRAIL", 1.55f);
+            break;
+        case 97: altRoverQuestStage_ = 2; showGameplayNotice("TRAIL • CHECK THE BACKWARD SIGN", 1.15f); break;
+        case 98: altRoverQuestStage_ = 3; showGameplayNotice("TRAIL • SERVICE AWNING", 1.15f); break;
+        case 99: altRoverQuestStage_ = 4; showGameplayNotice("TRAIL • OUTER SERVICE GATE", 1.15f); break;
+        case 100:
+            altRoverQuestStage_ = 5;
+            beginTransientDialogue("ch2_alt_rover_necklace", 101);
+            break;
+        case 101:
+            altRoverQuestStage_ = 6;
+            rpgProgress_.weightedNecklaceAcquired = true;
+            rpgProgress_.equippedAccessoryId = "alts_weighted_necklace";
+            addUnique(rpgProgress_.mementos, "Alt's Weighted Necklace");
+            manualSaveRequested_ = true;
+            showGameplayNotice("ALT'S WEIGHTED NECKLACE • EQUIPPED", 1.85f);
             break;
         case 61: completeScene(); break;
         default: break;
@@ -2060,13 +2310,13 @@ if (transientDialogueContinuation_ == 60) {
 }
 
 void RuntimeSession::tickChoice(InputState& input) {
-    const std::size_t optionCount = choiceKind_ == 20 ? 5 : choiceKind_ == 4 ? 3 : 2;
+    const std::size_t optionCount = choiceKind_ == 20 ? 5 : choiceKind_ == 4 ? 3 : choiceKind_ == 31 ? 1 : 2;
     if (input.pressed(Action::MoveLeft) || input.pressed(Action::MoveUp))
         choiceIndex_ = choiceIndex_ == 0 ? optionCount - 1 : choiceIndex_ - 1;
     if (input.pressed(Action::MoveRight) || input.pressed(Action::MoveDown))
         choiceIndex_ = (choiceIndex_ + 1) % optionCount;
     if (!input.pressed(Action::Confirm) && !input.pressed(Action::Interact) && !input.pressed(Action::Cancel)) return;
-    if ((choiceKind_ == 4 || choiceKind_ == 5 || choiceKind_ == 20) && input.pressed(Action::Cancel)) return;
+    if ((choiceKind_ == 4 || choiceKind_ == 5 || choiceKind_ == 20 || choiceKind_ == 22 || choiceKind_ == 31) && input.pressed(Action::Cancel)) return;
     const bool second = input.pressed(Action::Cancel) || choiceIndex_ == 1;
     const int kind = choiceKind_;
     choiceKind_ = 0;
@@ -2095,6 +2345,22 @@ void RuntimeSession::tickChoice(InputState& input) {
         tournamentBonusRoll_=0;
         showGameplayNotice("TOURNAMENT CARD UPDATED",1.15f);
         completeScene();
+    } else if (kind == 22) {
+        if (second) ++tournamentCard_.bonuses.speed; else ++tournamentCard_.bonuses.power;
+        oneMatchComplete_ = true;
+        manualSaveRequested_ = true;
+        showGameplayNotice(second ? "ONE MATCH ANYWAY • SPEED +1" : "ONE MATCH ANYWAY • POWER +1", 1.65f);
+    } else if (kind == 30) {
+        if (second) resolveOptionalTournamentFight(false);
+        else startStoryArena();
+    } else if (kind == 31) {
+        const bool retryMealBoost = activeMealBoost_;
+        storyPlayerStocksLost_ = storyOpponentStocksLost_ = 0;
+        startStoryArena();
+        if (retryMealBoost) {
+            activeMealBoost_ = true;
+            configurePlayerProgression();
+        }
     }
 }
 
@@ -2197,12 +2463,14 @@ void RuntimeSession::handleRoadsideAbilities(const InputState& input) {
         CombatSystem::startAttack(player_, AttackKind::Projectile)) {
         player_.energy -= ability->energyCost;
         attackCooldown_ = 1.05f; // Browser 2.9A.40.7.2R Chapter-1 Fire Blast cooldown.
+        if (storyArenaActive_) recordBattleAction(AttackKind::Projectile);
         triggerAbilityAnimation("fire_blast", 0.42f);
     } else if (ability->id == "energyBeam" && attackCooldown_ <= 0.0f && player_.energy >= ability->energyCost &&
         CombatSystem::startAttack(player_, AttackKind::Beam)) {
         player_.energy -= ability->energyCost;
         attackCooldown_ = 1.35f;
         pureEnergyBeamActive_ = fireAwakeningTime_ <= 0.0f;
+        if (storyArenaActive_) { recordBattleAction(AttackKind::Beam); ++adventureRecords_.energyBeamUses; }
         triggerAbilityAnimation(fireAwakeningTime_ > 0.0f ? "solar_weave" : "energy_beam", .80f);
         showGameplayNotice(fireAwakeningTime_ > 0.0f ? "SOLAR WEAVE" : "PURE ENERGY BEAM", .65f);
     } else if (ability->id == "objectSwap" && player_.energy >= ability->energyCost) {
@@ -2211,6 +2479,7 @@ void RuntimeSession::handleRoadsideAbilities(const InputState& input) {
         std::swap(playerPosition_, opponentPosition_);
         updateCombatFacing(0.0f, true);
         player_.invulnerabilityTimer = std::max(player_.invulnerabilityTimer, 0.16f);
+        if (storyArenaActive_) { battlePerformance_.actionVarietyMask |= (1u << 20u); ++adventureRecords_.objectSwaps; }
     } else if (ability->id == "lensOfTruth" && player_.energy >= ability->energyCost && player_.hp > ability->hpCost) {
         player_.energy -= ability->energyCost;
         player_.hp -= ability->hpCost;
@@ -2237,6 +2506,9 @@ void RuntimeSession::tickRoadsideFight(InputState& input, float dt) {
     movement.dashSpeed = 720.0f;
     movement.dashSeconds = 0.22f;
     movement.dashCooldownSeconds = 0.30f;
+    const float speedReward = 1.0f + static_cast<float>(std::max(0, tournamentCard_.bonuses.speed)) * .01f;
+    movement.walkSpeed *= speedReward * RpgProgressSystem::necklaceMovementMultiplier(rpgProgress_);
+    movement.dashSpeed *= speedReward * RpgProgressSystem::necklaceDashMultiplier(rpgProgress_);
     const bool dashRequested = input.pressed(Action::Dash) || (bufferedDash_ && bufferedDashTime_ > 0.0f);
     if (dashRequested) {
         bool consumed = false;
@@ -2263,7 +2535,7 @@ void RuntimeSession::tickRoadsideFight(InputState& input, float dt) {
     updateCombatFacing(dt);
     if (movementState_.landedThisFrame) {
         hardLanding_ = preLandingVelocity < -520.0f;
-        landingAnimationTime_ = hardLanding_ ? 0.22f : 0.13f;
+        landingAnimationTime_ = hardLanding_ ? 0.16f : 0.08f;
     }
     player_.airborne = movementState_.height > 0.0f || player_.pursuitTime > 0.0f;
 
@@ -2504,20 +2776,32 @@ void RuntimeSession::tickExploration(InputState& input, float dt) {
 
     FieldMovementConfig movement;
     movement.walkSpeed = 270.0f;
+    const float speedReward = 1.0f + static_cast<float>(std::max(0, tournamentCard_.bonuses.speed)) * .01f;
+    movement.walkSpeed *= speedReward * RpgProgressSystem::necklaceMovementMultiplier(rpgProgress_);
+    movement.dashSpeed *= speedReward * RpgProgressSystem::necklaceDashMultiplier(rpgProgress_);
     previousPlayerPosition_ = playerPosition_;
     const float preLandingVelocity = movementState_.verticalVelocity;
     playerPosition_ = FieldMovementSystem::tick(map(), playerPosition_, movementState_, input, dt, movement, disabledBlockers_);
     updateExplorationFacing(dt);
     if (movementState_.landedThisFrame) {
         hardLanding_ = preLandingVelocity < -520.0f;
-        landingAnimationTime_ = hardLanding_ ? 0.22f : 0.13f;
+        landingAnimationTime_ = hardLanding_ ? 0.16f : 0.08f;
     }
     const bool explorationMoving = distance(previousPlayerPosition_, playerPosition_) > 0.35f;
-    if (explorationMoving && !explorationWasMoving_) { explorationRunStartAnimationTime_ = 0.165f; explorationRunStopAnimationTime_ = 0.0f; }
-    else if (!explorationMoving && explorationWasMoving_) { explorationRunStopAnimationTime_ = 0.180f; explorationRunStartAnimationTime_ = 0.0f; }
+    if (explorationMoving && !explorationWasMoving_) { explorationRunStartAnimationTime_ = 0.105f; explorationRunStopAnimationTime_ = 0.0f; }
+    else if (!explorationMoving && explorationWasMoving_) { explorationRunStopAnimationTime_ = 0.120f; explorationRunStartAnimationTime_ = 0.0f; }
     explorationWasMoving_ = explorationMoving;
+    const float movedThisFrame = distance(previousPlayerPosition_, playerPosition_);
+    if (movedThisFrame > .01f && movedThisFrame <= movement.dashSpeed * dt + 2.0f) {
+        necklaceTraversalAccumulator_ += movedThisFrame;
+        if (necklaceTraversalAccumulator_ >= 650.0f) {
+            necklaceTraversalAccumulator_ -= 650.0f;
+            addNecklaceMastery(1.0f, "STORY TRAVERSAL");
+        }
+    }
     const auto* ability = pressedAbility(input);
 
+    if (tickU15TournamentActivities(input, ability)) return;
     if (tickTournamentActivities(input, ability)) return;
 
     const bool storyOwnsObjectSwap = definition.rule == ExplorationRuleKind::UseAbilityPoint ||
@@ -2789,7 +3073,7 @@ bool RuntimeSession::tickTournamentActivities(InputState& input, const AbilitySl
     if (game_.story().chapterId != "rrvvfo_ch2" || game_.scene().kind != SceneKind::Exploration) return false;
     const std::size_t phaseIndex = game_.story().sceneIndex;
     if (phaseIndex < 6 || phaseIndex > 19) return false;
-    const bool interact = input.pressed(Action::Interact);
+    const bool interact = input.pressed(Action::Interact) && ability == nullptr;
     const auto near = [&](Vec2 point, float radius = 115.0f) { return distance(playerPosition_, point) <= radius; };
 
     const Vec2 wadeSpot{520.0f, 690.0f};
@@ -2857,11 +3141,85 @@ bool RuntimeSession::tickTournamentActivities(InputState& input, const AbilitySl
     return false;
 }
 
+bool RuntimeSession::tickU15TournamentActivities(InputState& input, const AbilitySlotDefinition* ability) {
+    if (game_.story().chapterId != "rrvvfo_ch2" || game_.scene().kind != SceneKind::Exploration) return false;
+    const std::size_t phaseIndex = game_.story().sceneIndex;
+    if (phaseIndex < 6 || phaseIndex > 19) return false;
+    const bool interact = input.pressed(Action::Interact) && ability == nullptr;
+    const auto near = [&](Vec2 point, float radius = 135.0f) { return distance(playerPosition_, point) <= radius; };
+
+    // Missing Prize Envelope: a small investigation loop through the same hub,
+    // with a useful economy reward rather than a disposable fetch counter.
+    if (interact && !missingPrizeComplete_ && near({-1030.0f, 280.0f})) {
+        if (!missingPrizeStarted_) beginTransientDialogue("ch2_missing_prize_start", 90);
+        else if (missingPrizeFound_ && !missingPrizeComplete_) beginTransientDialogue("ch2_missing_prize_done", 92);
+        else showGameplayNotice("PRIZE ENVELOPE • SEARCH THE MARKET-LANE CRATES", 1.15f);
+        return true;
+    }
+    if (interact && missingPrizeStarted_ && !missingPrizeFound_ && near({760.0f, -720.0f})) {
+        beginTransientDialogue("ch2_missing_prize_found", 91);
+        return true;
+    }
+
+    // An eliminated contestant asks for one meaningful match. Winning offers a
+    // single authored stat choice; the activity never becomes a repeatable farm.
+    if (interact && !oneMatchComplete_ && phaseIndex >= 10 && near({825.0f, 660.0f})) {
+        beginTransientDialogue("ch2_one_match_anyway_start", 93);
+        return true;
+    }
+
+    // Fire Blast is used precisely on the failed warming plate. Merely pressing
+    // Interact cannot solve it, and the hotbar ability remains the shared action.
+    const Vec2 foodPlate{-600.0f, -520.0f};
+    if (interact && near(foodPlate)) {
+        if (!controlledFlameStarted_) beginTransientDialogue("ch2_controlled_flame_start", 94);
+        else if (controlledFlameComplete_) showGameplayNotice("CONTROLLED FLAME • MEAL REWARD READY", .90f);
+        else showGameplayNotice("USE FIRE BLAST ON THE WARMING PLATE", 1.15f);
+        return true;
+    }
+    if (controlledFlameStarted_ && !controlledFlameComplete_ && near(foodPlate) &&
+        ability && ability->id == "fireBlast") {
+        if (player_.energy < ability->energyCost || player_.hp <= ability->hpCost) {
+            showGameplayNotice("FIRE BLAST • NOT ENOUGH ENERGY", 1.0f);
+        } else {
+            player_.energy -= ability->energyCost;
+            player_.hp -= ability->hpCost;
+            triggerAbilityAnimation("fire_blast", .45f);
+            beginTransientDialogue("ch2_controlled_flame_done", 95);
+        }
+        return true;
+    }
+
+    // Alt and Rover leave an ordered, physical trail around the tournament's
+    // service edge. It culminates in story staging, not a generic arena fight.
+    if (interact && altRoverQuestStage_ == 0 && near({430.0f, -780.0f})) {
+        beginTransientDialogue("ch2_alt_rover_start", 96);
+        return true;
+    }
+    if (interact && altRoverQuestStage_ == 1 && near({45.0f, -920.0f})) {
+        beginTransientDialogue("ch2_alt_rover_cart", 97);
+        return true;
+    }
+    if (interact && altRoverQuestStage_ == 2 && near({1130.0f, 185.0f})) {
+        beginTransientDialogue("ch2_alt_rover_sign", 98);
+        return true;
+    }
+    if (interact && altRoverQuestStage_ == 3 && near({970.0f, -680.0f})) {
+        beginTransientDialogue("ch2_alt_rover_service", 99);
+        return true;
+    }
+    if (interact && altRoverQuestStage_ == 4 && near({1250.0f, -840.0f})) {
+        beginTransientDialogue("ch2_alt_rover_confrontation", 100);
+        return true;
+    }
+    return false;
+}
+
 void RuntimeSession::advanceDialogue() {
     const auto& scene = game_.scene();
     if (!dialogue_.has(scene.id)) { completeScene(); return; }
     const auto& lines = dialogue_.get(scene.id);
-    if (dialogueIndex_ + 1 < lines.size()) ++dialogueIndex_;
+    if (dialogueIndex_ + 1 < lines.size()) { ++dialogueIndex_; dialogueAutoAdvanceTime_ = 0.0f; }
     else completeScene();
 }
 
@@ -2880,6 +3238,7 @@ void RuntimeSession::confirm() {
 
 void RuntimeSession::completeScene() {
     recordObjective(view_.objective);
+    addNecklaceMastery(.65f, "OBJECTIVE COMPLETE");
     const auto completedId = game_.scene().id;
     if (completedId == "ch2_tournament_aftermath") {
         fireAwakeningUnlocked_ = true;
@@ -3058,6 +3417,16 @@ SaveData RuntimeSession::saveSnapshot(const std::string& inputPreset) const {
     if (runawayDummyComplete_) addFlag("ch2_runaway_dummy_complete");
     if (festivalFoodComplete_) addFlag("ch2_festival_food_complete");
     if (festivalPhotoComplete_) addFlag("ch2_festival_photo_complete");
+    if (missingPrizeStarted_) addFlag("ch2_missing_prize_started");
+    if (missingPrizeFound_) addFlag("ch2_missing_prize_found");
+    if (missingPrizeComplete_) addFlag("ch2_missing_prize_complete");
+    if (oneMatchComplete_) addFlag("ch2_one_match_anyway_complete");
+    if (controlledFlameStarted_) addFlag("ch2_controlled_flame_started");
+    if (controlledFlameComplete_) addFlag("ch2_controlled_flame_complete");
+    data.story.flags.erase(std::remove_if(data.story.flags.begin(), data.story.flags.end(), [](const std::string& flag){
+        return flag.rfind("ch2_alt_rover_stage=", 0) == 0;
+    }), data.story.flags.end());
+    if (altRoverQuestStage_ > 0) addFlag("ch2_alt_rover_stage=" + std::to_string(altRoverQuestStage_));
     if (barkPracticeWins_ > 0) addFlag("ch2_bark_practice_wins=" + std::to_string(barkPracticeWins_));
     if (fireAwakeningUnlocked_) addFlag("rrvvfo_fire_awakening_unlocked");
     for (const auto& sceneId : seenCutscenes_) addFlag("seen_scene=" + sceneId);
@@ -3071,7 +3440,17 @@ SaveData RuntimeSession::saveSnapshot(const std::string& inputPreset) const {
 
     data.tournamentCard = tournamentCard_;
     data.frontend.objectiveHistory = objectiveHistory_;
+    data.frontend.currentArea = areaNameForPosition(data.world.position);
+    data.frontend.currentObjective = view_.objective;
+    const float ch1Scenes = static_cast<float>(chapters_.get("rrvvfo_ch1").openingFlow.size());
+    const float ch2Scenes = static_cast<float>(chapters_.get("rrvvfo_ch2").openingFlow.size());
+    const float completedScenes = game_.story().chapterId == "rrvvfo_ch2" ?
+        ch1Scenes + static_cast<float>(game_.story().sceneIndex) : static_cast<float>(game_.story().sceneIndex);
+    data.frontend.storyProgressPercent = std::clamp(100.0f * completedScenes / std::max(1.0f, ch1Scenes + ch2Scenes), 0.0f, 100.0f);
+    data.frontend.playtimeSeconds = storyPlaytimeSeconds_;
     data.qol = qolSettings_;
+    data.records = adventureRecords_;
+    data.rpg = rpgProgress_;
     data.inputPreset = inputPreset;
     return data;
 }
@@ -3190,6 +3569,7 @@ void RuntimeSession::syncView() {
     view_.pauseVisible = game_.mode() == GameMode::Pause;
     view_.pausePageTitle = pausePage_ == 1 ? "OBJECTIVE HISTORY" : pausePage_ == 2 ? "CONTROLS" :
                            pausePage_ == 3 ? "ACCESSIBILITY & QOL" : pausePage_ == 4 ? "RECENT DIALOGUE" :
+                           pausePage_ == 5 ? "ACCESSORY / TRAINING ITEM" :
                            (game_.story().chapterId == "rrvvfo_ch2" ? "STORY MENU • TOURNAMENT GROUNDS" :
                                                                     "STORY MENU • TOURNAMENT ROAD");
     view_.pauseSections.clear();
@@ -3205,16 +3585,16 @@ void RuntimeSession::syncView() {
                 (view_.chapterId == "rrvvfo_ch2" ? std::string{"Continue through the Tournament Grounds"} : std::string{"Continue Tournament Road"}) :
                 objectiveBeforePause_),
             "CHECKPOINT • " + game_.story().checkpointId,
-            "BUILD • 3.0R / U11–U13 CHAPTER 2 RESTORATION"
+            "PARALLELS X 3.0R • SHARED STORY SAVE"
         };
         if (view_.chapterId == "rrvvfo_ch2") {
             view_.pauseSections.insert(view_.pauseSections.begin() + 1, "ROUND • " + view_.tournamentPhase);
             view_.pauseSections.insert(view_.pauseSections.begin() + 2, "NEXT • " + view_.nextTournamentMatch);
         }
         if (standaloneMode()) {
-            const std::string sessionName = replayMode_ ? "CHAPTER REPLAY • STORY SAVE PROTECTED" :
+            const std::string sessionName = replayMode_ ? "STORY REPLAY • MAIN SAVE PROTECTED" :
                                             standaloneFightMode_ ? "FIGHT • RRVVFO VS CPU" : "TRAINING • SAGE'S CHALLENGE";
-            const std::string restartName = replayMode_ ? "RESTART CHAPTER REPLAY" :
+            const std::string restartName = replayMode_ ? "RESTART STORY REPLAY" :
                                             standaloneFightMode_ ? "RESTART FIGHT" : "RESTART TRAINING";
             view_.pauseSections = {sessionName};
             view_.pauseOptions = {"RESUME", restartName, "ACCESSIBILITY & QOL", "RETURN TO TITLE"};
@@ -3222,7 +3602,7 @@ void RuntimeSession::syncView() {
             view_.pauseOptions = {
                 "RESUME", canManualSave() ? "SAVE GAME" : "SAVE GAME • UNAVAILABLE HERE",
                 "RESTART FROM CHECKPOINT", "OBJECTIVE HISTORY", "CONTROLS", "RECENT DIALOGUE",
-                "ACCESSIBILITY & QOL", "RETURN TO TITLE"
+                "ACCESSORY / TRAINING ITEM", "ACCESSIBILITY & QOL", "RETURN TO TITLE"
             };
         }
     } else if (pausePage_ == 1) {
@@ -3257,18 +3637,41 @@ void RuntimeSession::syncView() {
         else for (auto it = recentDialogue_.rbegin(); it != recentDialogue_.rend(); ++it)
             view_.pauseSections.push_back(*it);
         view_.pauseSections.push_back("B / ESC • BACK");
+    } else if (pausePage_ == 5) {
+        if (!rpgProgress_.weightedNecklaceAcquired) {
+            view_.pauseSections = {"No accessory or training item acquired yet.", "ONE GAMEPLAY SLOT • NO INVENTORY BLOAT", "B / ESC • BACK"};
+        } else {
+            const bool equipped = rpgProgress_.equippedAccessoryId == "alts_weighted_necklace";
+            const int mastery = static_cast<int>(rpgProgress_.weightedNecklaceMastery + .5f);
+            const int penalty = static_cast<int>((1.0f - RpgProgressSystem::necklaceMovementMultiplier(rpgProgress_)) * 100.0f + .5f);
+            view_.pauseSections = {
+                "ALT'S WEIGHTED NECKLACE • TRAINING GEAR",
+                "MASTERY • " + std::to_string(mastery) + "%",
+                "POWER • +4%",
+                penalty > 0 ? "WEIGHT • -" + std::to_string(penalty) + "% MOVE / DASH / CHARGE" : "WEIGHT PENALTIES • MASTERED",
+                "B / ESC • BACK"
+            };
+            view_.pauseOptions = {equipped ? "REMOVE NECKLACE" : "EQUIP NECKLACE"};
+        }
     } else {
         const auto onOff = [](bool value){ return value ? "ON" : "OFF"; };
         view_.pauseOptions = {
             "HOLD TO ADVANCE DIALOGUE • " + std::string(onOff(qolSettings_.holdToAdvanceDialogue)),
-            "FIRST-TIME HINTS • " + std::string(onOff(qolSettings_.firstTimeHints)),
+            "AUTO-ADVANCE • " + std::string(onOff(qolSettings_.dialogueAutoAdvance)),
+            "DIALOGUE SPEED • " + qolSettings_.dialogueSpeed,
+            "CONTEXTUAL HINTS • " + std::string(onOff(qolSettings_.firstTimeHints)),
             "REDUCED MOTION • " + std::string(onOff(qolSettings_.reducedMotion)),
             "REDUCED CAMERA SHAKE • " + std::string(onOff(qolSettings_.reducedCameraShake)),
             "REDUCED FLASHES • " + std::string(onOff(qolSettings_.reducedFlashes)),
             "HIGH-CONTRAST HUD • " + std::string(onOff(qolSettings_.highContrastHud)),
-            "LARGER TEXT • " + std::string(onOff(qolSettings_.largerText)),
-            "COMBAT MESSAGES • " + std::string(qolSettings_.combatMessages == "full" ? "FULL" :
-                                                   qolSettings_.combatMessages == "important" ? "IMPORTANT" : "OFF")
+            "CAMERA SENSITIVITY • " + std::to_string(static_cast<int>(qolSettings_.cameraSensitivity * 100.0f + .5f)) + "%",
+            "INVERT CAMERA X • " + std::string(onOff(qolSettings_.invertCameraX)),
+            "INVERT CAMERA Y • " + std::string(onOff(qolSettings_.invertCameraY)),
+            "GENTLE RECENTER • " + std::string(onOff(qolSettings_.gentleCameraRecenter)),
+            "HUD SCALE • " + std::to_string(static_cast<int>(qolSettings_.hudScale * 100.0f + .5f)) + "%",
+            "DIALOGUE SCALE • " + std::to_string(static_cast<int>(qolSettings_.dialogueScale * 100.0f + .5f)) + "%",
+            "COMBAT MESSAGES • " + qolSettings_.combatMessages,
+            "OBJECTIVE DISPLAY • " + qolSettings_.objectiveDisplay
         };
         view_.pauseSections = {"CONFIRM / LEFT / RIGHT • TOGGLE", "B / ESC • BACK"};
     }
@@ -3277,8 +3680,19 @@ void RuntimeSession::syncView() {
     view_.reducedCameraShake = qolSettings_.reducedCameraShake;
     view_.reducedFlashes = qolSettings_.reducedFlashes;
     view_.highContrastHud = qolSettings_.highContrastHud;
-    view_.largerText = qolSettings_.largerText;
+    view_.largerText = qolSettings_.largerText || qolSettings_.dialogueScale > 1.05f;
     view_.combatMessages = qolSettings_.combatMessages;
+    view_.hudScale = qolSettings_.hudScale;
+    view_.dialogueScale = qolSettings_.dialogueScale;
+    view_.objectiveDisplay = qolSettings_.objectiveDisplay;
+    view_.cameraYawOffsetDegrees = userCameraYawOffset_;
+    view_.cameraHeightOffset = userCameraHeightOffset_;
+    view_.battleRankVisible = battleRankTime_ > 0.0f;
+    view_.battleRank = battleRankLabel_;
+    view_.battleRankScore = battleRankScore_;
+    view_.adventureRecords = adventureRecords_;
+    view_.rpgProgress = rpgProgress_;
+    view_.necklaceMovementMultiplier = RpgProgressSystem::necklaceMovementMultiplier(rpgProgress_);
     view_.chapterComplete = chapterComplete_;
     view_.nextChapterId = game_.hasPendingChapter() ? game_.story().pendingChapterId : game_.chapter().nextChapterId;
     view_.roadsideFightActive = roadsideFightActive_;
@@ -3292,7 +3706,7 @@ void RuntimeSession::syncView() {
     view_.impactFlash = impactFlash_ * (qolSettings_.reducedFlashes ? 0.20f : 1.0f);
     const bool importantCombatMessage = perfectBlockFlash_ || pursuitFinishFlash_ || guardBreakFlash_ || finalHitFlash_;
     view_.combatFeedback = qolSettings_.combatMessages == "off" ||
-        (qolSettings_.combatMessages == "important" && !importantCombatMessage) ? std::string{} : combatFeedback_;
+        (qolSettings_.combatMessages == "minimal" && !importantCombatMessage) ? std::string{} : combatFeedback_;
     view_.perfectBlockFlash = perfectBlockFlash_;
     view_.pursuitFinishFlash = pursuitFinishFlash_;
     view_.guardBreakFlash = guardBreakFlash_;
@@ -3383,6 +3797,15 @@ if (view_.chapterId == "rrvvfo_ch2") {
     } else if (choiceKind_ == 5) {
         view_.choiceTitle = "FINAL ROADBLOCK";
         view_.choiceOptions = {"USE LENS OF TRUTH", "TAKE SOUTH DETOUR"};
+    } else if (choiceKind_ == 22) {
+        view_.choiceTitle = "ONE MATCH ANYWAY • CHOOSE YOUR TRAINING REWARD";
+        view_.choiceOptions = {"POWER +1", "SPEED +1"};
+    } else if (choiceKind_ == 30) {
+        view_.choiceTitle = "OPTIONAL FIGHT LOST";
+        view_.choiceOptions = {"RETRY", "LEAVE"};
+    } else if (choiceKind_ == 31) {
+        view_.choiceTitle = "OFFICIAL MATCH LOST • NO FORFEIT";
+        view_.choiceOptions = {"RETRY"};
     }
 
     if (const auto* adventure = currentAdventure()) {
@@ -3544,6 +3967,28 @@ if (view_.chapterId == "rrvvfo_ch2" && view_.presentationStageId == "tournament-
     if (phaseIndex >= 18) addHubActor("wade", "wade", {520.0f, 690.0f}, -155.0f, true);
     if (phaseIndex >= 19 && phaseIndex <= 21) addHubActor("plouke", "plouke", {790.0f, 900.0f}, -95.0f, true, "still");
 
+    if (phaseIndex >= 6 && phaseIndex <= 19) {
+        if (!missingPrizeComplete_)
+            addHubActor("prize_worker", "registration_worker", {-980.0f, 350.0f}, -35.0f, true, "work");
+        if (!oneMatchComplete_ && phaseIndex >= 10)
+            addHubActor("eliminated_fighter", "eliminated_fighter", {825.0f, 660.0f}, 155.0f, true, "warmup");
+        if (!controlledFlameComplete_)
+            addHubActor("controlled_flame_vendor", "festival_vendor", {-600.0f, -520.0f}, 145.0f, true, "work");
+        if (altRoverQuestStage_ == 0)
+            addHubActor("maintenance_foreman", "tournament_maintenance_worker", {430.0f, -780.0f}, -25.0f, true, "work");
+        else if (altRoverQuestStage_ == 1)
+            addHubActor("rover_trail", "rover", {70.0f, -895.0f}, 90.0f, true, "walk");
+        else if (altRoverQuestStage_ == 2)
+            addHubActor("alt_sign", "alt", {1160.0f, 205.0f}, -85.0f, true, "idle");
+        else if (altRoverQuestStage_ == 3)
+            addHubActor("rover_service", "rover", {985.0f, -690.0f}, 130.0f, true, "work");
+        else if (altRoverQuestStage_ == 4) {
+            addHubActor("alt_confrontation", "alt", {1250.0f, -840.0f}, -90.0f, true, "combat_ready");
+            addHubActor("rover_confrontation", "rover", {1320.0f, -770.0f}, -110.0f, true, "idle");
+            addHubActor("missing_maintenance_worker", "tournament_maintenance_worker", {1175.0f, -790.0f}, 60.0f, true, "recover");
+        }
+    }
+
     if (view_.tournamentWorldState == "festival") {
         view_.worldMarkers.push_back({"festival_delivery_cart", {-700.0f,-820.0f}, "delivery-cart", false});
     } else if (view_.tournamentWorldState == "tournament") {
@@ -3560,6 +4005,27 @@ if (view_.chapterId == "rrvvfo_ch2" && view_.presentationStageId == "tournament-
         if (!wadeLostFanComplete_) view_.worldMarkers.push_back({"wade_lost_fan_optional", wadeLostFanFound_ ? Vec2{520.0f,690.0f} : Vec2{-840.0f,-650.0f}, "optional", wadeLostFanComplete_});
         if (!fakeChampionComplete_) view_.worldMarkers.push_back({"fake_champion_optional", {-250.0f,-825.0f}, "optional", fakeChampionComplete_});
         if (!runawayDummyComplete_) view_.worldMarkers.push_back({"runaway_dummy_optional", {-120.0f,920.0f}, "optional", false});
+        if (!missingPrizeComplete_)
+            view_.worldMarkers.push_back({"missing_prize_optional", missingPrizeStarted_ && !missingPrizeFound_ ? Vec2{760.0f,-720.0f} : Vec2{-1030.0f,280.0f}, "optional", missingPrizeFound_});
+        if (!oneMatchComplete_ && phaseIndex >= 10)
+            view_.worldMarkers.push_back({"one_match_anyway_optional", {825.0f,660.0f}, "optional", false});
+        if (!controlledFlameComplete_)
+            view_.worldMarkers.push_back({"controlled_flame_optional", {-600.0f,-520.0f}, "optional", controlledFlameStarted_});
+        const Vec2 altTarget = altRoverQuestStage_ == 0 ? Vec2{430.0f,-780.0f} :
+                               altRoverQuestStage_ == 1 ? Vec2{45.0f,-920.0f} :
+                               altRoverQuestStage_ == 2 ? Vec2{1130.0f,185.0f} :
+                               altRoverQuestStage_ == 3 ? Vec2{970.0f,-680.0f} : Vec2{1250.0f,-840.0f};
+        if (altRoverQuestStage_ < 5)
+            view_.worldMarkers.push_back({"alt_rover_optional", altTarget, "optional", false});
+
+        const auto offerInteraction = [&](Vec2 point, const std::string& labelText) {
+            if (view_.nearbyInteractionLabel.empty() && distance(playerPosition_, point) <= 155.0f)
+                view_.nearbyInteractionLabel = labelText;
+        };
+        if (!missingPrizeComplete_) offerInteraction(missingPrizeStarted_ && !missingPrizeFound_ ? Vec2{760.0f,-720.0f} : Vec2{-1030.0f,280.0f}, "PRIZE TRAIL");
+        if (!oneMatchComplete_ && phaseIndex >= 10) offerInteraction({825.0f,660.0f}, "ELIMINATED FIGHTER");
+        if (!controlledFlameComplete_) offerInteraction({-600.0f,-520.0f}, "FOOD STAND");
+        if (altRoverQuestStage_ < 5) offerInteraction(altTarget, altRoverQuestStage_ == 0 ? "MAINTENANCE FOREMAN" : "ALT & ROVER TRAIL");
     }
 }
     // Lightweight shared ability VFX markers keep the three Chapter-1 techniques
@@ -3758,7 +4224,7 @@ if (view_.chapterId == "rrvvfo_ch2" && view_.presentationStageId == "tournament-
             } else if (view_.sceneId == "reach_tournament_outskirts" && signPuzzleStage_ == 2) {
                 view_.objectiveDetail = "OPTIONAL • THE SIGN THAT POINTS BACK • OBJECT SWAP IT TO THE EMPTY POST";
             }
-        } else view_.objective = "CHAPTER 1 • TRAINING REGION";
+        } else view_.objective = "TRAINING REGION • EXPLORE";
     }
 }
 

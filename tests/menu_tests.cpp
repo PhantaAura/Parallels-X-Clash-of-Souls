@@ -44,8 +44,7 @@ int main() {
     assert(!chapters.has("virek_ch1"));
 
     const std::vector<std::string> exactModeOrder{
-        "story", "arena", "online", "cpu", "local",
-        "training", "extras", "options", "credits", "arcade"
+        "continue", "story", "battle", "training", "extras", "options"
     };
     assert(menus.modes().size() == exactModeOrder.size());
     for (std::size_t i = 0; i < exactModeOrder.size(); ++i)
@@ -53,9 +52,8 @@ int main() {
     assert(std::none_of(menus.modes().begin(), menus.modes().end(), [](const auto& mode) {
         return mode.stableId == "story_so_far";
     }));
-    assert(!menus.get("online").implemented && menus.get("online").status == "COMING LATER");
-    assert(!menus.get("arcade").implemented && menus.get("arcade").status == "COMING LATER");
-    assert(menus.get("arena").implemented && menus.get("arena").label == "FIGHT");
+    assert(menus.get("battle").implemented && menus.get("battle").label == "BATTLE");
+    assert(menus.get("options").implemented && menus.get("extras").implemented);
     assert(menus.get("training").implemented && menus.get("training").status == "PLAYABLE");
 
     px::SaveData fresh;
@@ -72,7 +70,7 @@ int main() {
     menu.tick(1.0f);
     assert(menu.snapshot().transitionProgress == 0.0f);
     menu.handle(px::Action::MoveLeft);
-    assert(menu.snapshot().selectedMode.stableId == "arcade");
+    assert(menu.snapshot().selectedMode.stableId == "continue");
     assert(menu.lastEvent() == px::MenuEvent::CarouselTransition);
     assert(menu.snapshot().transitionDirection == -1);
     menu.handle(px::Action::MoveRight);
@@ -83,11 +81,14 @@ int main() {
     reducedMotionMenu.setReducedMotion(true);
     reducedMotionMenu.handle(px::Action::Confirm);
     reducedMotionMenu.handle(px::Action::MoveRight);
-    assert(reducedMotionMenu.snapshot().selectedMode.stableId == "arena");
+    assert(reducedMotionMenu.snapshot().selectedMode.stableId == "battle");
     assert(reducedMotionMenu.snapshot().transitionProgress == 0.0f);
 
+    menu.selectMode("extras");
+    menu.handle(px::Action::Confirm);
+    assert(menu.screen() == px::MenuScreen::ExtrasSelect);
     menu.handle(px::Action::MoveDown);
-    assert(menu.snapshot().storySoFarSelected);
+    menu.handle(px::Action::MoveDown);
     menu.handle(px::Action::Confirm);
     assert(menu.screen() == px::MenuScreen::StorySoFar);
     const auto storyBeforeRecap = fresh.story;
@@ -98,26 +99,27 @@ int main() {
     menu.handle(px::Action::MoveDown);
     assert(menu.snapshot().recapSectionIndex == 1);
     menu.skipStorySoFar();
-    assert(menu.screen() == px::MenuScreen::ModeSelect);
+    assert(menu.screen() == px::MenuScreen::ExtrasSelect);
     assert(fresh.story.chapterId == storyBeforeRecap.chapterId);
     assert(fresh.story.sceneIndex == storyBeforeRecap.sceneIndex);
     assert(fresh.story.flags == storyBeforeRecap.flags);
 
-    menu.selectMode("online");
+    menu.back();
+    menu.selectMode("options");
     menu.confirm();
-    assert(menu.screen() == px::MenuScreen::ModeSelect);
-    assert(menu.outcome() == px::MenuOutcome::None);
-    assert(menu.lastEvent() == px::MenuEvent::Error);
-    menu.selectMode("arcade");
+    assert(menu.screen() == px::MenuScreen::Options);
+    const bool oldAuto = fresh.qol.dialogueAutoAdvance;
+    menu.handle(px::Action::MoveDown);
     menu.confirm();
-    assert(menu.outcome() == px::MenuOutcome::None);
-    assert(menu.lastEvent() == px::MenuEvent::Error);
+    assert(fresh.qol.dialogueAutoAdvance != oldAuto);
 
     px::SaveData directModeSave;
     auto directModeMenu = makeMenu(menus, routes, recap, directModeSave);
     directModeMenu.openModeSelect();
-    directModeMenu.selectMode("arena");
+    directModeMenu.selectMode("battle");
     assert(directModeMenu.snapshot().primaryPrompt == "CONFIRM");
+    directModeMenu.confirm();
+    assert(directModeMenu.screen() == px::MenuScreen::BattleSelect);
     directModeMenu.confirm();
     assert(directModeMenu.outcome() == px::MenuOutcome::LaunchMode);
     directModeMenu.clearOutcome();
@@ -126,6 +128,7 @@ int main() {
     directModeMenu.confirm();
     assert(directModeMenu.outcome() == px::MenuOutcome::LaunchMode);
 
+    menu.openModeSelect();
     menu.selectMode("story");
     menu.confirm();
     auto character = menu.snapshot();
@@ -157,12 +160,12 @@ int main() {
     qolSave.qol.highContrastHud = true;
     qolSave.qol.largerText = true;
     qolSave.qol.reducedFlashes = true;
-    qolSave.qol.combatMessages = "important";
+    qolSave.qol.combatMessages = "minimal";
     const auto qolDecoded = px::SaveCodec::deserialize(px::SaveCodec::serialize(qolSave));
     assert(qolDecoded.schemaVersion == px::SaveData::kSchemaVersion);
     assert(qolDecoded.frontend.objectiveHistory.size() == 2);
     assert(qolDecoded.qol.highContrastHud && qolDecoded.qol.largerText && qolDecoded.qol.reducedFlashes);
-    assert(qolDecoded.qol.combatMessages == "important");
+    assert(qolDecoded.qol.combatMessages == "minimal");
 
     auto discoveredMenu = makeMenu(menus, routes, recap, discovered);
     discoveredMenu.openModeSelect();
@@ -186,9 +189,15 @@ int main() {
     continueMenu.clearOutcome();
     continueMenu.openStoryCharacterSelect();
     continueMenu.handle(px::Action::MoveDown);
-    assert(continueMenu.snapshot().primaryPrompt == "REPLAY CHAPTER");
-    continueMenu.confirm();
-    assert(continueMenu.outcome() == px::MenuOutcome::ReplayChapter);
+    assert(continueMenu.snapshot().primaryPrompt == "CONTINUE STORY");
+    assert(continueMenu.snapshot().routeActions.size() == 1);
+    continuation.story.flags.push_back("rrvvfo_story_complete");
+    auto completedMenu = makeMenu(menus, routes, recap, continuation);
+    completedMenu.openStoryCharacterSelect();
+    completedMenu.handle(px::Action::MoveDown);
+    assert(completedMenu.snapshot().primaryPrompt == "REPLAY STORY");
+    completedMenu.confirm();
+    assert(completedMenu.outcome() == px::MenuOutcome::ReplayChapter);
 
     px::SaveData reconstruction;
     reconstruction.story.flags = {

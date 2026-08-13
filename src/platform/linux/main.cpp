@@ -222,10 +222,10 @@ void prepareReview(const std::string& review, ApplicationState& state) {
         state.menu.selectMode("story");
     } else if (review == "mode-arena") {
         state.menu.openModeSelect();
-        state.menu.selectMode("arena");
+        state.menu.selectMode("battle");
     } else if (review == "mode-online") {
         state.menu.openModeSelect();
-        state.menu.selectMode("online");
+        state.menu.selectMode("battle");
     } else if (review == "story-character-rrvvfo") {
         state.menu.openStoryCharacterSelect();
     } else if (review == "story-character-bark") {
@@ -403,6 +403,10 @@ void mergeRuntimeSave(ApplicationState& state) {
     runtimeSave.frontend.selectedStoryRoute = state.save.frontend.selectedStoryRoute;
     runtimeSave.frontend.storySoFarSection = state.save.frontend.storySoFarSection;
     runtimeSave.frontend.pendingStoryUnlocks = state.save.frontend.pendingStoryUnlocks;
+    runtimeSave.frontend.lastMenuMode = state.save.frontend.lastMenuMode;
+    runtimeSave.frontend.lastBattleSelection = state.save.frontend.lastBattleSelection;
+    runtimeSave.frontend.lastExtrasSelection = state.save.frontend.lastExtrasSelection;
+    runtimeSave.frontend.lastOptionsSelection = state.save.frontend.lastOptionsSelection;
     state.save = std::move(runtimeSave);
 }
 
@@ -435,7 +439,7 @@ int main(int argc, char** argv) {
     }
     const Uint32 windowFlags = arguments.headless ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
     SDL_Window* window = SDL_CreateWindow(
-        "Parallels X: Clash of Souls 3.0R - 0.4H Golden Gate QoL - Linux Validation",
+        "Parallels X: Clash of Souls 3.0R",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, windowFlags);
     if (!window) {
         std::cerr << "Window creation failed: " << SDL_GetError() << '\n';
@@ -548,6 +552,14 @@ int main(int argc, char** argv) {
             constexpr Sint16 triggerThreshold = 16000;
             const Sint16 lx = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
             const Sint16 ly = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
+            const Sint16 rx = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX);
+            const Sint16 ry = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY);
+            const auto normalizedAxis = [&](Sint16 value) {
+                if (std::abs(static_cast<int>(value)) <= stickDeadzone) return 0.0f;
+                return std::clamp(static_cast<float>(value) / 32767.0f, -1.0f, 1.0f);
+            };
+            state.input.setMovementAxes(normalizedAxis(lx), normalizedAxis(ly));
+            state.input.setCameraAxes(normalizedAxis(rx), normalizedAxis(ry));
             state.input.set(px::Action::MoveLeft, lx < -stickDeadzone);
             state.input.set(px::Action::MoveRight, lx > stickDeadzone);
             state.input.set(px::Action::MoveUp, ly < -stickDeadzone);

@@ -81,6 +81,14 @@ CharacterPresentationRegistry::CharacterPresentationRegistry() {
            {0.80f,0.34f,0.18f,1}, {0.19f,0.24f,0.32f,1});
     legacy("spectator_fan", CharacterFallbackKind::LegacyCasual, 144.0f,
            {0.16f,0.62f,0.66f,1}, {0.96f,0.83f,0.23f,1});
+    legacy("eliminated_fighter", CharacterFallbackKind::LegacyFighter, 154.0f,
+           {0.32f,0.45f,0.73f,1}, {0.15f,0.19f,0.30f,1});
+    legacy("alt", CharacterFallbackKind::LegacyHeavy, 161.0f,
+           {0.48f,0.08f,0.09f,1}, {0.14f,0.04f,0.05f,1});
+    legacy("rover", CharacterFallbackKind::LegacySwift, 149.0f,
+           {0.34f,0.52f,0.58f,1}, {0.15f,0.22f,0.25f,1});
+    legacy("tournament_maintenance_worker", CharacterFallbackKind::LegacySturdy, 149.0f,
+           {0.74f,0.57f,0.20f,1}, {0.24f,0.28f,0.30f,1});
 }
 
 const CharacterPresentationDefinition& CharacterPresentationRegistry::get(const std::string& id) const {

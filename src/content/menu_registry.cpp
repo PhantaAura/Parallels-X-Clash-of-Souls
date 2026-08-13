@@ -4,37 +4,27 @@
 namespace px {
 
 MenuRegistry::MenuRegistry() {
+    // Finished-game hierarchy. Unreleased versus modes live inside Battle and
+    // no longer occupy most of the top-level carousel.
     modes_ = {
-        {MenuModeId::Story, "story", "STORY MODE", "THE LOST YEAR",
-         "Follow Rrvvfo through the recovery year after Season 1.", "AVAILABLE",
+        {MenuModeId::Continue, "continue", "CONTINUE", "RETURN TO THE ROAD",
+         "Resume the current Story save from its exact area and objective.", "NO STORY SAVE",
+         "mode_continue_road", "warm_gold", true},
+        {MenuModeId::Story, "story", "STORY", "THE LOST YEAR",
+         "Begin a route or continue through its character-driven Story.", "AVAILABLE",
          "mode_story_rrvvfo_sage", "crimson", true},
-        {MenuModeId::ArenaBattle, "arena", "FIGHT", "RRVVFO VS CPU",
-         "Jump straight into a playable one-on-one fight using the shared Story combat.", "PLAYABLE",
+        {MenuModeId::ArenaBattle, "battle", "BATTLE", "FIGHTING GROUNDS",
+         "Enter a CPU fight now. Future versus modes remain grouped inside Battle.", "AVAILABLE",
          "mode_arena_ring", "ember", true},
-        {MenuModeId::OnlinePlay, "online", "ONLINE PLAY", "NETWORK BATTLE",
-         "Online play is reserved for a later networking milestone.", "COMING LATER",
-         "mode_online_signal", "warm_gold", false},
-        {MenuModeId::VsCpu, "cpu", "VS CPU", "SINGLE BATTLE",
-         "Choose a fighter and face a computer-controlled opponent.", "COMING LATER",
-         "mode_cpu_versus", "deep_red", false},
-        {MenuModeId::TwoPlayer, "local", "2 PLAYER", "LOCAL VS",
-         "Local two-player battles on one system.", "COMING LATER",
-         "mode_local_versus", "off_white", false},
         {MenuModeId::Training, "training", "TRAINING", "SAGE'S CHALLENGE",
-         "Practice movement, defense, Pursuit, Flow Cancel, and Chapter 1 techniques.", "PLAYABLE",
+         "Practice movement, defense, Pursuit, Flow Cancel, and current techniques.", "PLAYABLE",
          "mode_training_field", "ember", true},
-        {MenuModeId::Extras, "extras", "EXTRAS", "SAGE ARCHIVES",
-         "Combat Manual, records, profiles, and other reference material.", "COMING LATER",
-         "mode_extras_manual", "warm_gold", false},
+        {MenuModeId::Extras, "extras", "EXTRAS", "ARCHIVES & RECORDS",
+         "Adventure Records, Combat Manual, Story So Far, profiles, gallery, and credits.", "AVAILABLE",
+         "mode_extras_manual", "warm_gold", true},
         {MenuModeId::Options, "options", "OPTIONS", "SETTINGS",
-         "Gameplay, controls, audio, video, accessibility, and save options.", "COMING LATER",
-         "mode_options_x", "off_white", false},
-        {MenuModeId::Credits, "credits", "CREDITS", "PARALLELS X",
-         "Project and development credits.", "COMING LATER",
-         "mode_credits_x", "off_white", false},
-        {MenuModeId::Arcade, "arcade", "ARCADE", "BATTLE ROAD",
-         "A future combat run built around the completed roster.", "COMING LATER",
-         "mode_arcade_road", "muted_red", false},
+         "Controls, camera, dialogue, HUD, objectives, and accessibility.", "AVAILABLE",
+         "mode_options_x", "off_white", true},
     };
 }
 

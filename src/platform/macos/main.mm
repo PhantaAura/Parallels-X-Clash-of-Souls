@@ -206,6 +206,10 @@ struct AppState {
             runtimeSave.frontend.selectedStoryRoute=save.frontend.selectedStoryRoute;
             runtimeSave.frontend.storySoFarSection=save.frontend.storySoFarSection;
             runtimeSave.frontend.pendingStoryUnlocks=save.frontend.pendingStoryUnlocks;
+            runtimeSave.frontend.lastMenuMode=save.frontend.lastMenuMode;
+            runtimeSave.frontend.lastBattleSelection=save.frontend.lastBattleSelection;
+            runtimeSave.frontend.lastExtrasSelection=save.frontend.lastExtrasSelection;
+            runtimeSave.frontend.lastOptionsSelection=save.frontend.lastOptionsSelection;
             save=std::move(runtimeSave);
         } else if(gameplay) {
             save.qol=session.qolSettings();
@@ -638,16 +642,24 @@ static bool actionForKey(unsigned short keyCode, px::Action& out) {
         [uiColor(theme.panel) setFill];NSRectFill(NSMakeRect(80,150,1120,360));[white setStroke];NSFrameRectWithWidth(NSMakeRect(80,150,1120,360),4);[gold setFill];NSRectFill(NSMakeRect(80,150,8,360));[self label:@"‹" x:62 y:278 size:90 color:gold weight:NSFontWeightBlack];[self label:@"›" x:1156 y:278 size:90 color:gold weight:NSFontWeightBlack];
         [self label:ns(snapshot.selectedMode.kicker) x:126+motion y:196 size:22 color:accent weight:NSFontWeightHeavy];[self label:ns(snapshot.selectedMode.label) x:120+motion y:234 size:snapshot.selectedMode.label.size()>14?48:64 color:white weight:NSFontWeightBlack];
         NSMutableParagraphStyle* p=[NSMutableParagraphStyle new];p.lineBreakMode=NSLineBreakByWordWrapping;NSDictionary* copy=@{NSFontAttributeName:[NSFont systemFontOfSize:18 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:white,NSParagraphStyleAttributeName:p};[ns(snapshot.selectedMode.description) drawInRect:NSMakeRect(128,340,500,92) withAttributes:copy];
-        if(snapshot.selectedMode.id==px::MenuModeId::Story){NSRect liveBay=NSMakeRect(730,156,458,348);NSRectFillUsingOperation(liveBay,NSCompositingOperationClear);[white setStroke];NSFrameRectWithWidth(liveBay,3);[self fighterAt:NSMakePoint(1080,408) accent:[NSColor colorWithCalibratedRed:.72 green:.78 blue:.82 alpha:1] mentor:YES];if(!_state->rrvvfoReady)[self label:@"RRVVFO MODEL REQUIRED" x:758 y:310 size:19 color:fire weight:NSFontWeightBlack];}
+        if(snapshot.selectedMode.id==px::MenuModeId::Story){NSRect liveBay=NSMakeRect(730,156,458,348);NSRectFillUsingOperation(liveBay,NSCompositingOperationClear);[white setStroke];NSFrameRectWithWidth(liveBay,3);[self fighterAt:NSMakePoint(1080,408) accent:[NSColor colorWithCalibratedRed:.72 green:.78 blue:.82 alpha:1] mentor:YES];if(!_state->rrvvfoReady)[self label:@"CHARACTER ASSET UNAVAILABLE" x:758 y:310 size:17 color:fire weight:NSFontWeightBlack];}
+        else if(snapshot.selectedMode.id==px::MenuModeId::Continue&&snapshot.continueAvailable){[NSColor.blackColor setFill];NSRectFill(NSMakeRect(730,178,448,286));[gold setStroke];NSFrameRectWithWidth(NSMakeRect(730,178,448,286),4);[self label:ns(snapshot.continueCharacter) x:760 y:205 size:38 color:white weight:NSFontWeightBlack];[self label:ns(snapshot.continueArea) x:760 y:258 size:21 color:gold weight:NSFontWeightHeavy];NSMutableParagraphStyle* cp=[NSMutableParagraphStyle new];cp.lineBreakMode=NSLineBreakByWordWrapping;NSDictionary* ca=@{NSFontAttributeName:[NSFont systemFontOfSize:18 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:white,NSParagraphStyleAttributeName:cp};[ns(snapshot.continueObjective) drawInRect:NSMakeRect(760,300,380,75) withAttributes:ca];const int minutes=std::max(0,(int)snapshot.continuePlaytimeSeconds)/60;[self label:ns("STORY "+std::to_string(snapshot.continueProgressPercent)+"%  •  "+std::to_string(minutes/60)+"H "+std::to_string(minutes%60)+"M") x:760 y:409 size:17 color:muted weight:NSFontWeightBold];}
         else{[self fighterAt:NSMakePoint(866,390) accent:fire mentor:NO];[self fighterAt:NSMakePoint(1062,406) accent:[NSColor colorWithCalibratedRed:.72 green:.78 blue:.82 alpha:1] mentor:YES];}
-        [self label:ns((snapshot.modeIndex+1<10?"0":"")+std::to_string(snapshot.modeIndex+1)+" / 10") x:128 y:455 size:22 color:accent weight:NSFontWeightHeavy];
+        [self label:ns((snapshot.modeIndex+1<10?"0":"")+std::to_string(snapshot.modeIndex+1)+" / "+std::to_string(_state->menuRegistry.modes().size())) x:128 y:455 size:22 color:accent weight:NSFontWeightHeavy];
         if(snapshot.selectedMode.id==px::MenuModeId::Story){NSRect box=NSMakeRect(432,535,416,58);[(snapshot.storySoFarSelected?gold:NSColor.blackColor) setFill];NSRectFill(box);[(snapshot.storySoFarSelected?white:accent) setStroke];NSFrameRectWithWidth(box,3);[self center:@"STORY SO FAR" y:548 size:26 color:snapshot.storySoFarSelected?NSColor.blackColor:white weight:NSFontWeightBlack];}
         else if(!snapshot.selectedMode.implemented){[accent setFill];NSRectFill(NSMakeRect(430,532,420,56));[self center:@"COMING LATER" y:546 size:27 color:NSColor.blackColor weight:NSFontWeightBlack];}
         [self label:@"LEFT / RIGHT  CHANGE MODE" x:70 y:662 size:18 color:muted weight:NSFontWeightSemibold];[self label:@"ENTER / A  CONFIRM" x:990 y:662 size:18 color:white weight:NSFontWeightBold];
+    }else if(snapshot.screen==px::MenuScreen::BattleSelect||snapshot.screen==px::MenuScreen::ExtrasSelect||snapshot.screen==px::MenuScreen::Options||snapshot.screen==px::MenuScreen::AdventureRecords||snapshot.screen==px::MenuScreen::CombatManual||snapshot.screen==px::MenuScreen::CharacterProfiles||snapshot.screen==px::MenuScreen::Credits){
+        [self backdrop:gold];[self label:@"PARALLELS X" x:54 y:34 size:19 color:gold weight:NSFontWeightHeavy];[self label:ns(snapshot.submenuTitle) x:54 y:70 size:snapshot.submenuTitle.size()>22?34:44 color:white weight:NSFontWeightBlack];
+        [NSColor.blackColor setFill];NSRectFill(NSMakeRect(54,140,760,474));[white setStroke];NSFrameRectWithWidth(NSMakeRect(54,140,760,474),4);CGFloat y=168;
+        if(snapshot.screen==px::MenuScreen::CombatManual){[self label:ns(snapshot.manualPage.title) x:82 y:y size:29 color:gold weight:NSFontWeightBlack];y+=46;NSMutableParagraphStyle* mp=[NSMutableParagraphStyle new];mp.lineBreakMode=NSLineBreakByWordWrapping;NSDictionary* ma=@{NSFontAttributeName:[NSFont systemFontOfSize:17 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:white,NSParagraphStyleAttributeName:mp};[ns(snapshot.manualPage.summary) drawInRect:NSMakeRect(82,y,690,70) withAttributes:ma];y+=85;for(const auto& entry:snapshot.manualPage.entries){if(y>565)break;[self label:ns(entry.label+" • "+entry.keyboardPrompt) x:82 y:y size:17 color:white weight:NSFontWeightBold];y+=32;}}
+        else if(!snapshot.submenuOptions.empty()){const size_t visible=std::min<size_t>(snapshot.submenuOptions.size(),9);const size_t start=snapshot.submenuOptions.size()<=visible?0:std::min(snapshot.submenuSelection,snapshot.submenuOptions.size()-visible);for(size_t row=0;row<visible;++row){const size_t index=start+row;const BOOL selected=index==snapshot.submenuSelection;if(selected){[gold setFill];NSRectFill(NSMakeRect(74,y-8,716,40));}[self label:ns(snapshot.submenuOptions[index]) x:92 y:y size:18 color:selected?NSColor.blackColor:white weight:selected?NSFontWeightBlack:NSFontWeightSemibold];y+=47;}}
+        else{for(const auto& line:snapshot.informationLines){if(y>575)break;[self label:ns(line) x:84 y:y size:18 color:white weight:NSFontWeightSemibold];y+=38;}}
+        [[NSColor colorWithCalibratedWhite:.04 alpha:.96] setFill];NSRectFill(NSMakeRect(842,140,384,474));[gold setStroke];NSFrameRectWithWidth(NSMakeRect(842,140,384,474),4);NSMutableParagraphStyle* dp=[NSMutableParagraphStyle new];dp.lineBreakMode=NSLineBreakByWordWrapping;NSDictionary* da=@{NSFontAttributeName:[NSFont systemFontOfSize:18 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:white,NSParagraphStyleAttributeName:dp};[ns(snapshot.submenuDetail.empty()?snapshot.primaryPrompt:snapshot.submenuDetail) drawInRect:NSMakeRect(870,178,328,270) withAttributes:da];[self label:ns(snapshot.primaryPrompt) x:870 y:535 size:19 color:gold weight:NSFontWeightBlack];[self label:@"ESC / B  BACK" x:54 y:668 size:17 color:muted weight:NSFontWeightBold];
     }else if(snapshot.screen==px::MenuScreen::StoryCharacterSelect||snapshot.screen==px::MenuScreen::StoryComingLater){
         NSColor* accent=uiColor(px::UiPresentationRegistry::accent(theme,snapshot.selectedRoute.accentId));[self backdrop:accent];[self label:@"PARALLELS X  /  STORY MODE" x:58 y:34 size:19 color:gold weight:NSFontWeightHeavy];[self label:@"ROUTE SELECT" x:58 y:68 size:42 color:white weight:NSFontWeightBlack];
-        const CGFloat motion=snapshot.transitionProgress*snapshot.transitionDirection*150.0;NSRect card=NSMakeRect(84,146,690,362);[uiColor(theme.panel) setFill];NSRectFill(card);[white setStroke];NSFrameRectWithWidth(card,4);[gold setFill];NSRectFill(NSMakeRect(84,146,10,362));NSRectFill(NSMakeRect(84,146,690,6));[self label:@"NEW STORY" x:124 y:174 size:18 color:fire weight:NSFontWeightHeavy];[self label:ns(snapshot.selectedRoute.characterName) x:120+motion y:212 size:62 color:white weight:NSFontWeightBlack];[self label:ns(snapshot.selectedRoute.title) x:122+motion y:286 size:24 color:gold weight:NSFontWeightHeavy];NSMutableParagraphStyle* routeParagraph=[NSMutableParagraphStyle new];routeParagraph.lineBreakMode=NSLineBreakByWordWrapping;NSDictionary* routeCopy=@{NSFontAttributeName:[NSFont systemFontOfSize:18 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:white,NSParagraphStyleAttributeName:routeParagraph};[ns(snapshot.selectedRoute.description) drawInRect:NSMakeRect(124,340,590,92) withAttributes:routeCopy];[self label:snapshot.selectedRoute.id=="rrvvfo"?@"LIVE REPAIRED MODEL + EXPRESSIVE FACE":@"ROUTE ART PENDING" x:124 y:464 size:16 color:muted weight:NSFontWeightBold];[self label:@"‹" x:38 y:282 size:92 color:gold weight:NSFontWeightBlack];[self label:@"›" x:1212 y:282 size:92 color:gold weight:NSFontWeightBlack];
-        if(snapshot.selectedRoute.id=="rrvvfo"){NSRect liveBay=NSMakeRect(806,120,394,430);NSRectFillUsingOperation(liveBay,NSCompositingOperationClear);[white setStroke];NSFrameRectWithWidth(liveBay,3);if(!_state->rrvvfoReady)[self label:@"RRVVFO MODEL REQUIRED" x:840 y:328 size:20 color:fire weight:NSFontWeightBlack];}else{[self fighterAt:NSMakePoint(1004,416) accent:accent mentor:snapshot.selectedRoute.id=="bark"];}
+        const CGFloat motion=snapshot.transitionProgress*snapshot.transitionDirection*150.0;NSRect card=NSMakeRect(84,146,690,362);[uiColor(theme.panel) setFill];NSRectFill(card);[white setStroke];NSFrameRectWithWidth(card,4);[gold setFill];NSRectFill(NSMakeRect(84,146,10,362));NSRectFill(NSMakeRect(84,146,690,6));[self label:@"CHARACTER STORY" x:124 y:174 size:18 color:fire weight:NSFontWeightHeavy];[self label:ns(snapshot.selectedRoute.characterName) x:120+motion y:212 size:62 color:white weight:NSFontWeightBlack];[self label:ns(snapshot.selectedRoute.title) x:122+motion y:286 size:24 color:gold weight:NSFontWeightHeavy];NSMutableParagraphStyle* routeParagraph=[NSMutableParagraphStyle new];routeParagraph.lineBreakMode=NSLineBreakByWordWrapping;NSDictionary* routeCopy=@{NSFontAttributeName:[NSFont systemFontOfSize:18 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:white,NSParagraphStyleAttributeName:routeParagraph};[ns(snapshot.selectedRoute.description) drawInRect:NSMakeRect(124,340,590,92) withAttributes:routeCopy];[self label:snapshot.selectedRoute.id=="rrvvfo"?@"FIRE NINJA • SPEED / STRIKER":@"STORY ROUTE" x:124 y:464 size:16 color:muted weight:NSFontWeightBold];[self label:@"‹" x:38 y:282 size:92 color:gold weight:NSFontWeightBlack];[self label:@"›" x:1212 y:282 size:92 color:gold weight:NSFontWeightBlack];
+        if(snapshot.selectedRoute.id=="rrvvfo"){NSRect liveBay=NSMakeRect(806,120,394,430);NSRectFillUsingOperation(liveBay,NSCompositingOperationClear);[white setStroke];NSFrameRectWithWidth(liveBay,3);if(!_state->rrvvfoReady)[self label:@"CHARACTER ASSET UNAVAILABLE" x:840 y:328 size:17 color:fire weight:NSFontWeightBlack];}else{[self fighterAt:NSMakePoint(1004,416) accent:accent mentor:snapshot.selectedRoute.id=="bark"];}
         NSString* action=snapshot.screen==px::MenuScreen::StoryComingLater?@"STORY COMING LATER":ns(snapshot.routeActions.empty()?"STORY COMING LATER":snapshot.routeActions[std::min(snapshot.routeActionIndex,snapshot.routeActions.size()-1)]);[uiColor(theme.ember) setFill];NSRectFill(NSMakeRect(390,550,500,70));[NSColor.blackColor setStroke];NSFrameRectWithWidth(NSMakeRect(390,550,500,70),3);[gold setFill];NSRectFill(NSMakeRect(390,550,500,5));[self center:action y:567 size:28 color:NSColor.blackColor weight:NSFontWeightBlack];
     }else if(snapshot.screen==px::MenuScreen::StorySoFar){
         [self backdrop:gold];[self label:@"STORY MODE  /  STORY SO FAR" x:54 y:30 size:20 color:gold weight:NSFontWeightBold];[self label:ns(snapshot.recapSection.title) x:54 y:66 size:40 color:white weight:NSFontWeightBlack];
@@ -825,6 +837,14 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
 
 - (void)syncInput {
     _state->input.beginFrame();
+    GCExtendedGamepad* pad=GCController.controllers.firstObject.extendedGamepad;
+    if(pad&&_state->gameplay){
+        const float lx=pad.leftThumbstick.xAxis.value,lz=-pad.leftThumbstick.yAxis.value;
+        const float rx=pad.rightThumbstick.xAxis.value,ry=pad.rightThumbstick.yAxis.value;
+        _state->input.setMovementAxes(std::abs(lx)>.16f||std::abs(lz)>.16f?lx:0.0f,
+                                      std::abs(lx)>.16f||std::abs(lz)>.16f?lz:0.0f);
+        _state->input.setCameraAxes(std::abs(rx)>.16f?rx:0.0f,std::abs(ry)>.16f?ry:0.0f);
+    }
     for(auto action:allActions()){
         bool active=_state->held.count(action)!=0||_controllerHeld.count(action)!=0;
         if(action==px::Action::Light)active=active||_mouseLight;
@@ -846,9 +866,9 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
     const CGFloat panelHeight=v.pauseVisible?std::min(620.0,self.bounds.size.height-48):v.trainingManualVisible?std::min(330.0,self.bounds.size.height-48):166.0;
     _dialoguePanel.frame=NSMakeRect(28,26,self.bounds.size.width-56,panelHeight);
     _objectivePanel.frame=NSMakeRect(22,v.mode==px::GameMode::ArenaCombat?self.bounds.size.height-226:self.bounds.size.height-144,std::min(620.0,self.bounds.size.width-44),120);
-    _objectivePanel.hidden=v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
+    _objectivePanel.hidden=v.objectiveDisplay=="off"||v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
     _objectivePanel.kicker=ns(v.currentArea);
-    _objectivePanel.body=ns(v.objective+(v.objectiveDetail.empty()?"":"\n"+v.objectiveDetail));
+    _objectivePanel.body=ns(v.objective+(v.objectiveDisplay=="minimal"||v.objectiveDetail.empty()?"":"\n"+v.objectiveDetail));
     [_objectivePanel setNeedsDisplay:YES];
 
     if(v.pauseVisible){
@@ -896,8 +916,11 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
     _interactionPanel.kicker=@"INTERACT";_interactionPanel.body=ns("E • "+v.nearbyInteractionLabel);[_interactionPanel setNeedsDisplay:YES];
     const bool hasCombatFeedback=!v.combatFeedback.empty();
     const bool showTournamentCard=v.tournamentCardVisible;
-    _noticePanel.hidden=(v.gameplayNotice.empty()&&!hasCombatFeedback&&!showTournamentCard)||v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
-    if(showTournamentCard){
+    _noticePanel.hidden=(v.gameplayNotice.empty()&&!hasCombatFeedback&&!showTournamentCard&&!v.battleRankVisible)||v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
+    if(v.battleRankVisible){
+        _noticePanel.kicker=@"BATTLE RANK";
+        _noticePanel.body=ns(v.battleRank+"  •  "+std::to_string(v.battleRankScore));
+    }else if(showTournamentCard){
         const auto stats=px::StoryProgressionSystem::statsFor(v.tournamentCard);
         _noticePanel.kicker=@"TOURNAMENT CARD";
         _noticePanel.body=ns("RRVVFO  •  LV "+std::to_string(v.tournamentCard.level)+"  •  XP "+std::to_string(v.tournamentCard.xp)+
@@ -1105,7 +1128,7 @@ uniforms.fogColor=(vector_float4){stage.fogColor.r*(1.0f-lensBlind*.55f)+.16f*le
     (void)notification;id<MTLDevice> device=MTLCreateSystemDefaultDevice();
     if(!device){NSAlert* alert=[NSAlert new];alert.messageText=@"Metal is unavailable on this Mac.";[alert runModal];[NSApp terminate:nil];return;}
     NSRect frame=NSMakeRect(0,0,1280,720);self.window=[[NSWindow alloc]initWithContentRect:frame styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskMiniaturizable|NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer:NO];
-    self.window.title=@"Parallels X: Clash of Souls 3.0R — 0.4H GOLDEN GATE QOL";self.window.minSize=NSMakeSize(960,540);
+    self.window.title=@"Parallels X: Clash of Souls 3.0R";self.window.minSize=NSMakeSize(960,540);
     PXGameView* gameView=[[PXGameView alloc]initWithFrame:frame device:device];self.window.contentView=gameView;[self.window center];[self.window makeKeyAndOrderFront:nil];[self.window makeFirstResponder:gameView];[NSApp activateIgnoringOtherApps:YES];
 }
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender{(void)sender;return YES;}

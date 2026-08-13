@@ -111,7 +111,14 @@ bool writeSave(const px::SaveData& save) {
 bool persist(px::RuntimeSession& session, px::SaveData& save, bool gameplay) {
     if (gameplay && !session.standaloneMode()) {
         px::SaveData runtimeSave = session.saveSnapshot("old-3ds-xl");
-        runtimeSave.frontend = save.frontend;
+        runtimeSave.frontend.discoveredStoryRoutes = save.frontend.discoveredStoryRoutes;
+        runtimeSave.frontend.selectedStoryRoute = save.frontend.selectedStoryRoute;
+        runtimeSave.frontend.storySoFarSection = save.frontend.storySoFarSection;
+        runtimeSave.frontend.pendingStoryUnlocks = save.frontend.pendingStoryUnlocks;
+        runtimeSave.frontend.lastMenuMode = save.frontend.lastMenuMode;
+        runtimeSave.frontend.lastBattleSelection = save.frontend.lastBattleSelection;
+        runtimeSave.frontend.lastExtrasSelection = save.frontend.lastExtrasSelection;
+        runtimeSave.frontend.lastOptionsSelection = save.frontend.lastOptionsSelection;
         save = std::move(runtimeSave);
     } else if (gameplay) {
         save.qol = session.qolSettings();
@@ -309,7 +316,7 @@ int main() {
         C3D_RenderTargetClear(bottom, C3D_CLEAR_ALL, C2D_Color32(7, 24, 52, 255), 0);
 
         if (buildBlocked) {
-            const std::string titleText = !modelReady ? "RRVVFO MODEL DID NOT LOAD" : "3D RENDERER DID NOT START";
+            const std::string titleText = !modelReady ? "RRVVFO MODEL DID NOT LOAD" : "DISPLAY STARTUP ERROR";
             const std::string detail = !modelReady ? modelError : rendererError;
             C2D_SceneBegin(top);
             ui.drawFatal(titleText, detail, false);

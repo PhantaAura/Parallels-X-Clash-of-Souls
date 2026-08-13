@@ -1,4 +1,5 @@
 #include "core/input.hpp"
+#include <algorithm>
 
 namespace px {
 
@@ -66,6 +67,8 @@ InputProfile InputProfiles::legacy() {
 void InputState::beginFrame() {
     pressed_.clear();
     released_.clear();
+    movementX_ = movementZ_ = 0.0f;
+    cameraX_ = cameraY_ = 0.0f;
 }
 
 void InputState::set(Action action, bool held) {
@@ -82,5 +85,15 @@ void InputState::set(Action action, bool held) {
 bool InputState::down(Action action) const { return held_.count(action) != 0; }
 bool InputState::pressed(Action action) const { return pressed_.count(action) != 0; }
 bool InputState::released(Action action) const { return released_.count(action) != 0; }
+
+void InputState::setMovementAxes(float x, float z) {
+    movementX_ = std::clamp(x, -1.0f, 1.0f);
+    movementZ_ = std::clamp(z, -1.0f, 1.0f);
+}
+
+void InputState::setCameraAxes(float x, float y) {
+    cameraX_ = std::clamp(x, -1.0f, 1.0f);
+    cameraY_ = std::clamp(y, -1.0f, 1.0f);
+}
 
 } // namespace px

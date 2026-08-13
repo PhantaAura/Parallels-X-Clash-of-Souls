@@ -260,9 +260,9 @@ void LegacyUi3ds::drawTopMenu(const MenuSnapshot& snapshot, bool modelAvailable)
         label("PARALLELS", 43, 50, 1.15f, kWhite);
         label("X", 318, 50, 1.15f, kYellow);
         centered("CLASH OF SOULS", 20, 95, 360, .55f, kLightBlue);
-        centered("LEGACY REMAKE", 20, 121, 360, .27f, alpha(kWhite, 210));
+        centered("STORY • BATTLE • TRAINING", 20, 121, 360, .27f, alpha(kWhite, 210));
         C2D_DrawRectSolid(72, 154, .82f, 256, 3, kYellow);
-        centered("CHAPTER 1 - BACK TO NORMAL", 32, 167, 336, .31f, kWhite);
+        centered("THE LOST YEAR", 32, 167, 336, .31f, kWhite);
         return;
     }
 
@@ -293,19 +293,58 @@ void LegacyUi3ds::drawTopMenu(const MenuSnapshot& snapshot, bool modelAvailable)
         return;
     }
 
+    if (snapshot.screen == MenuScreen::BattleSelect || snapshot.screen == MenuScreen::ExtrasSelect ||
+        snapshot.screen == MenuScreen::Options || snapshot.screen == MenuScreen::AdventureRecords ||
+        snapshot.screen == MenuScreen::CombatManual || snapshot.screen == MenuScreen::CharacterProfiles ||
+        snapshot.screen == MenuScreen::Credits) {
+        topBrand(snapshot.submenuTitle);
+        fitted(snapshot.submenuTitle, 24, 51, 352, .72f, .48f, kWhite);
+        hardPanel(18, 87, 364, 137, alpha(kBlue, 245), kWhite, kYellow, true);
+        float y = 100.0f;
+        if (snapshot.screen == MenuScreen::CombatManual) {
+            fitted(snapshot.manualPage.title, 34, y, 330, .47f, .34f, kYellow);
+            y += 25.0f;
+            label(snapshot.manualPage.summary, 34, y, .27f, kWhite, 330);
+            y += 48.0f;
+            for (const auto& entry : snapshot.manualPage.entries) {
+                if (y > 207.0f) break;
+                fitted(entry.label + " • " + entry.controllerPrompt, 34, y, 330, .27f, .22f, kWhite);
+                y += 18.0f;
+            }
+        } else if (!snapshot.submenuOptions.empty()) {
+            const std::size_t visible = std::min<std::size_t>(snapshot.submenuOptions.size(), 5);
+            const std::size_t start = snapshot.submenuOptions.size() <= visible ? 0 :
+                std::min(snapshot.submenuSelection, snapshot.submenuOptions.size() - visible);
+            for (std::size_t row = 0; row < visible; ++row) {
+                const std::size_t index = start + row;
+                const bool selected = index == snapshot.submenuSelection;
+                if (selected) C2D_DrawRectSolid(29, y - 3, .91f, 342, 20, kYellow);
+                fitted(snapshot.submenuOptions[index], 38, y, 324, .29f, .22f, selected ? kInk : kWhite);
+                y += 24.0f;
+            }
+        } else {
+            for (const auto& line : snapshot.informationLines) {
+                if (y > 207.0f) break;
+                fitted(line, 34, y, 330, .28f, .21f, kWhite);
+                y += 20.0f;
+            }
+        }
+        return;
+    }
+
     if (snapshot.screen == MenuScreen::StoryCharacterSelect) {
         topBrand("STORY");
         centered("ROUTE SELECT", 30, 47, 340, .82f, kWhite);
         label("STORY MODE", 22, 79, .29f, kYellow);
         hardPanel(18, 96, 250, 128, alpha(kBlue, 245), kWhite, kYellow, true);
-        label("NEW STORY", 34, 108, .25f, kRed);
+        label("CHARACTER STORY", 34, 108, .25f, kRed);
         fitted(snapshot.selectedRoute.characterName.empty() ? "RRVVFO" : snapshot.selectedRoute.characterName,
                34, 125, 205, .78f, .56f, kWhite);
         fitted(snapshot.selectedRoute.title.empty() ? "THE LOST YEAR" : snapshot.selectedRoute.title,
                34, 154, 210, .36f, .28f, kYellow);
-        fitted(modelAvailable ? "NEW MODEL + FACE" : "MODEL LOAD REQUIRED",
+        fitted(modelAvailable ? "FIRE NINJA • SPEED / STRIKER" : "CHARACTER ASSET UNAVAILABLE",
                34, 180, 212, .25f, .20f, modelAvailable ? kWhite : kRed);
-        label("LIVE RIG", 309, 203, .23f, kYellow, 0.0f, C2D_AlignCenter);
+        label("RRVVFO", 309, 203, .23f, kYellow, 0.0f, C2D_AlignCenter);
         label("<", 6, 135, .62f, alpha(kWhite, 150));
         label(">", 378, 135, .62f, alpha(kWhite, 150));
         return;
@@ -347,10 +386,20 @@ void LegacyUi3ds::drawBottomMenu(const MenuSnapshot& snapshot, bool modelAvailab
         remakePanel(10, 10, 300, storyMode ? 136 : 145, kPaper, kYellow, true);
         label(snapshot.selectedMode.kicker, 26, 23, .28f, kRed);
         fitted(snapshot.selectedMode.label, 26, 43, 268, .68f, .46f, kInk);
-        label(snapshot.selectedMode.description, 26, 75, .31f, kInk, 268);
-        label("STATUS", 26, 119, .23f, kBlue);
-        label(snapshot.selectedMode.status, 87, 117, .31f,
-              snapshot.selectedMode.implemented ? kGreen : 0xFF6C6864);
+        if (snapshot.selectedMode.id == MenuModeId::Continue && snapshot.continueAvailable) {
+            fitted(snapshot.continueArea, 26, 75, 268, .34f, .27f, kBlue);
+            label(snapshot.continueObjective, 26, 94, .28f, kInk, 268);
+            char progress[64];
+            const int minutes = std::max(0, static_cast<int>(snapshot.continuePlaytimeSeconds)) / 60;
+            std::snprintf(progress, sizeof(progress), "STORY %d%%  •  %dH %02dM",
+                          snapshot.continueProgressPercent, minutes / 60, minutes % 60);
+            label(progress, 26, 119, .23f, kBlue);
+        } else label(snapshot.selectedMode.description, 26, 75, .31f, kInk, 268);
+        if (snapshot.selectedMode.id != MenuModeId::Continue || !snapshot.continueAvailable) {
+            label("STATUS", 26, 119, .23f, kBlue);
+            label(snapshot.selectedMode.status, 87, 117, .31f,
+                  snapshot.selectedMode.implemented ? kGreen : 0xFF6C6864);
+        }
         if (storyMode) {
             hintPill(92, 151, 136, "SWITCH CHOICE", "UP");
             remakeButton(8, 179, 148, 47, "STORY MODE", "A",
@@ -366,13 +415,38 @@ void LegacyUi3ds::drawBottomMenu(const MenuSnapshot& snapshot, bool modelAvailab
         return;
     }
 
+    if (snapshot.screen == MenuScreen::BattleSelect || snapshot.screen == MenuScreen::ExtrasSelect ||
+        snapshot.screen == MenuScreen::Options || snapshot.screen == MenuScreen::AdventureRecords ||
+        snapshot.screen == MenuScreen::CombatManual || snapshot.screen == MenuScreen::CharacterProfiles ||
+        snapshot.screen == MenuScreen::Credits) {
+        remakePanel(10, 10, 300, 160, kPaper, kYellow, true);
+        fitted(snapshot.submenuTitle, 25, 23, 270, .48f, .34f, kInk);
+        if (!snapshot.submenuDetail.empty()) label(snapshot.submenuDetail, 25, 57, .27f, kInk, 270);
+        else if (snapshot.screen == MenuScreen::CombatManual)
+            label(snapshot.manualPage.summary, 25, 57, .27f, kInk, 270);
+        else label(snapshot.primaryPrompt, 25, 57, .28f, kInk, 270);
+        if (!snapshot.submenuOptions.empty()) {
+            const std::size_t count = snapshot.submenuOptions.size();
+            const std::size_t start = count <= 2 ? 0 : std::min(snapshot.submenuSelection, count - 2);
+            for (std::size_t row = 0; row < std::min<std::size_t>(count, 2); ++row) {
+                const std::size_t index = start + row;
+                remakeButton(19, 177 + static_cast<float>(row) * 27.0f, 282, 24,
+                             snapshot.submenuOptions[index], "A", index == snapshot.submenuSelection, true);
+            }
+        } else {
+            remakeButton(58, 188, 204, 39, snapshot.screen == MenuScreen::CombatManual ? "NEXT PAGE" : "BACK",
+                         snapshot.screen == MenuScreen::CombatManual ? "A" : "B", true);
+        }
+        return;
+    }
+
     if (snapshot.screen == MenuScreen::StoryCharacterSelect) {
         remakePanel(10, 10, 300, 151, kPaper, kYellow, true);
         label("RRVVFO STORY", 26, 24, .27f, kRed);
         fitted(snapshot.selectedRoute.title.empty() ? "THE LOST YEAR" : snapshot.selectedRoute.title,
                26, 43, 265, .60f, .42f, kInk);
         label(snapshot.selectedRoute.description, 26, 75, .28f, kInk, 268);
-        label(modelAvailable ? "MODEL: RRVVFO 15 REPAIRED + FACE" : "MODEL ERROR - START BLOCKED",
+        label(modelAvailable ? "FIRE NINJA • SPEED / STRIKER" : "CHARACTER ASSET UNAVAILABLE",
               26, 134, .23f, modelAvailable ? kBlue : kRed);
         const auto& actions = snapshot.routeActions;
         hintPill(88, 166, 144, "L / R  CHANGE ROUTE");
@@ -432,11 +506,13 @@ void LegacyUi3ds::drawTopGameplay(const RuntimeView& view) {
         if (view.showEnergy) meter(8, 23, 102, view.player.energy / 100.0f, kLightBlue, "ENERGY");
         if (view.showGuard) meter(290, 23, 102, view.player.guard / 100.0f, kYellow, "GUARD", true);
     } else if (!view.dialogueVisible && !view.pauseVisible && !view.trainingManualVisible &&
-               !view.choiceVisible && !view.qteVisible) {
-        hardPanel(7, 7, 260, 68, alpha(kNavy, 238), kWhite, kYellow, true);
-        label("CURRENT OBJECTIVE", 20, 14, .36f, kYellow);
-        fitted(view.objective.empty() ? "EXPLORE" : view.objective, 20, 33, 234, .42f, .36f, kWhite);
-        if (!view.objectiveDetail.empty()) fitted(view.objectiveDetail, 20, 53, 234, .36f, .36f, kMuted);
+               !view.choiceVisible && !view.qteVisible && view.objectiveDisplay != "off") {
+        const bool minimalObjective = view.objectiveDisplay == "minimal";
+        hardPanel(7, 7, 260, minimalObjective ? 45 : 68, alpha(kNavy, 238), kWhite, kYellow, true);
+        if (!minimalObjective) label("CURRENT OBJECTIVE", 20, 14, .36f, kYellow);
+        fitted(view.objective.empty() ? "EXPLORE" : view.objective, 20, minimalObjective ? 19 : 33, 234,
+               .42f * view.hudScale, .36f, kWhite);
+        if (!minimalObjective && !view.objectiveDetail.empty()) fitted(view.objectiveDetail, 20, 53, 234, .36f, .36f, kMuted);
     }
 
     if (!view.nearbyInteractionLabel.empty() && !view.dialogueVisible && !view.pauseVisible) {
@@ -482,7 +558,7 @@ void LegacyUi3ds::dialogue(const RuntimeView& view, RrvvfoFaceExpression faceExp
                   static_cast<unsigned long>(view.dialogueIndex + 1),
                   static_cast<unsigned long>(view.dialogueCount));
     label(count, 289, 18, .23f, kWhite, 0.0f, C2D_AlignRight);
-    label(modelAvailable ? "FACE RIG ACTIVE" : "MODEL ERROR", 18, 18, .22f,
+    label(modelAvailable ? "STORY DIALOGUE" : "CHARACTER ASSET UNAVAILABLE", 18, 18, .22f,
           modelAvailable ? speakerAccent : kRed);
 }
 
@@ -592,7 +668,8 @@ void LegacyUi3ds::utility(const RuntimeView& view) {
     centered("1", 20, 22, 22, .34f, kInk);
     label("AREA", 49, 18, .23f, kYellow);
     fitted(view.currentArea, 49, 35, 244, .43f, .31f, kWhite);
-    fitted(view.objective, 25, 57, 268, .23f, .18f, kMuted);
+    if (view.objectiveDisplay != "off")
+        fitted(view.objective, 25, 57, 268, .23f * view.hudScale, .18f, kMuted);
 
     if (view.tournamentCardVisible) {
         const auto stats = StoryProgressionSystem::statsFor(view.tournamentCard);
@@ -629,8 +706,10 @@ void LegacyUi3ds::utility(const RuntimeView& view) {
         hintPill(208, 120, 88, "DASH", "UP");
     }
 
-    if (!view.combatFeedback.empty() || !view.gameplayNotice.empty()) {
-        const std::string& notice = !view.combatFeedback.empty() ? view.combatFeedback : view.gameplayNotice;
+    if (view.battleRankVisible || !view.combatFeedback.empty() || !view.gameplayNotice.empty()) {
+        const std::string rankNotice = "BATTLE RANK " + view.battleRank + " • " + std::to_string(view.battleRankScore);
+        const std::string& notice = view.battleRankVisible ? rankNotice :
+            (!view.combatFeedback.empty() ? view.combatFeedback : view.gameplayNotice);
         remakePanel(14, 174, 292, 35, kWhite, kOrange, true);
         C2D_DrawCircleSolid(34, 191, .91f, 9, kOrange);
         centered("!", 25, 184, 18, .30f, kInk);

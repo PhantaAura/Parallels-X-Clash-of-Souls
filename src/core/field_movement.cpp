@@ -21,33 +21,36 @@ Vec2 FieldMovementSystem::tick(
     state.jumpBufferTime = std::max(0.0f, state.jumpBufferTime - dt);
     state.coyoteTime = std::max(0.0f, state.coyoteTime - dt);
 
-    float x = 0.0f;
-    float z = 0.0f;
-    if (input.down(Action::MoveLeft))  x -= 1.0f;
-    if (input.down(Action::MoveRight)) x += 1.0f;
-    if (input.down(Action::MoveUp))    z -= 1.0f;
-    if (input.down(Action::MoveDown))  z += 1.0f;
+    float x = input.movementX();
+    float z = input.movementZ();
+    if (std::abs(x) < .001f && std::abs(z) < .001f) {
+        if (input.down(Action::MoveLeft))  x -= 1.0f;
+        if (input.down(Action::MoveRight)) x += 1.0f;
+        if (input.down(Action::MoveUp))    z -= 1.0f;
+        if (input.down(Action::MoveDown))  z += 1.0f;
+    }
 
-    const float len = std::sqrt(x * x + z * z);
-    if (len > 0.0001f) {
-        x /= len;
-        z /= len;
-        state.facing = {x, z};
+    const float rawLength = std::sqrt(x * x + z * z);
+    const float magnitude = std::clamp(rawLength, 0.0f, 1.0f);
+    if (rawLength > 0.0001f) {
+        x = x / rawLength * magnitude;
+        z = z / rawLength * magnitude;
+        state.facing = {x / magnitude, z / magnitude};
         state.hasFacing = true;
     }
 
-    const bool hasDashDirection = len > 0.0001f || state.hasFacing;
+    const bool hasDashDirection = rawLength > 0.0001f || state.hasFacing;
     if (input.pressed(Action::Dash) && hasDashDirection && state.dashCooldown <= 0.0f && state.dashTime <= 0.0f) {
-        state.dashDirection = len > 0.0001f ? Vec2{x, z} : state.facing;
+        state.dashDirection = state.facing;
         state.hasFacing = true;
         state.dashTime = config.dashSeconds;
         state.dashCooldown = config.dashCooldownSeconds;
         state.dashStartedThisFrame = true;
     }
-    if (state.dashTime > 0.0f && len > 0.0001f) {
+    if (state.dashTime > 0.0f && rawLength > 0.0001f) {
         const float steering = std::clamp(config.dashSteeringPerSecond * dt, 0.0f, 1.0f);
-        const float steeredX = state.dashDirection.x * (1.0f - steering) + x * steering;
-        const float steeredZ = state.dashDirection.z * (1.0f - steering) + z * steering;
+        const float steeredX = state.dashDirection.x * (1.0f - steering) + state.facing.x * steering;
+        const float steeredZ = state.dashDirection.z * (1.0f - steering) + state.facing.z * steering;
         const float steeredLength = std::sqrt(steeredX * steeredX + steeredZ * steeredZ);
         if (steeredLength > 0.0001f)
             state.dashDirection = {steeredX / steeredLength, steeredZ / steeredLength};
@@ -83,9 +86,10 @@ Vec2 FieldMovementSystem::tick(
         }
     }
 
+    const float airControl = state.height > 0.0f ? config.airControlMultiplier : 1.0f;
     const Vec2 requested{
-        position.x + state.dashDirection.x * config.dashSpeed * dashDt + x * config.walkSpeed * walkDt,
-        position.z + state.dashDirection.z * config.dashSpeed * dashDt + z * config.walkSpeed * walkDt
+        position.x + state.dashDirection.x * config.dashSpeed * dashDt + x * config.walkSpeed * walkDt * airControl,
+        position.z + state.dashDirection.z * config.dashSpeed * dashDt + z * config.walkSpeed * walkDt * airControl
     };
     return WorldCollision::move(map, position, requested, disabledBlockers);
 }

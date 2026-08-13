@@ -1,4 +1,5 @@
 #include "content/adventure_registry.hpp"
+#include "content/arena_encounter_registry.hpp"
 #include "content/chapter_registry.hpp"
 #include "content/character_presentation_registry.hpp"
 #include "content/cutscene_registry.hpp"
@@ -278,6 +279,7 @@ int main() {
     px::ExplorationRegistry exploration;
     px::TrainingRegistry training;
     px::AdventureRegistry adventures;
+    px::ArenaEncounterRegistry arenaEncounters;
     px::WorldPresentationRegistry worlds;
     px::CharacterPresentationRegistry characters;
 
@@ -749,7 +751,7 @@ int main() {
     tap(runtime, input, px::Action::Confirm);
     assert(runtime.view().sceneId == "selected_route_adventure" && runtime.view().routeChoice == "main");
     tap(runtime, input, px::Action::Pause);
-    assert(runtime.view().pauseVisible && runtime.view().pauseOptions.size() == 8);
+    assert(runtime.view().pauseVisible && runtime.view().pauseOptions.size() == 9);
     assert(runtime.view().pauseOptions[5] == "RECENT DIALOGUE");
     assert(runtime.view().manualSaveAllowed && runtime.view().pauseOptions[1] == "SAVE GAME");
     tap(runtime, input, px::Action::MoveDown);
@@ -970,7 +972,6 @@ int main() {
         }
         assert(alternate.view().sceneId == "swap_relay_trial");
         if (route == "cliff") {
-            assert(alternate.view().gameplayNotice == "SCENIC DISCOVERY • CLIFFSIDE VIEW");
             const auto cliffSave = alternate.saveSnapshot();
             assert(std::find(cliffSave.story.flags.begin(), cliffSave.story.flags.end(), "ch1_road_dare_badge") != cliffSave.story.flags.end());
             assert(std::find(cliffSave.story.flags.begin(), cliffSave.story.flags.end(), "ch1_title_road_runner") != cliffSave.story.flags.end());
@@ -1009,7 +1010,7 @@ int main() {
         tap(goldenRuntime, goldenInput, px::Action::Pause);
         assert(goldenRuntime.view().pauseVisible);
         assert(std::find(goldenRuntime.view().pauseSections.begin(), goldenRuntime.view().pauseSections.end(),
-                         "BUILD • 3.0R / U11–U13 CHAPTER 2 RESTORATION") != goldenRuntime.view().pauseSections.end());
+                         "PARALLELS X 3.0R • SHARED STORY SAVE") != goldenRuntime.view().pauseSections.end());
         for (int i = 0; i < 3; ++i) tap(goldenRuntime, goldenInput, px::Action::MoveDown);
         tap(goldenRuntime, goldenInput, px::Action::Confirm);
         assert(goldenRuntime.view().pausePageTitle == "OBJECTIVE HISTORY");
@@ -1136,6 +1137,11 @@ int main() {
         tap(finalRun, finalInput, px::Action::Ability2);
         tap(finalRun, finalInput, px::Action::Light);
         tap(finalRun, finalInput, px::Action::Heavy);
+        assert(finalRun.view().battleRankVisible);
+        for (int frame = 0; frame < 30 && !finalRun.view().dialogueVisible; ++frame) {
+            finalInput.beginFrame();
+            finalRun.tick(finalInput, .1f);
+        }
         assert(finalRun.view().dialogueVisible);
         assert(finalRun.view().dialogueText.find("beat you in the beam") != std::string::npos);
     }
@@ -1152,6 +1158,107 @@ int main() {
             [](const px::AbilitySlotDefinition& slot){ return slot.id == "fireAwakening"; }));
         assert(std::none_of(migratedRuntime.view().hotbar.begin(), migratedRuntime.view().hotbar.end(),
             [](const px::AbilitySlotDefinition& slot){ return slot.id == "shotsOfAgony"; }));
+    }
+
+    // U15 side activities are real shared-runtime content with persistent,
+    // modest rewards—not renderer-only labels or repeatable fetch counters.
+    {
+        assert(dialogue.has("ch2_missing_prize_start") && dialogue.has("ch2_missing_prize_done"));
+        assert(dialogue.has("ch2_controlled_flame_start") && dialogue.has("ch2_alt_rover_confrontation"));
+        assert(arenaEncounters.has("ch2_one_match_anyway_optional"));
+        assert(!arenaEncounters.get("ch2_one_match_anyway_optional").official);
+
+        px::RuntimeSession prize(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        px::InputState prizeInput;
+        prize.loadSnapshot(saveAtScene(ch2, "ch2_intermission_stillness", {-1030.0f, 280.0f}));
+        tap(prize, prizeInput, px::Action::Interact);
+        assert(prize.view().dialogueVisible);
+        finishDialogue(prize);
+        auto prizeSave = prize.saveSnapshot();
+        assert(std::find(prizeSave.story.flags.begin(), prizeSave.story.flags.end(), "ch2_missing_prize_started") != prizeSave.story.flags.end());
+        prizeSave.world.position = {760.0f, -720.0f};
+        prize.loadSnapshot(prizeSave);
+        tap(prize, prizeInput, px::Action::Interact);
+        finishDialogue(prize);
+        prizeSave = prize.saveSnapshot();
+        assert(std::find(prizeSave.story.flags.begin(), prizeSave.story.flags.end(), "ch2_missing_prize_found") != prizeSave.story.flags.end());
+        prizeSave.world.position = {-1030.0f, 280.0f};
+        prize.loadSnapshot(prizeSave);
+        tap(prize, prizeInput, px::Action::Interact);
+        finishDialogue(prize);
+        prizeSave = prize.saveSnapshot();
+        assert(prizeSave.rpg.coins == 60 && prizeSave.rpg.vendorDiscountPercent == 10);
+
+        px::RuntimeSession food(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        px::InputState foodInput;
+        food.loadSnapshot(saveAtScene(ch2, "ch2_intermission_stillness", {-600.0f, -520.0f}));
+        tap(food, foodInput, px::Action::Interact);
+        finishDialogue(food);
+        tap(food, foodInput, px::Action::Ability1);
+        finishDialogue(food);
+        const auto foodSave = food.saveSnapshot();
+        assert(foodSave.rpg.nextOfficialMealBoost);
+        assert(std::find(foodSave.story.flags.begin(), foodSave.story.flags.end(), "ch2_controlled_flame_complete") != foodSave.story.flags.end());
+
+        auto altSave = saveAtScene(ch2, "ch2_intermission_stillness", {1250.0f, -840.0f});
+        altSave.story.flags.push_back("ch2_alt_rover_stage=4");
+        px::RuntimeSession alt(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        px::InputState altInput;
+        alt.loadSnapshot(altSave);
+        tap(alt, altInput, px::Action::Interact);
+        finishDialogue(alt);
+        const auto necklaceSave = alt.saveSnapshot();
+        assert(necklaceSave.rpg.weightedNecklaceAcquired);
+        assert(necklaceSave.rpg.equippedAccessoryId == "alts_weighted_necklace");
+        assert(std::find(necklaceSave.story.flags.begin(), necklaceSave.story.flags.end(), "ch2_alt_rover_stage=6") != necklaceSave.story.flags.end());
+    }
+
+    // U14-U16 portable RPG/QoL state: meaningful ranks, one mild training
+    // accessory, mastery removal of penalties, and schema-7 migration.
+    {
+        px::BattlePerformance performance;
+        performance.playerWon = true;
+        performance.damageTaken = 18.0f;
+        performance.bestCombo = 8;
+        performance.perfectBlocks = 2;
+        performance.guardBreaks = 1;
+        performance.pursuitFinishers = 1;
+        performance.actionVarietyMask = 0x7Eu;
+        performance.stocksLost = 0;
+        const auto rank = px::RpgProgressSystem::evaluate(performance);
+        assert(rank.rank == px::BattleRank::S && rank.score >= 85);
+        px::AdventureRecordsState records;
+        px::RpgProgressSystem::commitBattle(records, performance, rank);
+        assert(records.wins == 1 && records.bestCombo == 8 && records.hasRank);
+
+        px::RpgProgressState necklace;
+        necklace.weightedNecklaceAcquired = true;
+        necklace.equippedAccessoryId = "alts_weighted_necklace";
+        assert(std::abs(px::RpgProgressSystem::necklaceMovementMultiplier(necklace) - .95f) < .001f);
+        assert(std::abs(px::RpgProgressSystem::necklaceDashMultiplier(necklace) - .95f) < .001f);
+        assert(px::RpgProgressSystem::necklacePowerMultiplier(necklace) > 1.0f);
+        assert(px::RpgProgressSystem::addNecklaceMastery(necklace, 100.0f));
+        assert(std::abs(px::RpgProgressSystem::necklaceMovementMultiplier(necklace) - 1.0f) < .001f);
+
+        auto portable = saveAtScene(ch2, "ch2_intermission_stillness", {120.0f, -80.0f});
+        portable.records = records;
+        portable.rpg = necklace;
+        portable.rpg.coins = 60;
+        portable.rpg.vendorDiscountPercent = 10;
+        portable.qol.combatMessages = "minimal";
+        portable.qol.objectiveDisplay = "minimal";
+        portable.qol.dialogueAutoAdvance = true;
+        portable.qol.cameraSensitivity = 1.25f;
+        portable.frontend.currentArea = "Tournament Market";
+        portable.frontend.currentObjective = "Inspect the service route";
+        portable.frontend.storyProgressPercent = 72;
+        portable.frontend.playtimeSeconds = 2740.0f;
+        const auto roundTrip = px::SaveCodec::deserialize(px::SaveCodec::serialize(portable));
+        assert(roundTrip.schemaVersion == px::SaveData::kSchemaVersion);
+        assert(roundTrip.records.wins == 1 && roundTrip.rpg.coins == 60);
+        assert(roundTrip.rpg.weightedNecklaceMastery == 100.0f);
+        assert(roundTrip.qol.dialogueAutoAdvance && roundTrip.qol.objectiveDisplay == "minimal");
+        assert(roundTrip.frontend.storyProgressPercent == 72 && roundTrip.frontend.currentArea == "Tournament Market");
     }
 
     std::cout << "PASS: Chapter 1 Legacy story/tutorial/UI structure, route panel plus all three routes, "

@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
     if (!out) return 2;
     const bool asJs = path.size() >= 3 && path.substr(path.size()-3) == ".js";
     if (asJs) out << "window.PX_CONTENT = ";
-    out << "{\n  \"build\": \"3.0R 0.4H Golden Gate QoL\",";
+    out << "{\n  \"build\": \"Parallels X: Clash of Souls 3.0R\",";
     out << "\n  \"chapter\": {\"id\": \"" << escape(chapter.id) << "\", \"title\": \"" << escape(chapter.title) << "\", \"flow\": [";
     for (std::size_t i = 0; i < chapter.openingFlow.size(); ++i) {
         if (i) out << ',';

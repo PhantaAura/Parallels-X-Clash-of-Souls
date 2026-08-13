@@ -1,4 +1,5 @@
 #pragma once
+#include "content/combat_manual_registry.hpp"
 #include "content/menu_registry.hpp"
 #include "content/story_recap_registry.hpp"
 #include "content/story_route_registry.hpp"
@@ -14,6 +15,13 @@ namespace px {
 enum class MenuScreen : std::uint8_t {
     Title,
     ModeSelect,
+    BattleSelect,
+    ExtrasSelect,
+    Options,
+    AdventureRecords,
+    CombatManual,
+    CharacterProfiles,
+    Credits,
     StoryCharacterSelect,
     StorySoFar,
     StoryComingLater,
@@ -21,22 +29,11 @@ enum class MenuScreen : std::uint8_t {
 };
 
 enum class MenuEvent : std::uint8_t {
-    None,
-    Move,
-    Confirm,
-    Back,
-    Error,
-    TitleConfirm,
-    CarouselTransition,
-    RouteUnlock
+    None, Move, Confirm, Back, Error, TitleConfirm, CarouselTransition, RouteUnlock
 };
 
 enum class MenuOutcome : std::uint8_t {
-    None,
-    BeginStory,
-    ContinueStory,
-    ReplayChapter,
-    LaunchMode
+    None, BeginStory, ContinueStory, ReplayChapter, LaunchMode
 };
 
 struct MenuSnapshot {
@@ -59,6 +56,22 @@ struct MenuSnapshot {
     std::string primaryPrompt;
     float transitionProgress{0.0f};
     int transitionDirection{0};
+
+    std::string submenuTitle;
+    std::vector<std::string> submenuOptions;
+    std::size_t submenuSelection{0};
+    std::string submenuDetail;
+    std::vector<std::string> informationLines;
+    CombatManualPage manualPage;
+    std::size_t manualPageIndex{0};
+    std::size_t manualPageCount{0};
+
+    bool continueAvailable{false};
+    std::string continueCharacter;
+    std::string continueArea;
+    std::string continueObjective;
+    int continueProgressPercent{0};
+    float continuePlaytimeSeconds{0.0f};
 };
 
 class MenuState {
@@ -90,20 +103,28 @@ public:
 private:
     void moveHorizontal(int direction);
     void moveVertical(int direction);
+    void moveList(std::size_t& index, std::size_t count, int direction);
+    void toggleOption(int direction);
     std::vector<std::string> routeActions() const;
     std::vector<std::string> visibleRouteIds() const;
     bool rrvvfoStoryStarted() const;
-    bool wholeChapterReplayAvailable() const;
+    bool wholeCharacterStoryComplete() const;
     void normalizeRouteIndex();
     void advanceRecap(int direction);
+    MenuModeDefinition resolvedMode() const;
 
     const MenuRegistry& menus_;
     const StoryRouteRegistry& routes_;
     const StoryRecapRegistry& recap_;
+    CombatManualRegistry manual_;
     SaveData& save_;
     MenuScreen screen_{MenuScreen::Title};
     MenuScreen returnScreen_{MenuScreen::ModeSelect};
     std::size_t modeIndex_{0};
+    std::size_t battleSelection_{0};
+    std::size_t extrasSelection_{0};
+    std::size_t optionsSelection_{0};
+    std::size_t manualPageIndex_{0};
     bool storySoFarSelected_{false};
     std::size_t routeIndex_{0};
     std::size_t routeActionIndex_{0};

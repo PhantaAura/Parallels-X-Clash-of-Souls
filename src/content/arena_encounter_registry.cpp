@@ -31,6 +31,9 @@ ArenaEncounterRegistry::ArenaEncounterRegistry() {
     encounters_.emplace("ch2_bark_practice_optional", ArenaEncounterDefinition{
         "ch2_bark_practice_optional","tournament_arena","bark","Bark",AiArchetype::Balanced,
         {-280.0f,0.0f},{280.0f,0.0f},ring,1,65.0f,162.0f,3,0,false,StoryArenaResolution::PlayerVictory,"ch2_bark_practice_done"});
+    encounters_.emplace("ch2_one_match_anyway_optional", ArenaEncounterDefinition{
+        "ch2_one_match_anyway_optional","tournament_arena","eliminated_fighter","Eliminated Fighter",AiArchetype::Adaptive,
+        {-280.0f,0.0f},{280.0f,0.0f},ring,1,58.0f,154.0f,2,0,false,StoryArenaResolution::PlayerVictory,"ch2_one_match_anyway_done"});
 }
 
 const ArenaEncounterDefinition& ArenaEncounterRegistry::get(const std::string& id) const {

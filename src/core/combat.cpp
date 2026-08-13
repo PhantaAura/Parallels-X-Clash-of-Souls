@@ -156,7 +156,8 @@ HitResult CombatSystem::apply(FighterState& attacker,FighterState& defender,cons
         return hit;
     }
     const float scale=attack.kind==AttackKind::Grab?1.0f:std::max(.55f,1.0f-static_cast<float>(attacker.comboHits)*.08f);
-    hit.damage=attack.damage*scale*energyPower;defender.hp=std::max(0.0f,defender.hp-hit.damage);
+    hit.damage=attack.damage*scale*energyPower*std::max(.1f,attacker.powerMultiplier)/std::max(.1f,defender.defenseMultiplier);
+    defender.hp=std::max(0.0f,defender.hp-hit.damage);
     defender.stunTimer=std::max(defender.stunTimer,attack.stun);defender.knockbackVelocity=hit.knockback;
     hit.launched=attack.launch>0;hit.knockdown=attack.knockdown;
     if (hit.launched) { defender.airborne=true;defender.verticalVelocity=std::max(defender.verticalVelocity,attack.launch); }

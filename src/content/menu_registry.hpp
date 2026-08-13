@@ -6,6 +6,7 @@
 namespace px {
 
 enum class MenuModeId : std::uint8_t {
+    Continue,
     Story,
     ArenaBattle,
     OnlinePlay,

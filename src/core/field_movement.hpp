@@ -11,13 +11,14 @@ struct FieldMovementConfig {
     float dashCooldownSeconds{0.30f};
     // A small amount of steering removes accidental wrong-way dashes while
     // keeping the committed Legacy burst instead of turning it into a sprint.
-    float dashSteeringPerSecond{1.6f};
+    float dashSteeringPerSecond{2.4f};
     float jumpVelocity{430.0f};
     float gravity{1150.0f};
     // Small grace windows make the Legacy-style burst movement feel responsive
     // without changing jump height or route geometry.
-    float jumpBufferSeconds{0.10f};
-    float coyoteSeconds{0.09f};
+    float jumpBufferSeconds{0.14f};
+    float coyoteSeconds{0.12f};
+    float airControlMultiplier{0.88f};
 };
 
 struct FieldMovementState {

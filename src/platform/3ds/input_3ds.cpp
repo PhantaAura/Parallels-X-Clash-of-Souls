@@ -1,9 +1,15 @@
 #include "platform/3ds/input_3ds.hpp"
+#include <algorithm>
+#include <cmath>
 
 namespace px::platform3ds {
 void updateInput(px::InputState& input,u32 keysHeld,circlePosition circle){
     constexpr int deadzone=24;const bool abilityLayer=(keysHeld&KEY_L)!=0;const bool launcherChord=!abilityLayer&&(keysHeld&KEY_Y)&&(keysHeld&KEY_X);
     input.beginFrame();
+    const bool circleActive = std::abs(circle.dx) > deadzone || std::abs(circle.dy) > deadzone;
+    input.setMovementAxes(circleActive ? std::clamp(static_cast<float>(circle.dx) / 156.0f, -1.0f, 1.0f) : 0.0f,
+                          circleActive ? std::clamp(static_cast<float>(-circle.dy) / 156.0f, -1.0f, 1.0f) : 0.0f);
+    input.setCameraAxes(0.0f, 0.0f);
     input.set(Action::MoveLeft,circle.dx<-deadzone);input.set(Action::MoveRight,circle.dx>deadzone);
     input.set(Action::MoveUp,circle.dy>deadzone);input.set(Action::MoveDown,circle.dy<-deadzone);
     input.set(Action::Light,!abilityLayer&&!launcherChord&&(keysHeld&KEY_Y));

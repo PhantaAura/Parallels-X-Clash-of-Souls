@@ -42,10 +42,11 @@ ResolvedCamera resolveRuntimeCamera(const WorldPresentationDefinition& stage,
     ResolvedCamera result;
     result.focus = {mix(gameplayFocus.x, view.cinematicCameraFocus.x, blend),
                     mix(gameplayFocus.z, view.cinematicCameraFocus.z, blend)};
-    result.yawDegrees = mix(stage.camera.yawDegrees, view.cinematicCameraYawDegrees, blend);
+    result.yawDegrees = mix(stage.camera.yawDegrees + view.cameraYawOffsetDegrees,
+                            view.cinematicCameraYawDegrees, blend);
     result.distance = mix(stage.camera.baseDistance * gameplayDistanceScale,
                           view.cinematicCameraDistance, blend);
-    result.height = mix(stage.camera.height, view.cinematicCameraHeight, blend);
+    result.height = mix(stage.camera.height + view.cameraHeightOffset, view.cinematicCameraHeight, blend);
     result.targetHeight = stage.camera.targetHeight;
     result.fovDegrees = std::clamp(mix(stage.camera.fovDegrees + gameplayFovOffset,
                                        view.cinematicCameraFovDegrees, blend), 26.0f, 70.0f);

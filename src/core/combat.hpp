@@ -73,6 +73,10 @@ struct FighterState {
     float knockbackVelocity{0.0f};
     float verticalVelocity{0.0f};
     float chargeRate{42.0f};
+    // Story rewards/accessories feed these shared combat modifiers once when a
+    // fighter is initialized. Combat does not query inventory every frame.
+    float powerMultiplier{1.0f};
+    float defenseMultiplier{1.0f};
     AttackKind activeAttack{AttackKind::None};
     float attackElapsed{0.0f};
     bool attackConnected{false};
