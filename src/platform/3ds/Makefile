@@ -18,7 +18,7 @@ else
 ROMFS       := $(TOPDIR)/romfs
 endif
 APP_TITLE       := Parallels X: Clash of Souls
-APP_DESCRIPTION := Chapter 1 - Legacy Remake
+APP_DESCRIPTION := Tournament Road and Grounds
 APP_AUTHOR      := PhantaAura
 
 ARCH        := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft

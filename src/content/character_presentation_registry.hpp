@@ -7,7 +7,14 @@ namespace px {
 
 enum class CharacterFallbackKind {
     ProceduralHumanoid,
-    ProceduralMentor
+    ProceduralMentor,
+    LegacySwift,
+    LegacySturdy,
+    LegacyHeavy,
+    LegacyCasual,
+    LegacyFighter,
+    LegacyDisguise,
+    LegacyTrainingDummy
 };
 
 struct CharacterPresentationDefinition {

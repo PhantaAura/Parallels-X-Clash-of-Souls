@@ -1,4 +1,5 @@
 #include "platform/linux/presentation_renderer.hpp"
+#include "core/camera_policy.hpp"
 #include "content/character_face.hpp"
 #include <algorithm>
 #include <array>
@@ -128,18 +129,18 @@ WorldPoint transformPoint(WorldPoint local, const PresentationTransform& transfo
 class SoftwareWorldCanvas {
 public:
     SoftwareWorldCanvas(SDL_Renderer* renderer, const WorldPresentationDefinition& stage,
-                        float focusX, float focusZ)
+                        const ResolvedCamera& camera)
         : renderer_(renderer), stage_(stage) {
         constexpr float pi = 3.14159265358979323846f;
-        const float yaw = stage.camera.yawDegrees * pi / 180.0f;
-        eye_ = {focusX + std::sin(yaw) * stage.camera.baseDistance,
-                stage.camera.height,
-                focusZ + std::cos(yaw) * stage.camera.baseDistance};
-        const WorldPoint target{focusX, stage.camera.targetHeight, focusZ};
+        const float yaw = camera.yawDegrees * pi / 180.0f;
+        eye_ = {camera.focus.x + std::sin(yaw) * camera.distance,
+                camera.height,
+                camera.focus.z + std::cos(yaw) * camera.distance};
+        const WorldPoint target{camera.focus.x, camera.targetHeight, camera.focus.z};
         forward_ = normalize(subtract(target, eye_));
         right_ = normalize(cross(forward_, {0.0f, 1.0f, 0.0f}));
         up_ = normalize(cross(right_, forward_));
-        focal_ = 1.0f / std::tan(stage.camera.fovDegrees * pi / 360.0f);
+        focal_ = 1.0f / std::tan(camera.fovDegrees * pi / 360.0f);
     }
 
     void primitive(const WorldPrimitiveDefinition& definition) {
@@ -283,13 +284,33 @@ public:
             part(0, h*.94f, 0, h*.30f, h*.13f, h*.28f, coat);
             part(-h*.13f, h*.99f, 0, h*.11f, h*.16f, h*.14f, coatShade, -18.0f);
             part( h*.13f, h*.99f, 0, h*.11f, h*.16f, h*.14f, coatShade, 18.0f);
+        } else if (binding.fallback == CharacterFallbackKind::LegacyTrainingDummy) {
+            part(0,h*.48f,0,h*.16f,h*.70f,h*.16f,primary);
+            part(0,h*.60f,0,h*.72f,h*.12f,h*.12f,secondary);
+            cylinder({position.x,worldY+h*.88f,position.z,h*.28f,h*.22f,h*.28f,yawDegrees},shade(primary,1.08f),10);
+            part(0,h*.08f,0,h*.56f,h*.10f,h*.56f,secondary);
         } else {
-            part(-h*.09f, h*.17f, 0, h*.12f, h*.34f, h*.13f, secondary);
-            part( h*.09f, h*.17f, 0, h*.12f, h*.34f, h*.13f, secondary);
-            part(0, h*.49f, 0, h*.31f, h*.45f, h*.20f, primary);
-            part(-h*.20f, h*.50f, 0, h*.10f, h*.38f, h*.10f, shade(primary, .82f), -8.0f);
-            part( h*.20f, h*.50f, 0, h*.10f, h*.38f, h*.10f, shade(primary, .82f), 8.0f);
-            cylinder({position.x, worldY+h*.82f, position.z, h*.24f, h*.24f, h*.24f, yawDegrees}, shade(primary, 1.08f), 12);
+            const bool heavy=binding.fallback==CharacterFallbackKind::LegacyHeavy;
+            const bool sturdy=binding.fallback==CharacterFallbackKind::LegacySturdy;
+            const bool swift=binding.fallback==CharacterFallbackKind::LegacySwift;
+            const float bodyWidth=h*(heavy?.44f:sturdy?.37f:swift?.26f:.31f);
+            const float armX=h*(heavy?.28f:sturdy?.24f:swift?.18f:.20f);
+            const float head=h*(heavy?.29f:sturdy?.25f:.23f);
+            part(0,h*.49f,0,bodyWidth,h*(heavy?.48f:.43f),h*(heavy?.25f:.18f),primary);
+            part(-h*.075f,h*.22f,0,h*(heavy?.15f:.12f),h*.34f,h*.12f,shade(secondary,1.15f));
+            part( h*.075f,h*.22f,0,h*(heavy?.15f:.12f),h*.34f,h*.12f,shade(secondary,1.15f));
+            part(-armX,h*.48f,0,h*(heavy?.14f:.10f),h*.38f,h*.10f,shade(primary,.84f),-8);
+            part( armX,h*.48f,0,h*(heavy?.14f:.10f),h*.38f,h*.10f,shade(primary,.84f),8);
+            cylinder({position.x,worldY+h*.82f,position.z,head,head,h*.24f,yawDegrees},shade(primary,1.08f),12);
+            if(swift){
+                part(0,h*.97f,0,h*.32f,h*.14f,h*.25f,secondary);
+                part(-h*.17f,h*1.03f,0,h*.10f,h*.18f,h*.12f,secondary,-18);
+            }else if(binding.fallback==CharacterFallbackKind::LegacyDisguise){
+                part(0,h*.90f,0,h*.36f,h*.30f,h*.31f,secondary);
+                part(0,h*.65f,h*.105f,h*.22f,h*.08f,h*.05f,shade(primary,1.18f));
+            }else if(binding.fallback==CharacterFallbackKind::LegacyCasual){
+                part(0,h*.52f,h*.10f,bodyWidth*.72f,h*.34f,h*.04f,secondary);
+            }
         }
     }
 
@@ -910,27 +931,10 @@ void PresentationRenderer::drawWorld(const RuntimeView& view) {
                                 channel(stage.clearColor.b, stage.fogColor.b), 255});
     }
 
-    float requestedFocusX = stage.camera.focusCenterX;
-    float requestedFocusZ = stage.camera.focusCenterZ;
-    if (stage.camera.followPlayer) {
-        requestedFocusX = view.playerPosition.x;
-        requestedFocusZ = view.playerPosition.z;
-        if (view.opponentVisible) {
-            requestedFocusX = (view.playerPosition.x + view.opponentPosition.x) * .5f;
-            requestedFocusZ = (view.playerPosition.z + view.opponentPosition.z) * .5f;
-        }
-    }
-    const float shakeSign = std::sin((view.playerPosition.x + view.playerPosition.z) * .017f) >= 0.0f ? 1.0f : -1.0f;
-    const float shake = std::min(8.0f, view.cameraImpulse * 1.15f) * shakeSign;
-    const float focusX = std::clamp(requestedFocusX + shake,
-                                    stage.camera.focusCenterX - stage.camera.focusClampX,
-                                    stage.camera.focusCenterX + stage.camera.focusClampX);
-    const float focusZ = std::clamp(requestedFocusZ - shake * .45f,
-                                    stage.camera.focusCenterZ - stage.camera.focusClampZ,
-                                    stage.camera.focusCenterZ + stage.camera.focusClampZ);
-    SoftwareWorldCanvas baseCanvas(renderer_, stage, focusX, focusZ);
-    SoftwareWorldCanvas surfaceCanvas(renderer_, stage, focusX, focusZ);
-    SoftwareWorldCanvas sceneryCanvas(renderer_, stage, focusX, focusZ);
+    const auto camera = resolveRuntimeCamera(stage, view);
+    SoftwareWorldCanvas baseCanvas(renderer_, stage, camera);
+    SoftwareWorldCanvas surfaceCanvas(renderer_, stage, camera);
+    SoftwareWorldCanvas sceneryCanvas(renderer_, stage, camera);
     for (const auto& primitive : stage.primitives) {
         const auto& id = primitive.id;
         const bool baseLayer = id.find("outer_turf") != std::string::npos ||
@@ -953,7 +957,7 @@ void PresentationRenderer::drawWorld(const RuntimeView& view) {
     // Legacy renders fighters/interactive props after the stage. Keeping that
     // layer order also avoids large ground triangles hiding a character in the
     // reduced painter-sorted Linux renderer (the Mac renderer has a depth buffer).
-    SoftwareWorldCanvas actorCanvas(renderer_, stage, focusX, focusZ);
+    SoftwareWorldCanvas actorCanvas(renderer_, stage, camera);
 
     if (view.ambientActors.empty()) {
         for (const auto& actor : stage.ambientActors) {
@@ -979,10 +983,25 @@ void PresentationRenderer::drawWorld(const RuntimeView& view) {
                                  {1.0f, .28f, .08f, .90f}, 14);
         else if (marker.kind == "object-swap-fx")
             actorCanvas.cylinder({marker.position.x, 5.0f, marker.position.z, 82.0f, 8.0f, 82.0f, 0.0f},
-                                 {.50f, .94f, 1.0f, .52f}, 18);
+                                 {1.0f, .78f, .12f, .56f}, 18);
         else if (marker.kind == "lens-fx")
             actorCanvas.cylinder({marker.position.x, 92.0f, marker.position.z, 48.0f, 5.0f, 48.0f, 0.0f},
-                                 {1.0f, .74f, .18f, .65f}, 18);
+                                 {.63f, .22f, .92f, .68f}, 18);
+        else if (marker.kind == "energy-charge")
+            actorCanvas.cylinder({marker.position.x, 78.0f, marker.position.z, marker.complete?68.0f:52.0f, 150.0f, marker.complete?68.0f:52.0f, 0.0f},
+                                 {.22f,.55f,1.0f,.38f}, 14);
+        else if (marker.kind == "energy-beam")
+            actorCanvas.box({marker.position.x,82.0f,marker.position.z,170.0f,28.0f,28.0f,view.playerYawDegrees},{.22f,.65f,1.0f,.82f});
+        else if (marker.kind == "solar-weave")
+            actorCanvas.box({marker.position.x,82.0f,marker.position.z,190.0f,38.0f,38.0f,view.playerYawDegrees},{.68f,.90f,1.0f,.88f});
+        else if (marker.kind == "fire-awakening")
+            actorCanvas.cylinder({marker.position.x,82.0f,marker.position.z,72.0f,164.0f,72.0f,0.0f},{1.0f,.25f,.06f,.34f},14);
+        else if (marker.kind == "unstable-awakening")
+            actorCanvas.cylinder({marker.position.x,80.0f,marker.position.z,marker.complete?48.0f:78.0f,158.0f,marker.complete?48.0f:78.0f,0.0f},{1.0f,.32f,.08f,.28f},10);
+        else if (marker.kind == "beam-clash") {
+            actorCanvas.cylinder({marker.position.x,84.0f,marker.position.z,marker.complete?62.0f:48.0f,112.0f,marker.complete?62.0f:48.0f,0.0f},{.72f,.90f,1.0f,.84f},12);
+            actorCanvas.cylinder({marker.position.x,84.0f,marker.position.z,marker.complete?34.0f:44.0f,126.0f,marker.complete?34.0f:44.0f,0.0f},{1.0f,.36f,.10f,.58f},10);
+        }
         else if (marker.kind == "pursuit-lock") {
             actorCanvas.cylinder({marker.position.x, 10.0f, marker.position.z,
                                   marker.complete ? 90.0f : 70.0f, 5.0f,
@@ -1031,9 +1050,9 @@ void PresentationRenderer::drawWorld(const RuntimeView& view) {
                           playerFocus, &playerAnimation_, faceExpression);
 
     if (view.opponentVisible || view.mode == GameMode::ArenaCombat) {
-        const auto& sage = characters_.get("sage");
-        actorCanvas.fallback(sage, view.opponentPosition, view.opponentHeight, view.opponentYawDegrees,
-                             view.dialogueVisible && view.dialogueFocusActorId == "sage");
+        const auto& opponent = characters_.get(view.opponent.id);
+        actorCanvas.fallback(opponent, view.opponentPosition, view.opponentHeight, view.opponentYawDegrees,
+                             view.dialogueVisible && (view.dialogueFocusActorId == view.opponent.id || view.dialogueFocusActorId == "sage"));
         if (view.opponentAttackTelegraphed)
             actorCanvas.cylinder({view.opponentPosition.x, 3.0f, view.opponentPosition.z, 180.0f, 5.0f, 180.0f, 0.0f},
                                  {1.0f, .18f, .08f, .44f}, 20);
@@ -1059,7 +1078,7 @@ void PresentationRenderer::drawHud(const RuntimeView& view) {
         if (view.showPlayerHealth) bar({28, 28, 410, 34}, view.player.hp / std::max(1.0f, view.player.maxHp), theme.fireRed, "RRVVFO HP");
         if (view.showEnergy) bar({28, 67, 300, 25}, view.player.energy / 100.0f, {54, 133, 224, 255}, "ENERGY");
         if (view.showGuard) bar({28, 98, 300, 25}, view.player.guard / 100.0f, theme.warmGold, "GUARD");
-        if (view.showOpponentHealth) bar({842, 28, 410, 34}, view.opponent.hp / std::max(1.0f, view.opponent.maxHp), {187, 198, 204, 255}, "SAGE HP");
+        if (view.showOpponentHealth) bar({842, 28, 410, 34}, view.opponent.hp / std::max(1.0f, view.opponent.maxHp), {187, 198, 204, 255}, view.opponent.id + " HP");
     }
     if (view.hotbarVisible && !view.hotbar.empty()) {
         const UiRect hotbar = layout.hotbar;
@@ -1119,6 +1138,44 @@ void PresentationRenderer::drawDialogue(const RuntimeView& view) {
     text("ENTER / A  CONTINUE", box.x + box.w - 260, box.y + box.h - 26, 1, theme.mutedText);
 }
 
+void PresentationRenderer::drawActionOverlay(const RuntimeView& view) {
+    if (!view.choiceVisible && !view.qteVisible) return;
+    const auto& theme = ui_.theme();
+    fill({250, 420, 780, 220}, {12, 10, 14, 246});
+    outline({250, 420, 780, 220}, theme.warmGold, 4);
+    if (view.choiceVisible) {
+        centered(view.choiceTitle, 640, 448, 3, theme.warmGold);
+        int y = 505;
+        for (std::size_t index = 0; index < view.choiceOptions.size(); ++index) {
+            centered((index == view.choiceIndex ? "> " : "  ") + view.choiceOptions[index],
+                     640, y, 2, index == view.choiceIndex ? theme.offWhite : theme.mutedText);
+            y += 38;
+        }
+        return;
+    }
+    const auto actionLabel = [](Action action) {
+        if (action == Action::MoveLeft) return std::string{"LEFT"};
+        if (action == Action::MoveRight) return std::string{"RIGHT"};
+        if (action == Action::Jump) return std::string{"JUMP"};
+        if (action == Action::Charge) return std::string{"CHARGE"};
+        if (action == Action::Ability2) return std::string{"ENERGY"};
+        if (action == Action::Light) return std::string{"LIGHT"};
+        if (action == Action::Heavy) return std::string{"HEAVY"};
+        return std::string{"ACT"};
+    };
+    centered(view.qteTitle, 640, 446, 2, theme.warmGold);
+    std::string sequence;
+    for (std::size_t index = 0; index < view.qteSequence.size(); ++index) {
+        if (!sequence.empty()) sequence += "  •  ";
+        if (index < view.qteIndex) sequence += "✓ ";
+        else if (index == view.qteIndex) sequence += "> ";
+        sequence += actionLabel(view.qteSequence[index]);
+    }
+    centered(sequence, 640, 516, 2, theme.offWhite);
+    centered(std::to_string(static_cast<int>(std::ceil(view.qteSecondsRemaining))) + " SECONDS",
+             640, 570, 2, theme.fireRed);
+}
+
 void PresentationRenderer::drawPause(const RuntimeView& view) {
     const auto& theme = ui_.theme();
     const UiColor panel = view.highContrastHud ? UiColor{0, 0, 0, 252} : UiColor{12, 10, 14, 246};
@@ -1171,6 +1228,7 @@ void PresentationRenderer::renderRuntime(const RuntimeView& view) {
         outline({455, 226, 370, 58}, accent, view.finalHitFlash ? 4 : 3);
         centered(view.combatFeedback, 640, 244, 2, accent);
     }
+    drawActionOverlay(view);
     drawDialogue(view);
 }
 
@@ -1197,7 +1255,7 @@ void PresentationRenderer::renderIdlePoseReview(int legacyFrame, float sampleTim
     reviewStage.camera.targetHeight = 80.0f;
     reviewStage.camera.nearPlane = 8.0f;
     reviewStage.camera.farPlane = 900.0f;
-    SoftwareWorldCanvas canvas(renderer_, reviewStage, 0.0f, 0.0f);
+    SoftwareWorldCanvas canvas(renderer_, reviewStage, resolveRuntimeCamera(reviewStage, RuntimeView{}));
     const auto* model = characterModels_.find("rrvvfo");
     if (model && model->valid()) {
         auto binding = characters_.get("rrvvfo");
@@ -1237,7 +1295,7 @@ void PresentationRenderer::renderAnimationReview(const std::string& label, float
     reviewStage.camera.targetHeight = 80.0f;
     reviewStage.camera.nearPlane = 8.0f;
     reviewStage.camera.farPlane = 900.0f;
-    SoftwareWorldCanvas canvas(renderer_, reviewStage, 0.0f, 0.0f);
+    SoftwareWorldCanvas canvas(renderer_, reviewStage, resolveRuntimeCamera(reviewStage, RuntimeView{}));
     const auto* model = characterModels_.find("rrvvfo");
     if (model && model->valid()) {
         auto binding = characters_.get("rrvvfo");

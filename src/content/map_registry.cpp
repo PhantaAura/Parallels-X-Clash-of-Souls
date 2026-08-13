@@ -115,37 +115,41 @@ MapRegistry::MapRegistry() {
 MapDefinition tournament;
 tournament.id = "tournament_grounds";
 tournament.name = "Tournament Grounds";
-tournament.bounds = {-1450.0f, 1450.0f, -980.0f, 980.0f};
-tournament.playerStart = {-1280.0f, 40.0f};
+tournament.bounds = {-1950.0f, 1780.0f, -1250.0f, 1250.0f};
+tournament.playerStart = {-1810.0f, 40.0f};
 tournament.zones = {
-    {"entrance_plaza", "Tournament Entrance Plaza", {-1120.0f, 0.0f}, "arrival and crowd threshold"},
-    {"registration_plaza", "Registration Plaza", {-760.0f, 0.0f}, "cards, bracket and official entry"},
-    {"market_street", "Market Street", {-260.0f, -520.0f}, "vendors and festival side stories"},
-    {"practice_grounds", "Practice Grounds", {-120.0f, 430.0f}, "sparring, race and cracked ring"},
-    {"spectator_district", "Spectator District", {420.0f, -460.0f}, "fans, rumors and match reactions"},
-    {"main_arena_gate", "Main Arena Gate", {930.0f, 0.0f}, "official bracket reporting"},
-    {"contestant_lane", "Contestant Lane", {500.0f, 420.0f}, "medical tent, waiting tent and intermissions"}
+    {"entrance_plaza", "Tournament Arrival Avenue", {-1640.0f, 0.0f}, "arches, long banners and the first arena view"},
+    {"registration_plaza", "Registration Plaza", {-1190.0f, 80.0f}, "queue rails, bracket structures and staff counters"},
+    {"market_street", "Festival Market", {-650.0f, -760.0f}, "tight awning paths, food, photos and exhibitions"},
+    {"practice_grounds", "Practice Grounds", {-540.0f, 760.0f}, "open rings, equipment and warming fighters"},
+    {"spectator_district", "Spectator Steps", {260.0f, -820.0f}, "raised stands, gathering areas and the public arena face"},
+    {"main_arena_gate", "Main Arena Gate", {1290.0f, 0.0f}, "the arena arch and official match entrance"},
+    {"contestant_lane", "Contestant Lane", {510.0f, 760.0f}, "waiting tents, medical access and the quieter service wall"}
 };
 tournament.links = {
     {"entrance_plaza","registration_plaza","main"}, {"registration_plaza","market_street","south_loop"},
     {"registration_plaza","practice_grounds","north_loop"}, {"market_street","spectator_district","south_loop"},
     {"practice_grounds","contestant_lane","north_loop"}, {"spectator_district","main_arena_gate","main"},
-    {"contestant_lane","main_arena_gate","main"}, {"practice_grounds","market_street","service_lane"}
+    {"contestant_lane","main_arena_gate","main"}, {"practice_grounds","market_street","service_lane"},
+    {"spectator_district","registration_plaza","bracket_steps"}, {"contestant_lane","spectator_district","arena_wrap"}
 };
 tournament.blockers = {
-    {"arena_gate_lock", {850.0f, 1030.0f, -180.0f, 180.0f}, true}
+    {"arena_gate_lock", {1190.0f, 1380.0f, -205.0f, 205.0f}, true}
 };
 tournament.landmarks = {
-    {"tournament_entrance", "Tournament Entrance", {-1280.0f, 0.0f}},
-    {"registration_desk", "Registration Desk", {-760.0f, 0.0f}},
-    {"bracket_board", "Bracket Board", {-630.0f, 170.0f}},
-    {"practice_ring", "Practice Ring", {-80.0f, 430.0f}},
-    {"waiting_tent", "Contestant Waiting Tent", {470.0f, 455.0f}},
-    {"medical_tent", "Medical Tent", {650.0f, 500.0f}},
-    {"main_arena_gate", "Main Arena Gate", {930.0f, 0.0f}},
-    {"free_swap_market_crate", "Market Supply Crate", {-300.0f, -390.0f}},
-    {"free_swap_practice_barrel", "Practice Barrel", {85.0f, 300.0f}},
-    {"free_swap_spectator_box", "Spectator Supply Box", {455.0f, -330.0f}}
+    {"tournament_entrance", "Tournament Entrance", {-1810.0f, 0.0f}},
+    {"registration_desk", "Registration Desk", {-1190.0f, 80.0f}},
+    {"bracket_board", "Bracket Board", {-1050.0f, 300.0f}},
+    {"market_upper_walk", "Upper Market Walkway", {-600.0f, -615.0f}},
+    {"maintenance_cart", "Maintenance Cart", {-45.0f, -220.0f}},
+    {"practice_ring", "Practice Ring", {-540.0f, 760.0f}},
+    {"waiting_tent", "Contestant Waiting Tent", {410.0f, 780.0f}},
+    {"medical_tent", "Medical Tent", {690.0f, 820.0f}},
+    {"spectator_steps", "Spectator Steps", {280.0f, -820.0f}},
+    {"main_arena_gate", "Main Arena Gate", {1290.0f, 0.0f}},
+    {"free_swap_market_crate", "Market Supply Crate", {-760.0f, -650.0f}},
+    {"free_swap_practice_barrel", "Practice Barrel", {-340.0f, 655.0f}},
+    {"free_swap_spectator_box", "Spectator Supply Box", {390.0f, -680.0f}}
 };
 maps_.emplace(tournament.id, tournament);
 

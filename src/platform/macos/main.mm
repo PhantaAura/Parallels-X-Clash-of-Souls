@@ -23,6 +23,7 @@
 #include "core/input.hpp"
 #include "core/menu_state.hpp"
 #include "core/runtime.hpp"
+#include "core/camera_policy.hpp"
 #include "core/save.hpp"
 
 #include <algorithm>
@@ -349,14 +350,35 @@ static void pushCharacterFallback(std::vector<Vertex>& out,
         part(0,h*.94f,0,h*.30f,h*.13f,h*.28f,coat);
         part(-h*.13f,h*.99f,0,h*.11f,h*.16f,h*.14f,coatShade,-18.0f);
         part( h*.13f,h*.99f,0,h*.11f,h*.16f,h*.14f,coatShade,18.0f);
+    }else if(binding.fallback==px::CharacterFallbackKind::LegacyTrainingDummy){
+        part(0,h*.48f,0,h*.16f,h*.70f,h*.16f,primary);
+        part(0,h*.60f,0,h*.72f,h*.12f,h*.12f,secondary);
+        pushCylinder(out,{position.x,worldY+h*.88f,position.z,h*.28f,h*.22f,h*.28f,yawDegrees},scaled(primary,1.08f),10);
+        part(0,h*.08f,0,h*.56f,h*.10f,h*.56f,secondary);
     }else{
-        part(0,h*.49f,0,h*.30f,h*.43f,h*.18f,primary);
-        part(0,h*.22f,-h*.055f,h*.12f,h*.34f,h*.12f,scaled(secondary,1.15f));
-        part(0,h*.22f, h*.055f,h*.12f,h*.34f,h*.12f,scaled(secondary,1.15f));
-        part(-h*.20f,h*.48f,0,h*.10f,h*.38f,h*.10f,scaled(primary,.84f),-8.0f);
-        part( h*.20f,h*.48f,0,h*.10f,h*.38f,h*.10f,scaled(primary,.84f),8.0f);
-        pushCylinder(out,{position.x,worldY+h*.82f,position.z,h*.24f,h*.24f,h*.24f,yawDegrees},scaled(primary,1.08f),12);
-        part(0,h*.96f,0,h*.29f,h*.12f,h*.27f,scaled(secondary,.75f));
+        const bool heavy=binding.fallback==px::CharacterFallbackKind::LegacyHeavy;
+        const bool sturdy=binding.fallback==px::CharacterFallbackKind::LegacySturdy;
+        const bool swift=binding.fallback==px::CharacterFallbackKind::LegacySwift;
+        const float bodyWidth=h*(heavy?.44f:sturdy?.37f:swift?.26f:.31f);
+        const float armX=h*(heavy?.28f:sturdy?.24f:swift?.18f:.20f);
+        const float head=h*(heavy?.29f:sturdy?.25f:.23f);
+        part(0,h*.49f,0,bodyWidth,h*(heavy?.48f:.43f),h*(heavy?.25f:.18f),primary);
+        part(-h*.075f,h*.22f,0,h*(heavy?.15f:.12f),h*.34f,h*.12f,scaled(secondary,1.15f));
+        part( h*.075f,h*.22f,0,h*(heavy?.15f:.12f),h*.34f,h*.12f,scaled(secondary,1.15f));
+        part(-armX,h*.48f,0,h*(heavy?.14f:.10f),h*.38f,h*.10f,scaled(primary,.84f),-8.0f);
+        part( armX,h*.48f,0,h*(heavy?.14f:.10f),h*.38f,h*.10f,scaled(primary,.84f),8.0f);
+        pushCylinder(out,{position.x,worldY+h*.82f,position.z,head,head,h*.24f,yawDegrees},scaled(primary,1.08f),12);
+        if(swift) {
+            part(0,h*.97f,0,h*.32f,h*.14f,h*.25f,secondary);
+            part(-h*.17f,h*1.03f,0,h*.10f,h*.18f,h*.12f,secondary,-18.0f);
+        } else if(binding.fallback==px::CharacterFallbackKind::LegacyDisguise) {
+            part(0,h*.90f,0,h*.36f,h*.30f,h*.31f,secondary);
+            part(0,h*.65f,h*.105f,h*.22f,h*.08f,h*.05f,scaled(primary,1.18f));
+        } else if(binding.fallback==px::CharacterFallbackKind::LegacyCasual) {
+            part(0,h*.52f,h*.10f,bodyWidth*.72f,h*.34f,h*.04f,secondary);
+        } else {
+            part(0,h*.96f,0,h*.29f,h*.12f,h*.27f,scaled(secondary,.75f));
+        }
     }
     if (focused) {
         pushCylinder(out,{position.x,worldY+2.0f,position.z,h*.62f,3.0f,h*.62f,0.0f},
@@ -536,6 +558,7 @@ static bool actionForKey(unsigned short keyCode, px::Action& out) {
 @property float opponentHP;
 @property float energy;
 @property float guard;
+@property(copy) NSString* opponentName;
 @property BOOL showPlayerHealth;
 @property BOOL showOpponentHealth;
 @property BOOL showEnergy;
@@ -555,7 +578,7 @@ static bool actionForKey(unsigned short keyCode, px::Action& out) {
     const CGFloat half=(self.bounds.size.width-36)/2;
     NSDictionary* attrs=@{NSFontAttributeName:[NSFont boldSystemFontOfSize:10],NSForegroundColorAttributeName:NSColor.whiteColor};
     if(self.showPlayerHealth){[@"HP" drawAtPoint:NSMakePoint(0,60) withAttributes:attrs];drawBar(NSMakeRect(0,34,half,24),self.playerHP,[NSColor colorWithCalibratedRed:.86 green:.12 blue:.10 alpha:1]);}
-    if(self.showOpponentHealth){[@"SAGE" drawAtPoint:NSMakePoint(half+36,60) withAttributes:attrs];drawBar(NSMakeRect(half+36,34,half,24),self.opponentHP,[NSColor colorWithCalibratedRed:.72 green:.80 blue:.84 alpha:1]);}
+    if(self.showOpponentHealth){[(self.opponentName?:@"OPPONENT") drawAtPoint:NSMakePoint(half+36,60) withAttributes:attrs];drawBar(NSMakeRect(half+36,34,half,24),self.opponentHP,[NSColor colorWithCalibratedRed:.72 green:.80 blue:.84 alpha:1]);}
     if(self.showEnergy){[@"ENERGY" drawAtPoint:NSMakePoint(0,22) withAttributes:attrs];drawBar(NSMakeRect(60,20,half-60,14),self.energy,[NSColor colorWithCalibratedRed:.12 green:.54 blue:.91 alpha:1]);}
     if(self.showGuard){[@"GUARD" drawAtPoint:NSMakePoint(0,3) withAttributes:attrs];drawBar(NSMakeRect(60,1,half-60,14),self.guard,[NSColor colorWithCalibratedRed:.90 green:.70 blue:.18 alpha:1]);}
 }
@@ -852,7 +875,7 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
         _dialoguePanel.hidden=NO;_hotbarPanel.hidden=YES;_dialoguePanel.portraitVisible=NO;_dialoguePanel.advanceVisible=NO;
         _dialoguePanel.accent=[NSColor colorWithCalibratedRed:.95 green:.48 blue:.18 alpha:1];
         _dialoguePanel.kicker=ns(v.qteTitle+" • ATTEMPT "+std::to_string(v.qteAttempt));
-        const auto label=[](px::Action action){return action==px::Action::MoveRight?"D":action==px::Action::MoveLeft?"A":"JUMP";};
+        const auto label=[](px::Action action){return action==px::Action::MoveRight?"D":action==px::Action::MoveLeft?"A":action==px::Action::Jump?"JUMP":action==px::Action::Charge?"CHARGE":action==px::Action::Ability2?"ENERGY":action==px::Action::Light?"LIGHT":action==px::Action::Heavy?"HEAVY":"ACT";};
         std::string sequence;
         for(std::size_t i=0;i<v.qteSequence.size();++i){if(i)sequence+="  •  ";sequence+=(i<v.qteIndex?"✓ ":i==v.qteIndex?"▶ ":"")+std::string(label(v.qteSequence[i]));}
         _dialoguePanel.body=ns(sequence+"\n\n"+std::to_string((int)std::ceil(v.qteSecondsRemaining))+" SECONDS");[_dialoguePanel setNeedsDisplay:YES];
@@ -886,7 +909,7 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
     }
     [_noticePanel setNeedsDisplay:YES];
     _combatHUD.hidden=v.mode!=px::GameMode::ArenaCombat||v.dialogueVisible||v.trainingManualVisible||v.choiceVisible||v.qteVisible||v.pauseVisible;
-    _combatHUD.playerHP=v.player.hp/std::max(1.0f,v.player.maxHp);_combatHUD.opponentHP=v.opponent.hp/std::max(1.0f,v.opponent.maxHp);_combatHUD.energy=v.player.energy/100.0f;_combatHUD.guard=v.player.guard/100.0f;
+    _combatHUD.playerHP=v.player.hp/std::max(1.0f,v.player.maxHp);_combatHUD.opponentHP=v.opponent.hp/std::max(1.0f,v.opponent.maxHp);_combatHUD.opponentName=[ns(v.opponent.id) uppercaseString];_combatHUD.energy=v.player.energy/100.0f;_combatHUD.guard=v.player.guard/100.0f;
     _combatHUD.showPlayerHealth=v.showPlayerHealth;_combatHUD.showOpponentHealth=v.showOpponentHealth;_combatHUD.showEnergy=v.showEnergy;_combatHUD.showGuard=v.showGuard;
     [_combatHUD setNeedsDisplay:YES];
 }
@@ -945,6 +968,19 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
             pushCylinder(vertices,{marker.position.x,5.0f,marker.position.z,82.0f,8.0f,82.0f,0.0f},{1.0f,.78f,.12f,.56f},18);
         }else if(marker.kind=="lens-fx"){
             pushCylinder(vertices,{marker.position.x,92.0f,marker.position.z,48.0f,5.0f,48.0f,0.0f},{.63f,.22f,.92f,.68f},18);
+        }else if(marker.kind=="energy-charge"){
+            pushCylinder(vertices,{marker.position.x,78.0f,marker.position.z,marker.complete?68.0f:52.0f,150.0f,marker.complete?68.0f:52.0f,0.0f},{.22f,.55f,1.0f,.38f},16);
+        }else if(marker.kind=="energy-beam"){
+            pushBox(vertices,{marker.position.x,82.0f,marker.position.z,170.0f,28.0f,28.0f,v.playerYawDegrees},{.22f,.65f,1.0f,.82f});
+        }else if(marker.kind=="solar-weave"){
+            pushBox(vertices,{marker.position.x,82.0f,marker.position.z,190.0f,38.0f,38.0f,v.playerYawDegrees},{.68f,.90f,1.0f,.88f});
+        }else if(marker.kind=="fire-awakening"){
+            pushCylinder(vertices,{marker.position.x,82.0f,marker.position.z,72.0f,164.0f,72.0f,0.0f},{1.0f,.25f,.06f,.34f},16);
+        }else if(marker.kind=="unstable-awakening"){
+            pushCylinder(vertices,{marker.position.x,80.0f,marker.position.z,marker.complete?48.0f:78.0f,158.0f,marker.complete?48.0f:78.0f,0.0f},{1.0f,.32f,.08f,.28f},12);
+        }else if(marker.kind=="beam-clash"){
+            pushCylinder(vertices,{marker.position.x,84.0f,marker.position.z,marker.complete?62.0f:48.0f,112.0f,marker.complete?62.0f:48.0f,0.0f},{.72f,.90f,1.0f,.84f},14);
+            pushCylinder(vertices,{marker.position.x,84.0f,marker.position.z,marker.complete?34.0f:44.0f,126.0f,marker.complete?34.0f:44.0f,0.0f},{1.0f,.36f,.10f,.58f},12);
 }else if(marker.kind=="object-swap-lock"){
     pushCylinder(vertices,{marker.position.x,42.0f,marker.position.z,54.0f,84.0f,54.0f,0.0f},{1.0f,.78f,.12f,.38f},16);
 }else if(marker.kind=="object-swap-ghost"||marker.kind=="object-swap-phase"){
@@ -982,7 +1018,7 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
         }
     }
     const bool playerFocused=v.dialogueVisible&&v.dialogueFocusActorId=="rrvvfo";
-    const bool opponentFocused=v.dialogueVisible&&v.dialogueFocusActorId=="sage";
+    const bool opponentFocused=v.dialogueVisible&&(v.dialogueFocusActorId==v.opponent.id||v.dialogueFocusActorId=="sage");
     const bool playerSpeaking=v.dialogueVisible&&(v.dialogueFocusActorId=="rrvvfo"||
         v.dialoguePortraitId=="rrvvfo"||v.dialogueSpeaker=="RRVVFO");
     const auto faceExpression=px::resolveRrvvfoFaceExpression(
@@ -995,7 +1031,7 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
         pushBox(vertices,{v.playerPosition.x-48.0f,v.playerHeight+68.0f,v.playerPosition.z,72.0f,20.0f,28.0f,v.playerYawDegrees},{.95f,.18f,.08f,.30f});
     }
     if(v.opponentVisible){
-        pushCharacterFallback(vertices,_state->characterPresentation.get("sage"),v.opponentPosition,v.opponentHeight,v.opponentYawDegrees,opponentFocused);
+        pushCharacterFallback(vertices,_state->characterPresentation.get(v.opponent.id),v.opponentPosition,v.opponentHeight,v.opponentYawDegrees,opponentFocused);
         if(v.opponentAttackTelegraphed)pushCylinder(vertices,{v.opponentPosition.x,3.0f,v.opponentPosition.z,180.0f,5.0f,180.0f,0.0f},{1.0f,.18f,.08f,.45f},20);
     }
     if(vertices.empty())return;
@@ -1006,19 +1042,12 @@ fragment float4 fmain(O in [[stage_in]],constant U& u [[buffer(1)]]){
         requestedFocusX=v.playerPosition.x;requestedFocusZ=v.playerPosition.z;
         if(v.opponentVisible){requestedFocusX=(v.playerPosition.x+v.opponentPosition.x)*.5f;requestedFocusZ=(v.playerPosition.z+v.opponentPosition.z)*.5f;}
     }
-    const float shakeSign=std::sin((v.playerPosition.x+v.playerPosition.z)*.017f)>=0.0f?1.0f:-1.0f;const float shake=std::min(8.0f,v.cameraImpulse*1.15f)*shakeSign;
-    const float focusX=std::clamp(requestedFocusX+shake,stage.camera.focusCenterX-stage.camera.focusClampX,stage.camera.focusCenterX+stage.camera.focusClampX);
-    const float focusZ=std::clamp(requestedFocusZ-shake*.45f,stage.camera.focusCenterZ-stage.camera.focusClampZ,stage.camera.focusCenterZ+stage.camera.focusClampZ);
-const float cameraFocusX=v.cinematicCameraActive?v.cinematicCameraFocus.x:focusX;
-const float cameraFocusZ=v.cinematicCameraActive?v.cinematicCameraFocus.z:focusZ;
-const float cameraYaw=v.cinematicCameraActive?v.cinematicCameraYawDegrees:stage.camera.yawDegrees;
-const float cameraDistance=v.cinematicCameraActive?v.cinematicCameraDistance:stage.camera.baseDistance;
-const float cameraHeight=v.cinematicCameraActive?v.cinematicCameraHeight:stage.camera.height;
-const float cameraFov=v.cinematicCameraActive?v.cinematicCameraFovDegrees:stage.camera.fovDegrees;
-const float yaw=cameraYaw*kPi/180.0f;
-const vector_float3 target={(float)cameraFocusX,stage.camera.targetHeight,(float)cameraFocusZ};
-const vector_float3 eye={cameraFocusX+std::sin(yaw)*cameraDistance,cameraHeight,cameraFocusZ+std::cos(yaw)*cameraDistance};
-SceneUniforms uniforms{};uniforms.viewProjection=simd_mul(perspective(cameraFov,aspect,stage.camera.nearPlane,stage.camera.farPlane),lookAt(eye,target));
+    (void)requestedFocusX;(void)requestedFocusZ;
+    const auto camera=px::resolveRuntimeCamera(stage,v);
+const float yaw=camera.yawDegrees*kPi/180.0f;
+const vector_float3 target={(float)camera.focus.x,camera.targetHeight,(float)camera.focus.z};
+const vector_float3 eye={camera.focus.x+std::sin(yaw)*camera.distance,camera.height,camera.focus.z+std::cos(yaw)*camera.distance};
+SceneUniforms uniforms{};uniforms.viewProjection=simd_mul(perspective(camera.fovDegrees,aspect,camera.nearPlane,camera.farPlane),lookAt(eye,target));
     uniforms.lightDirection=(vector_float4){-.45f,-1.0f,-.35f,0};uniforms.cameraPosition=(vector_float4){eye.x,eye.y,eye.z,1};
     const float lensBlind=std::clamp(v.lensBlindnessAmount,0.0f,1.0f);
 const float fogNear=stage.fogNear*(1.0f-lensBlind*.92f);

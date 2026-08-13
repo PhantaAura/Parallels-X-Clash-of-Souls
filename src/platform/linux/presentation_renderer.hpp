@@ -64,6 +64,7 @@ private:
     void drawWorld(const RuntimeView& view);
     void drawHud(const RuntimeView& view);
     void drawDialogue(const RuntimeView& view);
+    void drawActionOverlay(const RuntimeView& view);
     void drawPause(const RuntimeView& view);
 
     SDL_Renderer* renderer_{nullptr};

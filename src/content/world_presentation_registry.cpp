@@ -315,53 +315,84 @@ void addTrainingRoad(WorldPresentationDefinition& road) {
 }
 
 void addTournamentHub(WorldPresentationDefinition& hub) {
-    box(hub,"tg_ground",0,-24,0,2800,48,1840,rgb(117,151,83));
-    box(hub,"tg_main_walk",-100,4,0,2440,8,260,rgb(215,192,145));
-    box(hub,"tg_market_walk",-250,5,-470,1500,10,220,rgb(199,169,119));
-    box(hub,"tg_practice_walk",-150,5,430,1640,10,220,rgb(199,169,119));
-    for(int i=0;i<7;++i){
-        const float x=-1080.0f+i*330.0f;
+    box(hub,"tg_ground",-80,-24,0,3740,48,2500,rgb(117,151,83));
+    // Reconnected paths create meaningful extra traversal instead of one
+    // scaled-up rectangle. Each loop bends around district structures.
+    box(hub,"tg_arrival_avenue",-1500,4,0,760,8,280,rgb(215,192,145),PresentationDetailTier::Essential,4.0f);
+    box(hub,"tg_registration_walk",-1020,4,80,430,8,300,rgb(215,192,145),PresentationDetailTier::Essential,-8.0f);
+    box(hub,"tg_main_walk",180,4,25,2100,8,275,rgb(215,192,145),PresentationDetailTier::Essential,2.0f);
+    box(hub,"tg_market_walk_a",-700,7,-690,1050,14,230,rgb(199,169,119),PresentationDetailTier::Essential,-9.0f);
+    box(hub,"tg_market_walk_b",-60,16,-705,620,22,220,rgb(199,169,119),PresentationDetailTier::Essential,13.0f);
+    box(hub,"tg_spectator_walk",500,18,-690,960,36,250,rgb(190,164,119),PresentationDetailTier::Essential,7.0f);
+    box(hub,"tg_practice_walk_a",-700,6,690,980,12,240,rgb(199,169,119),PresentationDetailTier::Essential,8.0f);
+    box(hub,"tg_practice_walk_b",-20,8,735,760,16,230,rgb(199,169,119),PresentationDetailTier::Essential,-7.0f);
+    box(hub,"tg_contestant_wrap",700,7,630,1030,14,230,rgb(207,182,132),PresentationDetailTier::Essential,-14.0f);
+    box(hub,"tg_service_cross",-100,4,0,250,8,1350,rgb(193,164,115),PresentationDetailTier::Full);
+    for(int i=0;i<9;++i){
+        const float x=-1740.0f+i*330.0f;
         cylinder(hub,"tg_banner_post_"+std::to_string(i),x,72,-135,12,144,12,rgb(86,61,45));
         box(hub,"tg_banner_"+std::to_string(i),x,105,-135,8,58,74,rgb(204,48,39,.92f),PresentationDetailTier::Full);
     }
-    box(hub,"registration_counter",-760,42,0,210,84,70,rgb(130,83,49));
-    box(hub,"bracket_board",-630,110,170,150,190,22,rgb(235,224,192));
-    box(hub,"market_awning_a",-420,105,-560,260,18,160,rgb(214,67,52));
-    box(hub,"market_awning_b",-80,105,-560,260,18,160,rgb(63,122,207));
-    cylinder(hub,"practice_ring",-80,8,430,430,16,430,rgb(216,199,155));
-    cylinder(hub,"practice_ring_inner",-80,12,430,365,8,365,rgb(178,157,116));
-    box(hub,"waiting_tent",470,70,455,260,140,170,rgb(227,222,204),PresentationDetailTier::Essential);
-    box(hub,"medical_tent",650,70,500,230,140,160,rgb(232,232,224),PresentationDetailTier::Full);
-    box(hub,"arena_gate_a",930,105,-155,56,210,56,rgb(124,51,43));
-    box(hub,"arena_gate_b",930,105,155,56,210,56,rgb(124,51,43));
-    box(hub,"arena_gate_top",930,205,0,56,45,360,rgb(177,61,48));
-    for(int i=0;i<18;++i){
-        const float x=-1150.0f+(i%9)*270.0f;
-        const float z=i<9?-760.0f:760.0f;
+
+    // Entrance: arches and an arrival avenue.
+    box(hub,"entrance_arch_left",-1810,120,-175,70,240,70,rgb(124,51,43));
+    box(hub,"entrance_arch_right",-1810,120,175,70,240,70,rgb(124,51,43));
+    box(hub,"entrance_arch_top",-1810,225,0,70,50,420,rgb(177,61,48));
+    // Registration: queues, counter and bracket structures.
+    box(hub,"registration_counter",-1190,45,80,250,90,80,rgb(130,83,49));
+    box(hub,"bracket_board",-1050,115,300,175,205,24,rgb(235,224,192));
+    for(int i=0;i<5;++i) box(hub,"queue_rail_"+std::to_string(i),-1390+i*100,24,-70+(i%2)*82,82,8,12,rgb(91,75,59),PresentationDetailTier::Essential);
+    // Market: tighter paths, raised walk and awning silhouettes.
+    box(hub,"market_awning_a",-850,112,-850,260,22,180,rgb(214,67,52));
+    box(hub,"market_awning_b",-520,112,-850,260,22,180,rgb(63,122,207));
+    box(hub,"market_awning_c",-190,112,-690,240,22,170,rgb(217,168,54));
+    box(hub,"market_upper_walk",-600,36,-615,430,24,155,rgb(183,143,91),PresentationDetailTier::Essential);
+    // Practice: open circular shape language and equipment line.
+    cylinder(hub,"practice_ring",-540,12,760,500,24,500,rgb(216,199,155));
+    cylinder(hub,"practice_ring_inner",-540,20,760,420,12,420,rgb(178,157,116));
+    for(int i=0;i<5;++i) cylinder(hub,"practice_post_"+std::to_string(i),-790+i*125,46,1040,16,92,16,rgb(112,78,52),PresentationDetailTier::Full);
+    // Spectator: stepped gathering spaces; contestant: quiet tent/service face.
+    for(int i=0;i<4;++i) box(hub,"spectator_step_"+std::to_string(i),180+i*125,18+i*22,-980+i*34,150,36+i*44,310,rgb(104,93,78),PresentationDetailTier::Essential);
+    box(hub,"waiting_tent",410,72,780,280,144,190,rgb(227,222,204),PresentationDetailTier::Essential);
+    box(hub,"medical_tent",690,72,820,250,144,180,rgb(232,232,224),PresentationDetailTier::Essential);
+
+    // A single massive arena is visible from every outdoor district. Different
+    // routes expose its public, contestant and service faces.
+    box(hub,"arena_exterior",1460,150,0,480,300,1120,rgb(96,81,72),PresentationDetailTier::Essential);
+    box(hub,"arena_roof",1420,330,0,680,90,1320,rgb(151,49,43),PresentationDetailTier::Essential);
+    box(hub,"arena_upper_banner",1240,330,0,34,190,460,rgb(211,58,45),PresentationDetailTier::Essential);
+    box(hub,"arena_gate_a",1290,120,-185,70,240,70,rgb(124,51,43));
+    box(hub,"arena_gate_b",1290,120,185,70,240,70,rgb(124,51,43));
+    box(hub,"arena_gate_top",1290,225,0,70,50,440,rgb(177,61,48));
+    box(hub,"arena_spectator_face",1260,145,-720,360,290,120,rgb(78,72,68),PresentationDetailTier::Essential);
+    box(hub,"arena_contestant_wall",1260,125,720,370,250,120,rgb(89,76,69),PresentationDetailTier::Essential);
+
+    for(int i=0;i<22;++i){
+        const float x=-1750.0f+(i%11)*330.0f;
+        const float z=i<11?-1120.0f:1120.0f;
         tree(hub,"tg_tree_"+std::to_string(i),x,z,.72f+(i%3)*.06f,PresentationDetailTier::Full);
     }
-    // U10 Golden Pass: readable tournament districts and intermission landmarks.
-    box(hub,"tg_waiting_tent",470,55,455,210,110,170,rgb(224,207,170),PresentationDetailTier::Essential);
-    box(hub,"tg_waiting_flag",470,120,455,190,32,8,rgb(199,54,45),PresentationDetailTier::Full);
-    box(hub,"tg_medical_tent",650,55,500,190,110,150,rgb(231,231,221),PresentationDetailTier::Essential);
-    box(hub,"tg_medical_cross",650,80,420,34,34,8,rgb(199,54,45),PresentationDetailTier::Full);
-    box(hub,"tg_photo_stand",170,45,-555,150,90,60,rgb(207,160,75),PresentationDetailTier::Full);
-    box(hub,"tg_race_best_time_board",60,66,360,130,132,20,rgb(78,62,48),PresentationDetailTier::Essential);
-    box(hub,"tg_bracket_update_board",-630,82,170,170,164,20,rgb(76,61,47),PresentationDetailTier::Essential);
-    for(int i=0;i<5;++i) {
-        box(hub,"tg_final_banner_"+std::to_string(i),420+i*95,98,-115,54,70,8,rgb(192,54+(i%2)*18,47),PresentationDetailTier::Full);
-    }
+    box(hub,"tg_waiting_flag",410,138,685,220,38,8,rgb(199,54,45),PresentationDetailTier::Full);
+    box(hub,"tg_medical_cross",690,88,725,38,38,8,rgb(199,54,45),PresentationDetailTier::Full);
+    box(hub,"tg_photo_stand",-210,50,-870,170,100,70,rgb(207,160,75),PresentationDetailTier::Full);
+    box(hub,"tg_food_stall",-880,52,-700,170,104,75,rgb(150,86,48),PresentationDetailTier::Essential);
+    box(hub,"tg_race_best_time_board",-300,72,630,145,144,22,rgb(78,62,48),PresentationDetailTier::Essential);
+    box(hub,"tg_bracket_update_board",-1050,86,300,185,172,22,rgb(76,61,47),PresentationDetailTier::Essential);
+    box(hub,"tg_maintenance_cart",-45,32,-220,130,62,78,rgb(125,84,52),PresentationDetailTier::Essential);
+    box(hub,"tg_runaway_dummy",-120,80,920,58,160,44,rgb(143,99,61),PresentationDetailTier::Essential);
+    for(int i=0;i<5;++i)
+        box(hub,"tg_final_banner_"+std::to_string(i),710+i*105,108,-130,60,78,8,rgb(192,54+(i%2)*18,47),PresentationDetailTier::Full);
 
     hub.ambientActors = {
-        {"announcer","ambient_worker",{-760,0,100,1,1,1,-90},PresentationDetailTier::Essential},
-        {"tournament_fan_a","ambient_fan",{-330,0,-360,1,1,1,10},PresentationDetailTier::Full},
-        {"tournament_fan_b","ambient_fan",{370,0,-420,1,1,1,-20},PresentationDetailTier::Full},
-        {"practice_fighter","road_fighter",{-10,0,510,1,1,1,180},PresentationDetailTier::Full},
-        {"tournament_fan_d","ambient_fan",{250,0,-610,1,1,1,20},PresentationDetailTier::Full},
-        {"tournament_fan_e","ambient_fan",{540,0,-580,1,1,1,-25},PresentationDetailTier::Full},
-        {"practice_student_a","ambient_student",{-20,0,610,1,1,1,170},PresentationDetailTier::Full},
-        {"practice_student_b","ambient_student",{140,0,575,1,1,1,-165},PresentationDetailTier::Full},
-        {"medical_worker","checkpoint_worker",{680,0,420,1,1,1,30},PresentationDetailTier::Full}
+        {"announcer","ambient_worker",{-1190,0,190,1,1,1,-90},PresentationDetailTier::Essential},
+        {"tournament_fan_a","ambient_fan",{-820,0,-620,1,1,1,10},PresentationDetailTier::Full},
+        {"tournament_fan_b","ambient_fan",{260,28,-820,1,1,1,-20},PresentationDetailTier::Full},
+        {"practice_fighter","practice_fighter",{-540,0,870,1,1,1,180},PresentationDetailTier::Essential},
+        {"tournament_fan_d","ambient_fan",{-120,0,-800,1,1,1,20},PresentationDetailTier::Full},
+        {"tournament_fan_e","ambient_fan",{540,25,-760,1,1,1,-25},PresentationDetailTier::Full},
+        {"practice_student_a","ambient_student",{-760,0,1030,1,1,1,170},PresentationDetailTier::Full},
+        {"practice_student_b","ambient_student",{-340,0,1010,1,1,1,-165},PresentationDetailTier::Full},
+        {"medical_worker","tournament_medic",{720,0,730,1,1,1,30},PresentationDetailTier::Essential}
     };
 }
 
@@ -404,7 +435,7 @@ WorldPresentationRegistry::WorldPresentationRegistry() {
 
 WorldPresentationDefinition hub;
 hub.id="tournament-hub"; hub.displayName="Tournament Grounds";
-hub.camera={35.0f,44.0f,980.0f,850.0f,1180.0f,420.0f,44.0f,8.0f,4300.0f,0,0,1380,900,true};
+hub.camera={35.0f,44.0f,1030.0f,900.0f,1240.0f,440.0f,44.0f,8.0f,5200.0f,-80,0,1860,1180,true};
 hub.clearColor=rgb(123,181,218); hub.fogColor=rgb(193,218,205); hub.fogNear=1150; hub.fogFar=3200;
 addTournamentHub(hub); stages_.emplace(hub.id,std::move(hub));
 

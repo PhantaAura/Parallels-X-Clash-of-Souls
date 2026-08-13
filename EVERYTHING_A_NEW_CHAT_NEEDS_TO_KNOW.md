@@ -1,8 +1,8 @@
 # Parallels X: Clash of Souls 3.0R — Everything a New Chat Needs to Know
 
-Updated: August 9, 2026
+Updated: August 12, 2026
 
-Handoff package: 0.4H.5 candidate
+Handoff package: U11–U13 Chapter 2 restoration candidate
 
 Project owner: PhantaAura / emeraldhunter
 
@@ -82,6 +82,9 @@ Implemented in the shared runtime:
 - HP, Energy, Guard, hit reactions, knockdown, simple opponents, and combat HUD state.
 - Pursuit, Flow Cancel, the Chapter 1 ability set, dedicated arena transitions, and restoration of exploration state.
 - Chapter 1 training/road progression, maps, objectives, interactions, choices, QTE/training states, save/checkpoint state, and the Chapter 2 boundary.
+- A continuous Chapter 2 Tournament Grounds hub with seven districts/phases, Lost Bracket, Wade's shortcut race, unresolved Cracked Ring investigation, registration, ceremony, official matches, spectator scenes, persistent optionals, Plouke's playable finale and aftermath.
+- Rrvvfo's pure Energy Beam, modest high-Energy power state, failed story Awakening, post-Chapter-2 Fire Awakening unlock and awakened Solar Weave. Shots of Agony remains unavailable.
+- One shared cinematic-camera resolver, directed tournament scenes and lightweight recognizable Legacy-style named-character silhouettes on Mac, Linux and Old 3DS.
 - Direct **Fight** and **Training** menu entries that do not damage Story Mode saves.
 - Story So Far, safe save, checkpoint restart, objective history, controls, and accessibility/QoL settings.
 - Shared player/opponent position, facing, world, combat, story, and save logic consumed by all three platform layers.
@@ -174,21 +177,18 @@ Desktop bindings and live prompts are defined by the shared input/menu state. Do
 
 As of this handoff:
 
-- Shared automated tests: **5/5 passing**.
-- Native 3DS cross-build: successful; output is a valid 3DSX.
-- macOS universal Intel/Apple Silicon build: successful, signed, packaged, and DMG checksum verified.
-- Native Linux x86_64 build: successful on GitHub's Ubuntu runner after the shared tests passed.
+- Shared automated tests: **5/5 passing**, including the U11–U13 behavior/regression expansion.
+- A separate clean CMake configure/build: successful; its same five test groups, headless gameplay smoke, runtime smoke and content export all passed.
+- Native Old 3DS cross-build: successful; cooked Rrvvfo assets are included and the output is a valid 3DSX.
+- macOS universal Intel/Apple Silicon build: successful, ad-hoc signed and packaged as a DMG.
+- Linux renderer sources pass the strict warning-as-error syntax check on the Mac host. A new native Linux graphical link/run was not performed in this environment; use the Linux workflow or a physical Linux host for that acceptance.
 
-Release artifacts are under `release/0.4H.5/`:
+Release artifacts are under `release/u11-u13-ch2-restoration/`:
 
-- `Parallels-X-Clash-of-Souls-3.0R-Mac-0.4H.5-CANDIDATE.dmg`
-  - SHA-256: `40617733e6ec7184ef5bcf7f2cb3846ff715ba11c44e580dbb739a70fcf5a37c`
-- `Parallels-X-Clash-of-Souls-3.0R-3DS-0.4H.5-CANDIDATE.3dsx`
-  - SHA-256: `74a5ca8a0e546433d7e8710e9bae57a848bcaf36e8b735e1239835dafd96300c`
-- `Parallels-X-Clash-of-Souls-3.0R-Linux-Build-Source-0.4H.5.zip`
-  - See `release/0.4H.5/SHA256SUMS.txt` for the generated hash.
-- `Parallels-X-Clash-of-Souls-3.0R-Linux-x86_64.tar.gz`
-  - SHA-256: `4e90d619f9d26a6db43fc00fbec18929948dda7412a19515eda32eb7ba0e0512`
+- `Parallels-X-Clash-of-Souls-3.0R-U13-Chapter-2-Restoration-Mac.dmg`
+  - SHA-256: `80947bb2c42e4b4767116053dabf7232d136ddf1d52184035d87256a9c02a91a`
+- `Parallels-X-Clash-of-Souls-3.0R-U13-Chapter-2-Restoration-Old-3DS.3dsx`
+  - SHA-256: `b5b55e867f72bc2d3ac8dba8a7cbbfb3c7fae9cb46d5496d992fa34282771782`
 
 Build/test commands:
 
@@ -203,10 +203,10 @@ The Linux GitHub workflow is `.github/workflows/linux-build.yml`. Run `313476839
 
 ## 12. Honest limitations
 
-- The 3DS build has booted in Azahar and a screenshot exists, but real Old 3DS hardware remains the authority for frame pacing, memory, suspend/resume, battery behavior, text readability, arm/garment deformation, and face attachment.
-- The native Linux executable was built on GitHub's Ubuntu x86_64 runner. Other distributions and physical Linux machines still require launch, controller, audio, and graphics-driver testing.
-- The build is a **candidate**, not release-final. Do not claim Chapter 1 is perfect solely because it compiles or tests pass.
-- No Chapter 2 remake work should begin yet.
+- The new U11–U13 3DSX has not been certified on real Old 3DS hardware. Hardware remains the authority for frame pacing, memory, suspend/resume, long-session saves, text/action-prompt readability, named-silhouette recognition, deformation and face attachment.
+- The new batch's Linux graphical executable was not linked or run on this Mac host. Linux launch, controller, audio, graphics-driver and distribution testing remains outstanding.
+- The build is a **candidate**, not release-final. Automated success does not certify pacing, design quality or presentation.
+- No Chapter 3 content is implemented and no character Replay unlock is granted early.
 
 ## 13. Known remaining browser/Legacy parity work
 
@@ -223,13 +223,15 @@ Before Chapter 1 can be called complete, explicitly audit the remaining high-val
 
 Do not silently reinterpret these. Compare the browser build and Legacy audit, then implement only the missing parity.
 
+For Chapter 2, independent review and human playtest must verify the restored hub's pacing, recurring NPC phase changes, exact Legacy personality, optional activity fun, Plouke finale clarity and the balance/readability of Energy Power, Fire Awakening and Solar Weave.
+
 ## 14. QoL proposals that still require approval
 
 Discuss before adding: extra interaction magnetism, overlap priority between Interact/Object Swap, animated cooldown icons, new low-energy warnings, surface-specific footsteps, extra dynamic ambience, new scenic rewards, arena fly-ins, added wall/landing reactions, settings previews, expanded objective history, extra fast-forward/scene-skip behavior, or new checkpoint messaging.
 
 For any proposal, show the owner where it appears, how it changes play on all three platforms, and its performance/save risk.
 
-## 15. Chapter 1 release gate
+## 15. Cumulative Chapters 1–2 release gate
 
 Do not move to Chapter 2 until:
 
@@ -242,15 +244,17 @@ Do not move to Chapter 2 until:
 - Real Old 3DS hardware passes performance, memory, save/load, suspend/resume, and text tests.
 - No high-severity progression, save, arena-return, tutorial, or parity bugs remain.
 - Chapter 1 ends cleanly at Tournament Outskirts and leads continuously into Rrvvfo Chapter 2.
+- Chapter 2 completes Lost Bracket through aftermath without a chapter-select detour, keeps Plouke the canonical champion and migrates U10 saves without losing Chapter 1/Tournament Card state.
+- The Mac and Old 3DS packages are tested by a human; Linux is rebuilt and launched on a supported Linux host.
 
 ## 16. First actions for the next chat
 
 1. Read this file and the browser-port rules.
-2. Launch the current Mac and 3DS candidates; do not judge from old screenshots.
-3. Run the complete Chapter 1 regression route on Mac/Linux and review Azahar/real hardware separately.
-4. Log bugs by severity and parity impact; fix progression, save, readable UI, face attachment, and deformation before adding polish.
+2. Launch the U11–U13 Mac and Old 3DS candidates; do not judge from old screenshots or the U10 package.
+3. Run the complete Chapter 1 regression plus the Chapter 2 tournament loop on Mac; review Azahar and real Old 3DS separately, then build/run Linux on a Linux host.
+4. Log bugs by severity and parity impact; fix progression, save/migration, camera, readable UI, Plouke finale, face attachment and deformation before adding polish.
 5. Present any new QoL idea for approval before implementing it.
-6. Finish the remaining browser/Legacy parity audit.
-7. Ask for explicit owner approval before starting Chapter 2.
+6. Compare Chapter 2 pacing/dialogue/silhouettes against Legacy and the U11–U13 milestone document.
+7. Do not begin Chapter 3 until the owner approves Chapters 1–2 and explicitly requests it.
 
-The central rule is simple: **ship the same fun Chapter 1 everywhere, using Legacy's personality and the browser game's content—not three loosely related demos.**
+The central rule is simple: **ship the same fun continuous game everywhere, using Legacy's personality and the browser game's content—not three loosely related demos.**

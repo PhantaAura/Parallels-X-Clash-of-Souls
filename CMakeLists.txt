@@ -20,6 +20,7 @@ add_library(px_core
     src/core/menu_state.cpp
     src/core/quest.cpp
     src/core/runtime.cpp
+    src/core/camera_policy.cpp
     src/content/chapter_registry.cpp
     src/content/map_registry.cpp
     src/content/cutscene_registry.cpp

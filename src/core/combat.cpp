@@ -135,7 +135,8 @@ HitResult CombatSystem::advanceAttack(FighterState& attacker,FighterState& defen
 }
 
 HitResult CombatSystem::apply(FighterState& attacker,FighterState& defender,const AttackDefinition& attack,HitContext context) {
-    HitResult hit;hit.connected=true;hit.knockback=attack.knockback;hit.stun=attack.stun;hit.hitstopFrames=attack.hitstopFrames;
+    const float energyPower = energyPowerMultiplier(attacker);
+    HitResult hit;hit.connected=true;hit.knockback=attack.knockback*energyPower;hit.stun=attack.stun;hit.hitstopFrames=attack.hitstopFrames;
     const bool counterable=attack.kind!=AttackKind::Projectile&&attack.kind!=AttackKind::Beam&&attack.kind!=AttackKind::Grab;
     if (defender.counterWindow>0&&counterable) {
         defender.counterWindow=0;defender.counterRecovery=.62f;attacker.hp=std::max(0.0f,attacker.hp-8.0f);attacker.stunTimer=.38f;
@@ -144,7 +145,7 @@ HitResult CombatSystem::apply(FighterState& attacker,FighterState& defender,cons
     if (defender.invulnerabilityTimer>0) { hit.connected=false;return hit; }
     if (defender.blocking&&!defender.guardBroken&&attack.kind!=AttackKind::Grab) {
         hit.blocked=true;hit.perfectBlocked=defender.perfectBlockWindow>0;
-        hit.guardDamage=attack.guardDamage*(hit.perfectBlocked?.18f:1.0f);
+        hit.guardDamage=attack.guardDamage*(hit.perfectBlocked?.18f:1.0f)*(1.0f+(energyPower-1.0f)*.65f);
         defender.guard=std::max(0.0f,defender.guard-hit.guardDamage);defender.guardDelay=1.25f;
         defender.stunTimer=hit.perfectBlocked?.04f:.115f;
         if (hit.perfectBlocked) { attacker.stunTimer=std::max(attacker.stunTimer,.24f);defender.energy=std::min(100.0f,defender.energy+8.0f); }
@@ -155,8 +156,8 @@ HitResult CombatSystem::apply(FighterState& attacker,FighterState& defender,cons
         return hit;
     }
     const float scale=attack.kind==AttackKind::Grab?1.0f:std::max(.55f,1.0f-static_cast<float>(attacker.comboHits)*.08f);
-    hit.damage=attack.damage*scale;defender.hp=std::max(0.0f,defender.hp-hit.damage);
-    defender.stunTimer=std::max(defender.stunTimer,attack.stun);defender.knockbackVelocity=attack.knockback;
+    hit.damage=attack.damage*scale*energyPower;defender.hp=std::max(0.0f,defender.hp-hit.damage);
+    defender.stunTimer=std::max(defender.stunTimer,attack.stun);defender.knockbackVelocity=hit.knockback;
     hit.launched=attack.launch>0;hit.knockdown=attack.knockdown;
     if (hit.launched) { defender.airborne=true;defender.verticalVelocity=std::max(defender.verticalVelocity,attack.launch); }
     if (attack.spike>0&&defender.airborne) defender.verticalVelocity=-attack.spike;
@@ -196,6 +197,15 @@ bool CombatSystem::startDash(FighterState& f){if(f.dashCooldown>0||f.stunTimer>0
 bool CombatSystem::startAirDash(FighterState& f){if(!f.airborne||f.airDashUsed||!startDash(f))return false;f.airDashUsed=true;return true;}
 bool CombatSystem::startPursuit(FighterState& f){if(f.pursuitWindow<=0||f.pursuitUsed)return false;f.pursuitUsed=true;f.pursuitWindow=0;f.pursuitTime=.38f;f.pursuitFollowupWindow=.70f;f.airborne=true;return true;}
 float CombatSystem::charge(FighterState& f,float dt,bool still){if(still&&f.stunTimer<=0)f.energy=std::min(100.0f,f.energy+f.chargeRate*std::max(0.0f,dt));return f.energy;}
+
+float CombatSystem::energyPowerMultiplier(const FighterState& fighter) {
+    if (fighter.id != "rrvvfo") return 1.0f;
+    // Only the upper half of the existing Energy bar adds power, capped at 8%.
+    // Spending Energy naturally removes the benefit and charging never becomes
+    // mandatory or doubles as a separate transformation meter.
+    const float charged = std::clamp((fighter.energy - 50.0f) / 50.0f, 0.0f, 1.0f);
+    return 1.0f + charged * .08f;
+}
 
 ClashResult CombatSystem::resolveMeleeClash(const FighterState& a,const FighterState& b,float distance,float heightDifference){
     if(distance>118||std::abs(heightDifference)>85)return ClashResult::None;

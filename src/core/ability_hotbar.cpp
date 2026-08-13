@@ -16,6 +16,36 @@ const AbilityHotbarLayout& AbilityHotbarCatalog::rrvvfoChapter1() {
     return layout;
 }
 
+const AbilityHotbarLayout& AbilityHotbarCatalog::rrvvfoChapter2() {
+    static const AbilityHotbarLayout layout{
+        {1, 1, "fireBlast", "FIRE BLAST", "FIRE", 22.0f, 0.0f,
+            AbilityState::Ready, "READY", "Red/orange precision fire technique."},
+        {2, 2, "energyBeam", "ENERGY BEAM", "ENERGY", 34.0f, 0.0f,
+            AbilityState::Ready, "PURE ENERGY", "Shadow Energy Power with no fire component."},
+        {3, 3, "objectSwap", "OBJECT SWAP", "SWAP", 20.0f, 0.0f,
+            AbilityState::Ready, "READY", "Literal position exchange with a valid physical target."},
+        {4, 4, "lensOfTruth", "LENS OF TRUTH", "LENS", 60.0f, 25.0f,
+            AbilityState::Ready, "UNSTABLE", "Purple read followed by a short recovery drawback."}
+    };
+    return layout;
+}
+
+const AbilityHotbarLayout& AbilityHotbarCatalog::rrvvfoPostChapter2() {
+    static const AbilityHotbarLayout layout{
+        {1, 1, "fireBlast", "FIRE BLAST", "FIRE", 22.0f, 0.0f,
+            AbilityState::Ready, "READY", "Red/orange precision fire technique."},
+        {2, 2, "energyBeam", "ENERGY BEAM", "ENERGY", 34.0f, 0.0f,
+            AbilityState::Ready, "PURE / SOLAR WHEN AWAKENED", "Pure Energy Power; becomes Solar Weave only during Fire Awakening."},
+        {3, 3, "objectSwap", "OBJECT SWAP", "SWAP", 20.0f, 0.0f,
+            AbilityState::Ready, "READY", "Literal position exchange with a valid physical target."},
+        {4, 4, "lensOfTruth", "LENS OF TRUTH", "LENS", 60.0f, 25.0f,
+            AbilityState::Ready, "UNSTABLE", "Purple read followed by a short recovery drawback."},
+        {5, 5, "fireAwakening", "FIRE AWAKENING", "AWAKEN", 35.0f, 0.0f,
+            AbilityState::Ready, "SHORT BURST", "Known Season-1 form; powerful, deliberate, and expensive to sustain."}
+    };
+    return layout;
+}
+
 const AbilityHotbarLayout& AbilityHotbarCatalog::rrvvfoWithShotsOfAgony() {
     static const AbilityHotbarLayout layout{
         {1, 1, "fireBlast", "FIRE BLAST", "FIRE", 22.0f, 0.0f,

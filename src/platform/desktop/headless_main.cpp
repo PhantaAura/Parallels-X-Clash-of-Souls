@@ -24,7 +24,7 @@ int main() {
     px::Game game(chapters);
     game.startChapter("rrvvfo_ch1");
 
-    std::cout << "Parallels X 3.0R 0.4H — Golden Gate QoL\n";
+    std::cout << "Parallels X 3.0R U11–U13 — Chapter 2 Restoration\n";
     std::cout << "ONE SHARED ENGINE • Legacy 2.9A.40.7.1.1 reconstruction\n\n";
     const auto& ch = game.chapter();
     std::cout << "Chapter: " << ch.title << "\n";

@@ -1,3 +1,15 @@
+# 3.0R U11–U13 — Chapter 2 restoration, Energy Power and cinematic parity
+
+- Rebuilt the Tournament Grounds as a larger but compact seven-district hub anchored by one visible Main Arena structure, with seven authored tournament phases and recurring named NPC locations.
+- Restored Lost Bracket, Wade's win/loss shortcut race, Bark's unresolved Cracked Ring investigation, Hamual/Daniel personality, spectator matches and three character-driven optional activities.
+- Replaced the Plouke finale's implied text result with an exhausted failed Fire Awakening followed by a playable last beam clash; both strong and exhausted outcomes preserve Plouke's canonical victory.
+- Added pure Energy Beam, a capped 8% high-Energy damage/knockback benefit, short expensive Fire Awakening and awakened Solar Weave without adding a second meter or exposing Shots of Agony.
+- Migrated completed Chapter 2 schema-6 saves to the Fire Awakening unlock using the existing flags/pending-chapter state.
+- Added one shared camera resolver consumed by Mac, Linux and 3DS, directed Chapter 2 entrance/major scenes, smooth gameplay return, Reduced Motion handling and dense-geometry occlusion rescue.
+- Added recognizable lightweight Legacy-style silhouettes for Wade, Bark, Hamual, Daniel, Hailey, Pouki, Plouke and recurring tournament workers; distant nonimportant 3DS actors are culled before vertex submission.
+- Added live bracket/next-match Pause information, Recent Dialogue, safe held skip for previously seen scenes, persistent Wade time/optionals and platform-readable final-clash prompts.
+- Expanded runtime regression coverage for Lost Bracket, Wade race outcomes, Cracked Ring, optional Run versus official no-forfeit, tournament phases, Plouke finale, Energy Power, camera policy and save migration.
+
 # 3.0R 0.4H — Golden Gate QoL
 
 ## 0.4H.5 candidate — playable Fight/Training content entry

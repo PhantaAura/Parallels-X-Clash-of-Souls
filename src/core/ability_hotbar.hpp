@@ -36,6 +36,14 @@ public:
     // Existing techniques compress left and display as a three-slot bar.
     static const AbilityHotbarLayout& rrvvfoChapter1();
 
+    // Chapter 2 keeps Energy Power distinct from fire and never exposes Shots.
+    static const AbilityHotbarLayout& rrvvfoChapter2();
+
+    // Post-Chapter-2 adds the known Fire Awakening as an explicit progression
+    // unlock. Energy Beam remains on the bar and becomes Solar Weave only while
+    // the Awakening state is active.
+    static const AbilityHotbarLayout& rrvvfoPostChapter2();
+
     // Later Story: when Shots of Agony is actually invented it is inserted at display slot 2.
     // Object Swap / Lens / Solar move to display slots 3 / 4 / 5 without changing ability ids.
     static const AbilityHotbarLayout& rrvvfoWithShotsOfAgony();

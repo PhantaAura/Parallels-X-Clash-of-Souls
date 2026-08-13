@@ -155,6 +155,7 @@ public:
     static bool startAirDash(FighterState& fighter);
     static bool startPursuit(FighterState& fighter);
     static float charge(FighterState& fighter, float dt, bool standingStill);
+    static float energyPowerMultiplier(const FighterState& fighter);
     static ClashResult resolveMeleeClash(const FighterState& first, const FighterState& second, float distance, float heightDifference);
     static ClashResult resolveProjectileClash(float firstPower, float secondPower);
     static AiDecision chooseAiAction(AiArchetype archetype, const FighterState& self, const FighterState& opponent,

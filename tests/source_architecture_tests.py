@@ -130,7 +130,9 @@ assert "assets/characters/rrvvfo/rrvvfo-dev.glb" in character_binding
 assert "assets/characters/rrvvfo/rrvvfo-dev.pxskel" in character_binding
 assert "CharacterModelRepository" in linux_shell and "CharacterModelRepository" in mac_renderer
 assert "playerPosition" in linux_renderer and 'characterModels_.find("rrvvfo")' in linux_renderer
-assert "SoftwareWorldCanvas" in linux_renderer and "stage.camera" in linux_renderer
+camera_policy = read("src/core/camera_policy.cpp")
+assert "SoftwareWorldCanvas" in linux_renderer and "resolveRuntimeCamera" in linux_renderer
+assert "resolveRuntimeCamera" in mac_renderer and "ResolvedCamera" in camera_policy
 assert "playerPosition" in mac_renderer and "pushCharacterModel" in mac_renderer
 assert "Required Rrvvfo model failed to load" in linux_shell and "using procedural fallback" not in linux_shell
 assert "actorCanvas.fallback(rrvvfo" not in linux_renderer, "Linux gameplay may substitute a fake playable Rrvvfo"
@@ -200,7 +202,7 @@ for shared_3ds_contract in (
     assert shared_3ds_contract in three_ds, f"3DS Chapter 1 port is not consuming shared {shared_3ds_contract}"
 assert "resolveRrvvfoFaceExpression" in three_ds, "3DS port is not consuming the shared face state"
 for parity_contract in (
-    "stage.camera", "Mtx_PerspTilt", "Mtx_LookAt", "view.playerPosition", "view.playerYawDegrees",
+    "resolveRuntimeCamera", "Mtx_PerspTilt", "Mtx_LookAt", "view.playerPosition", "view.playerYawDegrees",
     "view.opponentPosition", "view.opponentYawDegrees", "disabledBlockers", "playerAnimation",
     "rrvvfoFaceTriangles", "PresentationDetailTier::Essential",
 ):

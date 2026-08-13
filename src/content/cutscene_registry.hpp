@@ -3,6 +3,7 @@
 #include <string>
 #include <cstddef>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace px {
@@ -37,6 +38,22 @@ struct CutsceneAction {
     float cameraHeight{410.0f};
     float cameraFovDegrees{43.0f};
     std::string cue;
+    // Optional delay inside the dialogue beat. This allows entries, gestures
+    // and camera reframes to overlap spoken lines without a second timeline.
+    float startSeconds{0.0f};
+
+    CutsceneAction(std::size_t dialogueIndex_ = 0,
+                   CutsceneActionKind kind_ = CutsceneActionKind::Wait,
+                   std::string actorId_ = {}, std::string targetActorId_ = {},
+                   Vec2 position_ = {}, float speed_ = 150.0f, float durationSeconds_ = 0.0f,
+                   float cameraYawDegrees_ = 38.0f, float cameraDistance_ = 900.0f,
+                   float cameraHeight_ = 410.0f, float cameraFovDegrees_ = 43.0f,
+                   std::string cue_ = {}, float startSeconds_ = 0.0f)
+        : dialogueIndex(dialogueIndex_), kind(kind_), actorId(std::move(actorId_)),
+          targetActorId(std::move(targetActorId_)), position(position_), speed(speed_),
+          durationSeconds(durationSeconds_), cameraYawDegrees(cameraYawDegrees_),
+          cameraDistance(cameraDistance_), cameraHeight(cameraHeight_),
+          cameraFovDegrees(cameraFovDegrees_), cue(std::move(cue_)), startSeconds(startSeconds_) {}
 };
 
 struct CutsceneBeat {
@@ -60,6 +77,12 @@ struct CutsceneDefinition {
     std::vector<CutsceneBeat> beats;
     std::vector<ActorStaging> staging;
     std::vector<CutsceneAction> actions;
+
+    CutsceneDefinition(std::string id_ = {}, CutsceneTier tier_ = CutsceneTier::Directed,
+                       std::vector<CutsceneBeat> beats_ = {}, std::vector<ActorStaging> staging_ = {},
+                       std::vector<CutsceneAction> actions_ = {})
+        : id(std::move(id_)), tier(tier_), beats(std::move(beats_)), staging(std::move(staging_)),
+          actions(std::move(actions_)) {}
 };
 
 class CutsceneRegistry {

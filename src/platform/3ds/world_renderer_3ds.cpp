@@ -1,4 +1,5 @@
 #include "platform/3ds/world_renderer_3ds.hpp"
+#include "core/camera_policy.hpp"
 
 #include "world_shbin.h"
 
@@ -280,14 +281,33 @@ void WorldRenderer3ds::appendCharacterFallback(std::vector<Vertex>& destination,
         part( h*.24f,h*.53f,0,h*.12f,h*.37f,h*.12f,shade,12);
         appendCylinder(destination,{position.x,worldY+h*.80f,position.z,h*.23f,h*.24f,h*.23f,yawDegrees},skin,kCharacterCylinderSegments);
         part(0,h*.94f,0,h*.30f,h*.13f,h*.28f,coat);
+    }else if(binding.fallback==CharacterFallbackKind::LegacyTrainingDummy){
+        part(0,h*.48f,0,h*.16f,h*.70f,h*.16f,primary);
+        part(0,h*.60f,0,h*.72f,h*.12f,h*.12f,secondary);
+        appendCylinder(destination,{position.x,worldY+h*.88f,position.z,h*.28f,h*.22f,h*.28f,yawDegrees},scaled(primary,1.08f),8);
+        part(0,h*.08f,0,h*.56f,h*.10f,h*.56f,secondary);
     }else{
-        part(0,h*.49f,0,h*.30f,h*.43f,h*.18f,primary);
-        part(-h*.07f,h*.22f,0,h*.12f,h*.34f,h*.12f,scaled(secondary,1.15f));
-        part( h*.07f,h*.22f,0,h*.12f,h*.34f,h*.12f,scaled(secondary,1.15f));
-        part(-h*.20f,h*.48f,0,h*.10f,h*.38f,h*.10f,scaled(primary,.84f),-8);
-        part( h*.20f,h*.48f,0,h*.10f,h*.38f,h*.10f,scaled(primary,.84f),8);
-        appendCylinder(destination,{position.x,worldY+h*.82f,position.z,h*.24f,h*.24f,h*.24f,yawDegrees},scaled(primary,1.08f),kCharacterCylinderSegments);
-        part(0,h*.96f,0,h*.29f,h*.12f,h*.27f,scaled(secondary,.75f));
+        const bool heavy=binding.fallback==CharacterFallbackKind::LegacyHeavy;
+        const bool sturdy=binding.fallback==CharacterFallbackKind::LegacySturdy;
+        const bool swift=binding.fallback==CharacterFallbackKind::LegacySwift;
+        const float bodyWidth=h*(heavy?.44f:sturdy?.37f:swift?.26f:.31f);
+        const float armX=h*(heavy?.28f:sturdy?.24f:swift?.18f:.20f);
+        const float head=h*(heavy?.29f:sturdy?.25f:.23f);
+        part(0,h*.49f,0,bodyWidth,h*(heavy?.48f:.43f),h*(heavy?.25f:.18f),primary);
+        part(-h*.075f,h*.22f,0,h*(heavy?.15f:.12f),h*.34f,h*.12f,scaled(secondary,1.15f));
+        part( h*.075f,h*.22f,0,h*(heavy?.15f:.12f),h*.34f,h*.12f,scaled(secondary,1.15f));
+        part(-armX,h*.48f,0,h*(heavy?.14f:.10f),h*.38f,h*.10f,scaled(primary,.84f),-8);
+        part( armX,h*.48f,0,h*(heavy?.14f:.10f),h*.38f,h*.10f,scaled(primary,.84f),8);
+        appendCylinder(destination,{position.x,worldY+h*.82f,position.z,head,head,h*.24f,yawDegrees},scaled(primary,1.08f),kCharacterCylinderSegments);
+        if(swift){
+            part(0,h*.97f,0,h*.32f,h*.14f,h*.25f,secondary);
+            part(-h*.17f,h*1.03f,0,h*.10f,h*.18f,h*.12f,secondary,-18);
+        }else if(binding.fallback==CharacterFallbackKind::LegacyDisguise){
+            part(0,h*.90f,0,h*.36f,h*.30f,h*.31f,secondary);
+            part(0,h*.65f,h*.105f,h*.22f,h*.08f,h*.05f,scaled(primary,1.18f));
+        }else if(binding.fallback==CharacterFallbackKind::LegacyCasual){
+            part(0,h*.52f,h*.10f,bodyWidth*.72f,h*.34f,h*.04f,secondary);
+        }else part(0,h*.96f,0,h*.29f,h*.12f,h*.27f,scaled(secondary,.75f));
     }
     if(focused)appendCylinder(destination,{position.x,worldY+2.0f,position.z,h*.62f,3.0f,h*.62f,0},
                               {1.0f,.76f,.24f,.42f},10);
@@ -360,6 +380,11 @@ void WorldRenderer3ds::appendRuntimeActors(const WorldPresentationDefinition& st
         return;
     }
     for(const auto& actor:view.ambientActors){
+        // Old 3DS keeps the same authored cast and positions, but does not spend
+        // vertices on background extras that cannot affect the current shot.
+        // Named/important contestants get the wider persistence radius.
+        const float radius=actor.important?2200.0f:1250.0f;
+        if(distance(actor.position,view.playerPosition)>radius)continue;
         appendCharacterFallback(frameVertices_,characters.get(actor.presentationId),actor.position,0.0f,
                                 actor.yawDegrees,actor.interactable);
     }
@@ -369,8 +394,17 @@ void WorldRenderer3ds::appendRuntimeMarkers(const RuntimeView& view) {
     for(const auto& marker:view.worldMarkers){
         if(marker.kind=="swap-rock")appendBox(frameVertices_,{marker.position.x,24,marker.position.z,58,42,52,14},{.48f,.47f,.44f,1});
         else if(marker.kind=="fire-blast")appendCylinder(frameVertices_,{marker.position.x,72,marker.position.z,22,52,22,0},{1,.28f,.08f,.9f},8);
-        else if(marker.kind=="object-swap-fx")appendCylinder(frameVertices_,{marker.position.x,5,marker.position.z,82,8,82,0},{.50f,.94f,1,.52f},10);
-        else if(marker.kind=="lens-fx")appendCylinder(frameVertices_,{marker.position.x,92,marker.position.z,48,5,48,0},{1,.74f,.18f,.65f},10);
+        else if(marker.kind=="object-swap-fx")appendCylinder(frameVertices_,{marker.position.x,5,marker.position.z,82,8,82,0},{1,.78f,.12f,.56f},10);
+        else if(marker.kind=="lens-fx")appendCylinder(frameVertices_,{marker.position.x,92,marker.position.z,48,5,48,0},{.63f,.22f,.92f,.68f},10);
+        else if(marker.kind=="energy-charge")appendCylinder(frameVertices_,{marker.position.x,78,marker.position.z,marker.complete?68.0f:52.0f,150,marker.complete?68.0f:52.0f,0},{.22f,.55f,1,.38f},10);
+        else if(marker.kind=="energy-beam")appendBox(frameVertices_,{marker.position.x,82,marker.position.z,170,28,28,view.playerYawDegrees},{.22f,.65f,1,.82f});
+        else if(marker.kind=="solar-weave")appendBox(frameVertices_,{marker.position.x,82,marker.position.z,190,38,38,view.playerYawDegrees},{.68f,.90f,1,.88f});
+        else if(marker.kind=="fire-awakening")appendCylinder(frameVertices_,{marker.position.x,82,marker.position.z,72,164,72,0},{1,.25f,.06f,.34f},10);
+        else if(marker.kind=="unstable-awakening")appendCylinder(frameVertices_,{marker.position.x,80,marker.position.z,marker.complete?48.0f:78.0f,158,marker.complete?48.0f:78.0f,0},{1,.32f,.08f,.28f},8);
+        else if(marker.kind=="beam-clash"){
+            appendCylinder(frameVertices_,{marker.position.x,84,marker.position.z,marker.complete?58.0f:44.0f,108,marker.complete?58.0f:44.0f,0},{.72f,.90f,1,.82f},8);
+            appendCylinder(frameVertices_,{marker.position.x,84,marker.position.z,marker.complete?31.0f:40.0f,120,marker.complete?31.0f:40.0f,0},{1,.36f,.10f,.56f},8);
+        }
         else if(marker.kind=="pursuit-lock"){
             appendCylinder(frameVertices_,{marker.position.x,10,marker.position.z,marker.complete?88.0f:68.0f,5,marker.complete?88.0f:68.0f,0},{1,.67f,.12f,.72f},12);
             appendBox(frameVertices_,{marker.position.x,94,marker.position.z,10,56,10,0},{1,.80f,.28f,.82f});
@@ -410,40 +444,25 @@ void WorldRenderer3ds::appendPlayer(const RuntimeView& view,
 void WorldRenderer3ds::appendOpponent(const RuntimeView& view,
                                       const CharacterPresentationRegistry& characters) {
     if(!view.opponentVisible)return;
-    const bool focused=view.dialogueVisible&&view.dialogueFocusActorId=="sage";
-    appendCharacterFallback(frameVertices_,characters.get("sage"),view.opponentPosition,view.opponentHeight,
+    const bool focused=view.dialogueVisible&&(view.dialogueFocusActorId==view.opponent.id||view.dialogueFocusActorId=="sage");
+    appendCharacterFallback(frameVertices_,characters.get(view.opponent.id),view.opponentPosition,view.opponentHeight,
                             view.opponentYawDegrees,focused);
     if(view.opponentAttackTelegraphed)appendCylinder(frameVertices_,{view.opponentPosition.x,3,view.opponentPosition.z,180,5,180,0},{1,.18f,.08f,.45f},12);
 }
 
 void WorldRenderer3ds::configureCamera(const WorldPresentationDefinition& stage,
                                        const RuntimeView& view) {
-    float requestedX=stage.camera.focusCenterX;
-    float requestedZ=stage.camera.focusCenterZ;
-    if(stage.camera.followPlayer){
-        requestedX=view.playerPosition.x;
-        requestedZ=view.playerPosition.z;
-        if(view.opponentVisible){
-            requestedX=(view.playerPosition.x+view.opponentPosition.x)*.5f;
-            requestedZ=(view.playerPosition.z+view.opponentPosition.z)*.5f;
-        }
-    }
-    const float shakeSign=std::sin((view.playerPosition.x+view.playerPosition.z)*.017f)>=0?1.0f:-1.0f;
-    const float shake=std::min(8.0f,view.cameraImpulse*1.15f)*shakeSign;
-    const float focusX=std::clamp(requestedX+shake,stage.camera.focusCenterX-stage.camera.focusClampX,
-                                  stage.camera.focusCenterX+stage.camera.focusClampX);
-    const float focusZ=std::clamp(requestedZ-shake*.45f,stage.camera.focusCenterZ-stage.camera.focusClampZ,
-                                  stage.camera.focusCenterZ+stage.camera.focusClampZ);
-    const float yaw=stage.camera.yawDegrees*kPi/180.0f;
-    const C3D_FVec target=FVec4_New(focusX,stage.camera.targetHeight,focusZ,1.0f);
-    const float handheldDistance = stage.camera.baseDistance * (view.opponentVisible ? 0.92f : 0.80f);
-    const float handheldFov = std::max(30.0f, stage.camera.fovDegrees - (view.opponentVisible ? 1.0f : 4.0f));
-    const C3D_FVec eye=FVec4_New(focusX+std::sin(yaw)*handheldDistance,
-                                 stage.camera.height,
-                                 focusZ+std::cos(yaw)*handheldDistance,1.0f);
+    const float gameplayScale=view.opponentVisible?.92f:.80f;
+    const float gameplayFovOffset=view.opponentVisible?-1.0f:-4.0f;
+    const auto camera=resolveRuntimeCamera(stage,view,gameplayScale,gameplayFovOffset);
+    const float yaw=camera.yawDegrees*kPi/180.0f;
+    const C3D_FVec target=FVec4_New(camera.focus.x,camera.targetHeight,camera.focus.z,1.0f);
+    const C3D_FVec eye=FVec4_New(camera.focus.x+std::sin(yaw)*camera.distance,
+                                 camera.height,
+                                 camera.focus.z+std::cos(yaw)*camera.distance,1.0f);
     const C3D_FVec up=FVec4_New(0,1,0,0);
-    Mtx_PerspTilt(&projection_,C3D_AngleFromDegrees(handheldFov),C3D_AspectRatioTop,
-                  stage.camera.nearPlane,stage.camera.farPlane,false);
+    Mtx_PerspTilt(&projection_,C3D_AngleFromDegrees(camera.fovDegrees),C3D_AspectRatioTop,
+                  camera.nearPlane,camera.farPlane,false);
     Mtx_LookAt(&view_,eye,target,up,false);
 }
 

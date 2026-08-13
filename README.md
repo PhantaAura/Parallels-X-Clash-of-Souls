@@ -2,11 +2,11 @@
 
 Multi-platform native content port of the playable browser prototype. The current authority is `2.9A.40.7.2R`, with `2.9A.40.7.1.1` retained as its cumulative reference base.
 
-## Current milestone — 3.0R Chapter 1 Golden Gate • Updates 1–6
+## Current milestone — 3.0R Chapter 2 restoration • Updates 11–13
 
 For Rrvvfo Chapters 1–4, the latest playable browser build is the primary story and gameplay source. Historical 7.1.1 audits remain the cumulative base; current route documents supply only explicit continuity overrides. See `docs/STORY_SOURCE_RULES.md` and `docs/BROWSER_CONTENT_PORT_EXECUTION_RULES.md`.
 
-0.4H builds on the 0.4G Golden Slice with a shared QoL pass for Mac, Linux and Old 3DS. Legacy Chapter 1 story order, map identity, combat values, ability chronology and route structure remain locked. Chapter 2 is still deliberately unimplemented until Chapter 1 passes final visual and hardware review.
+The current cumulative branch preserves the Chapter 1 Golden Gate and completes the playable Chapter 2 tournament loop on the same shared runtime for Mac, Linux and Old 3DS. Legacy Chapter 1 story order, map identity, combat values, ability chronology and route structure remain locked; Chapter 2 continues directly from Tournament Road without returning to a menu.
 
 The game boots through `PRESS ANY BUTTON` into the shared menu. `FIGHT` immediately starts Rrvvfo versus the shared CPU combatant, `TRAINING` starts the Sage's playable lessons, and Story Mode enters the Chapter 1 content port. Rrvvfo is the only fresh-save story route; Bark, Wade and Virek appear only after their semantic story discovery events and honestly report `STORY COMING LATER` until implemented.
 
@@ -20,11 +20,22 @@ Chapter 1 includes:
 - Chapter 1 completion at Tournament Outskirts, pointing continuously to Chapter 2;
 - no Bark/Wade reunion, registration, cracked ring, Tournament Card or Shots of Agony in Chapter 1.
 
+Chapter 2 includes:
+
+- a recomposed, continuous Tournament Grounds hub with Entrance, Registration, Market, Practice, Spectator, Contestant and Main Arena districts;
+- Lost Bracket, Wade's timed shortcut with separate win/loss reactions, Bark's unresolved Cracked Ring investigation and changing seven-phase tournament life;
+- practice, Hamual, Daniel, Bark/Pouki, Wade and Plouke tournament beats, with named characters remaining in the grounds after their matches;
+- Wade's Lost Fan, Fake Champion/Lens fight, Runaway Training Dummy, Bark practice, food, photo and live bracket-board interactions;
+- Rrvvfo's pure Energy Beam, Energy-charge power state, exhausted failed Fire Awakening and a playable final beam clash that still ends in Plouke's canonical victory;
+- post-Chapter-2 Fire Awakening progression and awakened Solar Weave, with schema-6 migration for completed U10 saves and no Shots of Agony exposure.
+
 The shared engine includes timed Legacy-derived combat, burst Dash, save/reload, content-driven world/camera data, a protected Tournament Card progression foundation, generic quest/party state and one runtime for all routes/platforms.
 
 The Mac renderer consumes the shared world through perspective Metal rendering. The repaired Rrvvfo 15 asset keeps its silhouette and 39-joint rig across Mac, Linux and the 3DS Gate. The current cooked asset carries 36 shared clips: the exact 0.75-second Legacy hub idle plus Chapter-1 locomotion, combat, defense, ability and presentation clips. A lightweight head-attached cel layer supplies eyes, brows and mouth expressions without altering the source head, hair or outfit. Final art/effects/audio polish, native Legacy side-by-side approval and Old 3DS hardware performance remain incomplete. `Jimmy.glb` is unrelated and is not Rrvvfo's binding.
 
 Golden Gate QoL adds an interactive pause menu, safe manual saves with backup recovery, checkpoint restart, objective history, controls reference, accessibility toggles, dialogue hold-to-advance, mild dash steering, dedicated combat arenas and controller-disconnect pausing on desktop. See `docs/GOLDEN_GATE_QOL_0.4H.md`.
+
+U11–U13 add live round/next-match information, Recent Dialogue, persisted optional results and Wade best time, held skipping for already-seen scenes, shared cinematic-camera parity and lightweight recognizable Legacy-style tournament silhouettes. See `docs/U11_U13_CH2_RESTORATION.md`.
 
 Updates 4–6 focus on performance headroom, Rrvvfo animation/combat personality, and the final Chapter-1 Golden Gate pass. Optimization is behavior-preserving: no story, route, animation, graphics or mechanics are removed to gain performance. See `UPDATE_6_GOLDEN_GATE.md`.
 
@@ -49,6 +60,7 @@ Replay is whole completed chapters only.
 - `docs/RRVVFO_SHARED_SKELETAL_ANIMATION_FOUNDATION.md`
 - `docs/GOLDEN_GATE_QOL_0.4H.md`
 - `docs/3DS_LEGACY_UI_MODEL_PARITY_0.4H.2.md`
+- `docs/U11_U13_CH2_RESTORATION.md`
 
 ## Build shared core
 
@@ -101,7 +113,7 @@ With devkitPro installed:
 ./scripts/build-3ds.sh
 ```
 
-The Update 6 Golden Gate candidate runs the same `RuntimeSession`, Chapter 1 stage definitions, dialogue, combat rules, blockers, tutorial choices and optional stories as desktop. Its Citro3D renderer uses the authored perspective camera, depth-tested world geometry and the byte-identical cooked Rrvvfo asset; only visual density and effects are reduced for the 3DS tier. Legacy's blue, white, black and yellow interface language covers title, mode/route selection, dialogue, objectives, manual, hotbar, pause and save screens. The earlier 0.4H.1 package remains rejected. The new candidate cross-build succeeds, but it still requires fresh Azahar review and a complete performance/memory/suspend-resume check on an actual Old 3DS XL.
+The U11–U13 candidate runs the same `RuntimeSession`, Chapters 1–2 content, fight rules, optional activities, save progression and cinematic shot values as desktop. Its Citro3D renderer keeps the authored perspective camera and byte-identical cooked Rrvvfo asset while culling distant nonimportant actors and bounding decorative geometry. Legacy's blue, white, black and yellow interface language covers title, mode/route selection, dialogue, objectives, Tournament Card, action sequences, hotbar, pause, Recent Dialogue and saves. A successful cross-build is still not real-hardware acceptance; Azahar review plus Old 3DS XL frame-pacing, memory, suspend/resume and long-session testing remain required.
 
 3DS online target: investigate Pretendo compatibility in a later networking milestone. No networking or Pretendo compatibility is claimed in 0.4H.
 

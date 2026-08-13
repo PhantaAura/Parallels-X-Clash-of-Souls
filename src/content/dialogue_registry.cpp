@@ -241,7 +241,26 @@ scenes_.emplace("ch2_ninja_reunion", std::vector<DialogueLine>{
     {"BARK", "In what world?"},
     {"RRVVFO", "In what world?"}
 });
-scenes_.emplace("ch2_wade_shortcut_result", std::vector<DialogueLine>{{"WADE","Okay, that shortcut was faster than I thought."},{"BARK","The east support is cracked. Look."}});
+scenes_.emplace("ch2_wade_shortcut_win", std::vector<DialogueLine>{
+    {"WADE","You beat that time? I was showing you the route, not racing at full speed."},
+    {"RRVVFO","A shortcut only matters if I reach the end first."},
+    {"BARK","The east support is cracked. Look."}
+});
+scenes_.emplace("ch2_wade_shortcut_loss", std::vector<DialogueLine>{
+    {"WADE","You made it. The route is faster when you stop arguing with every corner."},
+    {"RRVVFO","Uh, well—I WAS HOLDING BACK! YOU'LL SEE IN THE TOURNAMENT!"},
+    {"BARK","The east support is cracked. Look."}
+});
+// Kept for save/content compatibility with U10 while runtime now chooses the
+// authored win or loss response.
+scenes_.emplace("ch2_wade_shortcut_result", std::vector<DialogueLine>{{"WADE","That shortcut connects the whole grounds."}});
+scenes_.emplace("ch2_cracked_ring_intro", std::vector<DialogueLine>{
+    {"BARK","You're the sneakiest one here. Inspect the cracked supports before an official sees us."},
+    {"RRVVFO","Fine, but you and Wade guard me. I'm not getting banned because your ring broke."},
+    {"WADE","The shoe marks on the east side look different."},
+    {"RRVVFO","It's Wade. We'll check the useful clues first."},
+    {"BARK","Check all three."}
+});
 scenes_.emplace("ch2_crack_west", std::vector<DialogueLine>{{"RRVVFO","The damage is pushing outward. Something hit this from inside the ring."}});
 scenes_.emplace("ch2_crack_south", std::vector<DialogueLine>{{"RRVVFO","Footprints stop halfway. That’s not normal."}});
 scenes_.emplace("ch2_crack_east", std::vector<DialogueLine>{{"WADE","These shoe marks are different from the other ones."},{"RRVVFO","Yeah. More than one pattern."}});
@@ -271,10 +290,27 @@ scenes_.emplace("ch2_hailey_plouke", std::vector<DialogueLine>{
     {"ANNOUNCER","Official matches are first to three. A knockout or crossing the ring boundary removes a stock."},
     {"RRVVFO","So ring-outs matter. I should stay away from the edge."}
 });
-scenes_.emplace("ch2_hamual_intro", std::vector<DialogueLine>{{"ANNOUNCER","Opening round: Rrvvfo versus former champion Hamual!"}});
-scenes_.emplace("ch2_hamual_result", std::vector<DialogueLine>{{"ANNOUNCER","Rrvvfo advances!"},{"RRVVFO","Told you."}});
-scenes_.emplace("ch2_daniel_intro", std::vector<DialogueLine>{{"ANNOUNCER","Next match: Rrvvfo versus Daniel!"}});
-scenes_.emplace("ch2_daniel_result", std::vector<DialogueLine>{{"ANNOUNCER","Rrvvfo advances again!"}});
+scenes_.emplace("ch2_hamual_intro", std::vector<DialogueLine>{
+    {"ANNOUNCER","Opening round: Rrvvfo versus former champion Hamual!"},
+    {"HAMUAL","Don't confuse size with slowness. I won this bracket before you entered one."},
+    {"RRVVFO","You couldn't win even if you were ten times bigger."},
+    {"RRVVFO","And no, I'm not wasting Fire Awakening on an opening round."}
+});
+scenes_.emplace("ch2_hamual_result", std::vector<DialogueLine>{
+    {"ANNOUNCER","Rrvvfo advances!"},{"HAMUAL","You found a route through my reach. Most fighters only run from it."},
+    {"RRVVFO","I don't run. I reposition."}
+});
+scenes_.emplace("ch2_daniel_intro", std::vector<DialogueLine>{
+    {"ANNOUNCER","Next match: Rrvvfo versus Daniel!"},
+    {"DANIEL","You expected another giant. That's useful."},
+    {"RRVVFO","You look a little casual for a tournament."},
+    {"DANIEL","Watch my feet, not my clothes."}
+});
+scenes_.emplace("ch2_daniel_result", std::vector<DialogueLine>{
+    {"ANNOUNCER","Rrvvfo advances again!"},
+    {"DANIEL","You stopped watching the jacket and adapted. That's why you caught my step."},
+    {"RRVVFO","I notice things. Eventually."}
+});
 scenes_.emplace("ch2_bark_pouki", std::vector<DialogueLine>{
     {"ANNOUNCER","Pouki wins! Bark held the center, survived the guard break, and nearly landed one final counter!"},
     {"BARK","He changed rhythm every time I settled. My last counter was the first opening he gave me."},
@@ -296,6 +332,14 @@ scenes_.emplace("ch2_pre_plouke", std::vector<DialogueLine>{
     {"PLOUKE","That confidence is exactly why you’re tired."},
     {"RRVVFO","Keep talking. It’ll make losing more embarrassing."}
 });
+scenes_.emplace("ch2_plouke_awakening_failure", std::vector<DialogueLine>{
+    {"RRVVFO","Fine. I'll end this with Fire Awakening.","rrvvfo","focused","rrvvfo"},
+    {"PLOUKE","Try it.","plouke","still","plouke"},
+    {"RRVVFO","Come on... ignite!","rrvvfo","strained","rrvvfo"},
+    {"RRVVFO","Why isn't it holding?","rrvvfo","surprised","rrvvfo"},
+    {"PLOUKE","Because power doesn't erase exhaustion.","plouke","calm","plouke"},
+    {"PLOUKE","Show me what you have left.","plouke","focused","plouke"}
+});
 scenes_.emplace("ch2_plouke_final_ringout", std::vector<DialogueLine>{
     {"RRVVFO","I beat you in the beam! Haha—"},{"RRVVFO","WAIT, I’M ON THE GRASS! AHH!"},{"PLOUKE","I beat you."},
     {"ANNOUNCER","Rrvvfo wins the beam clash—but Plouke wins by ring-out!"}
@@ -308,6 +352,56 @@ scenes_.emplace("ch2_plouke_reveal", std::vector<DialogueLine>{
     {"RRVVFO","Now that explains what you were doing during your fight with Hailey."},{"RRVVFO","I hate how planned ahead you are."}
 });
 scenes_.emplace("ch2_tournament_aftermath", std::vector<DialogueLine>{{"ANNOUNCER","The local tournament is complete. Grounds remain open while staff begins cleanup."}});
+
+scenes_.emplace("ch2_wade_lost_fan_start", std::vector<DialogueLine>{
+    {"WADE","A fan followed my shortcut and vanished near the market. That's proof it was advanced."},
+    {"RRVVFO","That's proof you gave directions like Wade. I'll find them before they enter the service lane."}
+});
+scenes_.emplace("ch2_wade_lost_fan_market", std::vector<DialogueLine>{
+    {"LOST WADE FAN","Wade said to turn where the blue banner looks fastest."},
+    {"RRVVFO","Banners don't have speed. Follow me back before Wade explains another corner."}
+});
+scenes_.emplace("ch2_wade_lost_fan_done", std::vector<DialogueLine>{
+    {"WADE","You found them! My directions worked."},
+    {"RRVVFO","I found them because your directions didn't."}
+});
+scenes_.emplace("ch2_fake_champion_start", std::vector<DialogueLine>{
+    {"FAKE CHAMPION","Train with the undefeated champion! One lesson and you'll never lose."},
+    {"RRVVFO","Then why are you hiding next to a food awning? Hold still."}
+});
+scenes_.emplace("ch2_fake_champion_reveal", std::vector<DialogueLine>{
+    {"RRVVFO","Lens says your medal is painted wood and your record is zero fights."},
+    {"FAKE CHAMPION","The Lens can't measure fighting spirit!"},
+    {"RRVVFO","Good. Fight me for free."}
+});
+scenes_.emplace("ch2_fake_champion_done", std::vector<DialogueLine>{
+    {"FAKE CHAMPION","Fine! The lessons are canceled."},
+    {"RRVVFO","Keep the wooden medal. It matches the record."}
+});
+scenes_.emplace("ch2_runaway_dummy_start", std::vector<DialogueLine>{
+    {"ARENA WORKER","That training dummy's wheel lock snapped! Stop it before it reaches registration!"},
+    {"RRVVFO","Everything here runs away the second I arrive."}
+});
+scenes_.emplace("ch2_runaway_dummy_done", std::vector<DialogueLine>{
+    {"ARENA WORKER","You knocked it back onto the display base."},
+    {"RRVVFO","Leave it there. Now it looks like an exhibit about losing."}
+});
+scenes_.emplace("ch2_bark_practice_start", std::vector<DialogueLine>{
+    {"BARK","Quiet spar? No score. We stop when one of us has enough."},
+    {"RRVVFO","You mean when you have enough."}
+});
+scenes_.emplace("ch2_bark_practice_done", std::vector<DialogueLine>{{"BARK","That's enough."},{"RRVVFO","For you."}});
+scenes_.emplace("ch2_festival_food", std::vector<DialogueLine>{
+    {"FOOD VENDOR","Champion's skewers! Free sample for a contestant."},
+    {"RRVVFO","Calling food 'champion' doesn't make it good."},
+    {"FOOD VENDOR","You took two."},{"RRVVFO","I needed a second opinion."}
+});
+scenes_.emplace("ch2_festival_photo", std::vector<DialogueLine>{
+    {"PHOTO WORKER","Champion pose on three!"},{"RRVVFO","You only need one."},{"PHOTO WORKER","...That was actually good."}
+});
+scenes_.emplace("ch2_bracket_board_status", std::vector<DialogueLine>{
+    {"BRACKET BOARD","Current round and next opponent updated. Another match is already in the ring."}
+});
 }
 
 const std::vector<DialogueLine>& DialogueRegistry::get(const std::string& sceneId) const {

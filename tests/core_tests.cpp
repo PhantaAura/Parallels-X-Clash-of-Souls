@@ -8,6 +8,7 @@
 #include "content/training_registry.hpp"
 #include "content/world_presentation_registry.hpp"
 #include "core/ability_hotbar.hpp"
+#include "core/camera_policy.hpp"
 #include "core/combat.hpp"
 #include "core/field_movement.hpp"
 #include "core/input.hpp"
@@ -32,6 +33,23 @@ bool hasScene(const px::ChapterDefinition& chapter, const std::string& id) {
 bool hasPrimitive(const px::WorldPresentationDefinition& stage, const std::string& id) {
     return std::any_of(stage.primitives.begin(), stage.primitives.end(),
         [&](const px::WorldPrimitiveDefinition& primitive){ return primitive.id == id; });
+}
+
+px::SaveData saveAtScene(const px::ChapterDefinition& chapter, const std::string& sceneId,
+                         px::Vec2 position = {}) {
+    const auto scene = std::find_if(chapter.openingFlow.begin(), chapter.openingFlow.end(),
+        [&](const px::SceneStep& step){ return step.id == sceneId; });
+    assert(scene != chapter.openingFlow.end());
+    px::SaveData save;
+    save.story.chapterId = chapter.id;
+    save.story.sceneIndex = static_cast<std::size_t>(std::distance(chapter.openingFlow.begin(), scene));
+    save.story.checkpointId = scene->checkpointId;
+    save.world.mapId = chapter.primaryMap;
+    save.world.position = position;
+    save.world.hp = 100.0f;
+    save.world.energy = 100.0f;
+    save.world.guard = 100.0f;
+    return save;
 }
 
 void tap(px::RuntimeSession& runtime, px::InputState& input, px::Action action, float dt = 0.1f) {
@@ -73,6 +91,14 @@ void moveToward(px::RuntimeSession& runtime, px::InputState& input, px::Vec2 tar
 void finishDialogue(px::RuntimeSession& runtime) {
     int guard = 0;
     while (runtime.view().dialogueVisible && guard++ < 64) runtime.confirm();
+    assert(guard < 64);
+}
+
+void finishDialogueWithinScene(px::RuntimeSession& runtime) {
+    const std::string sceneId = runtime.view().sceneId;
+    int guard = 0;
+    while (runtime.view().dialogueVisible && runtime.view().sceneId == sceneId && guard++ < 64)
+        runtime.confirm();
     assert(guard < 64);
 }
 
@@ -340,6 +366,24 @@ int main() {
     assert(!hasPrimitive(field, "field_center_mark"));
     assert(roadPresentation.camera.yawDegrees == 38.0f && roadPresentation.camera.fovDegrees == 45.0f);
     assert(roadPresentation.camera.baseDistance == 980.0f && roadPresentation.camera.height == 430.0f);
+    {
+        px::RuntimeView cameraView;
+        cameraView.playerPosition = {340.0f, -120.0f};
+        cameraView.cinematicCameraActive = true;
+        cameraView.cinematicCameraBlend = 1.0f;
+        cameraView.cinematicCameraFocus = {1290.0f, 0.0f};
+        cameraView.cinematicCameraYawDegrees = 26.0f;
+        cameraView.cinematicCameraDistance = 580.0f;
+        cameraView.cinematicCameraHeight = 260.0f;
+        cameraView.cinematicCameraFovDegrees = 37.0f;
+        const auto directed = px::resolveRuntimeCamera(roadPresentation, cameraView);
+        assert(directed.cinematic && directed.focus.x == 1290.0f);
+        assert(directed.yawDegrees == 26.0f && directed.distance == 580.0f);
+        cameraView.cinematicCameraBlend = 0.0f;
+        cameraView.cinematicCameraOcclusionRescue = true;
+        const auto rescued = px::resolveRuntimeCamera(roadPresentation, cameraView);
+        assert(!rescued.cinematic && rescued.distance < roadPresentation.camera.baseDistance);
+    }
     for (const auto* primitive : {"sage_bell", "focus_pillar_center", "broken_bridge_rail_-45",
                                   "broken_bridge_rail_195", "river", "tournament_gate_red",
                                   "outskirts_shop_fire", "outskirts_shop_blue", "outskirts_shop_violet"})
@@ -348,6 +392,35 @@ int main() {
     assert(characters.get("rrvvfo").desktopCookedAsset == "assets/characters/rrvvfo/rrvvfo-dev.pxskel");
     assert(characters.get("rrvvfo").cookedAssetReady);
     assert(characters.get("sage").fallback == px::CharacterFallbackKind::ProceduralMentor);
+    assert(characters.get("wade").fallback == px::CharacterFallbackKind::LegacySwift);
+    assert(characters.get("bark").fallback == px::CharacterFallbackKind::LegacySturdy);
+    assert(characters.get("hamual").fallback == px::CharacterFallbackKind::LegacyHeavy);
+    assert(characters.get("daniel").fallback == px::CharacterFallbackKind::LegacyCasual);
+    assert(characters.get("plouke").fallback == px::CharacterFallbackKind::LegacyDisguise);
+    for (const auto* id : {"hailey", "pouki", "practice_fighter", "tournament_medic",
+                           "tournament_announcer", "registration_worker", "festival_vendor",
+                           "nervous_competitor", "spectator_fan"})
+        assert(characters.has(id));
+
+    // U12 preserves one shared Energy bar: charge gives a modest capped bonus,
+    // Chapter 2 gets a pure beam, and Shots stays absent before its later story.
+    {
+        px::FighterState energyRrvvfo{"rrvvfo"};
+        energyRrvvfo.energy = 50.0f;
+        assert(px::CombatSystem::energyPowerMultiplier(energyRrvvfo) == 1.0f);
+        energyRrvvfo.energy = 100.0f;
+        assert(std::abs(px::CombatSystem::energyPowerMultiplier(energyRrvvfo) - 1.08f) < .001f);
+        px::FighterState other{"wade"}; other.energy = 100.0f;
+        assert(px::CombatSystem::energyPowerMultiplier(other) == 1.0f);
+
+        const auto& chapter2Hotbar = px::AbilityHotbarCatalog::rrvvfoChapter2();
+        const auto& postChapter2Hotbar = px::AbilityHotbarCatalog::rrvvfoPostChapter2();
+        assert(chapter2Hotbar.size() == 4 && postChapter2Hotbar.size() == 5);
+        assert(std::any_of(chapter2Hotbar.begin(), chapter2Hotbar.end(), [](const auto& slot){ return slot.id == "energyBeam"; }));
+        assert(std::none_of(chapter2Hotbar.begin(), chapter2Hotbar.end(), [](const auto& slot){ return slot.id == "shotsOfAgony"; }));
+        assert(std::any_of(postChapter2Hotbar.begin(), postChapter2Hotbar.end(), [](const auto& slot){ return slot.id == "fireAwakening"; }));
+        assert(std::none_of(postChapter2Hotbar.begin(), postChapter2Hotbar.end(), [](const auto& slot){ return slot.id == "shotsOfAgony"; }));
+    }
 
     const auto& adventure = adventures.get("rrvvfo_ch1_road");
     assert(adventure.npcs.size() == 7);
@@ -563,7 +636,7 @@ int main() {
         px::RuntimeSession replayRuntime(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
         replayRuntime.loadSnapshot(px::SaveCodec::deserialize(px::SaveCodec::serialize(seenSave)));
         assert(replayRuntime.view().sceneId == "ch1_object_swap_setup");
-        tap(replayRuntime, seenInput, px::Action::Cancel, 0.02f);
+        holdFrames(replayRuntime, seenInput, px::Action::Cancel, 8, 0.1f);
         assert(replayRuntime.view().sceneId == "sage_object_swap_field_trial");
     }
 
@@ -676,7 +749,8 @@ int main() {
     tap(runtime, input, px::Action::Confirm);
     assert(runtime.view().sceneId == "selected_route_adventure" && runtime.view().routeChoice == "main");
     tap(runtime, input, px::Action::Pause);
-    assert(runtime.view().pauseVisible && runtime.view().pauseOptions.size() == 7);
+    assert(runtime.view().pauseVisible && runtime.view().pauseOptions.size() == 8);
+    assert(runtime.view().pauseOptions[5] == "RECENT DIALOGUE");
     assert(runtime.view().manualSaveAllowed && runtime.view().pauseOptions[1] == "SAVE GAME");
     tap(runtime, input, px::Action::MoveDown);
     tap(runtime, input, px::Action::Confirm);
@@ -935,7 +1009,7 @@ int main() {
         tap(goldenRuntime, goldenInput, px::Action::Pause);
         assert(goldenRuntime.view().pauseVisible);
         assert(std::find(goldenRuntime.view().pauseSections.begin(), goldenRuntime.view().pauseSections.end(),
-                         "BUILD • 3.0R / UPDATE 10 TOURNAMENT GOLDEN") != goldenRuntime.view().pauseSections.end());
+                         "BUILD • 3.0R / U11–U13 CHAPTER 2 RESTORATION") != goldenRuntime.view().pauseSections.end());
         for (int i = 0; i < 3; ++i) tap(goldenRuntime, goldenInput, px::Action::MoveDown);
         tap(goldenRuntime, goldenInput, px::Action::Confirm);
         assert(goldenRuntime.view().pausePageTitle == "OBJECTIVE HISTORY");
@@ -945,6 +1019,139 @@ int main() {
                          "DONE • PASS THE TOURNAMENT CHECKPOINT") != goldenRuntime.view().pauseSections.end());
         assert(std::find(goldenRuntime.view().pauseSections.begin(), goldenRuntime.view().pauseSections.end(),
                          "DONE • " + currentObjective) == goldenRuntime.view().pauseSections.end());
+    }
+
+    // U11 restores Chapter 2 as one spatial tournament loop instead of a list
+    // of arenas. The world activities below exercise actual runtime progress.
+    {
+        const auto& hubMap = maps.get("tournament_grounds");
+        const auto& hubWorld = worlds.get("tournament-hub");
+        assert(hubMap.bounds.minX <= -1950.0f && hubMap.bounds.maxX >= 1780.0f);
+        assert(hubMap.zones.size() >= 7);
+        assert(hasPrimitive(hubWorld, "arena_main_roof") || hasPrimitive(hubWorld, "arena_roof"));
+
+        px::RuntimeSession bracketRun(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        px::InputState bracketInput;
+        bracketRun.loadSnapshot(saveAtScene(ch2, "ch2_lost_bracket", {-1190.0f, 80.0f}));
+        const auto& bracket = exploration.get("ch2_lost_bracket");
+        for (const auto marker : bracket.sequenceMarkers) {
+            moveToward(bracketRun, bracketInput, marker, 65.0f, 500);
+            tap(bracketRun, bracketInput, px::Action::Interact);
+            finishDialogueWithinScene(bracketRun);
+        }
+        assert(bracketRun.view().sceneId == "ch2_practice_brawl_intro");
+        assert(bracketRun.consumeManualSaveRequest());
+
+        px::RuntimeSession crackedRun(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        px::InputState crackedInput;
+        crackedRun.loadSnapshot(saveAtScene(ch2, "ch2_cracked_ring", {-760.0f, 760.0f}));
+        finishDialogueWithinScene(crackedRun); // Bark asks Rrvvfo to inspect while they guard him.
+        const auto& cracked = exploration.get("ch2_cracked_ring");
+        for (const auto marker : cracked.sequenceMarkers) {
+            moveToward(crackedRun, crackedInput, marker, 55.0f, 300);
+            tap(crackedRun, crackedInput, px::Action::Interact);
+            finishDialogueWithinScene(crackedRun);
+        }
+        assert(crackedRun.view().sceneId == "ch2_registration_card");
+        const auto crackedSave = crackedRun.saveSnapshot();
+        assert(std::none_of(crackedSave.story.flags.begin(), crackedSave.story.flags.end(),
+            [](const std::string& flag){ return flag.find("saboteur_resolved") != std::string::npos; }));
+    }
+
+    // Wade's result is based on the real traversal timer and its best time
+    // survives the existing schema-6 save format.
+    {
+        const auto runRace = [&](bool waitFirst) {
+            px::RuntimeSession race(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+            px::InputState raceInput;
+            race.loadSnapshot(saveAtScene(ch2, "ch2_wade_shortcut", {-1120.0f, 160.0f}));
+            if (waitFirst) idleFrames(race, raceInput, 330, .1f);
+            for (const auto marker : exploration.get("ch2_wade_shortcut").sequenceMarkers)
+                moveToward(race, raceInput, marker, 78.0f, 600);
+            assert(race.view().dialogueVisible);
+            const std::string result = race.view().dialogueText;
+            finishDialogue(race);
+            return std::pair<std::string, px::SaveData>{result, race.saveSnapshot()};
+        };
+        const auto fast = runRace(false);
+        assert(fast.first.find("beat that time") != std::string::npos);
+        assert(std::any_of(fast.second.story.flags.begin(), fast.second.story.flags.end(),
+            [](const std::string& flag){ return flag.rfind("ch2_wade_race_best_ms=", 0) == 0; }));
+        assert(std::find(fast.second.story.flags.begin(), fast.second.story.flags.end(),
+                         "ch2_wade_race_target_beaten") != fast.second.story.flags.end());
+        const auto slow = runRace(true);
+        assert(slow.first.find("You made it") != std::string::npos);
+    }
+
+    // Tournament phase, persistent named contestants, Pause next-match data,
+    // optional Run, and official no-forfeit behavior all use the shared runtime.
+    {
+        px::RuntimeSession hub(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        px::InputState hubInput;
+        hub.loadSnapshot(saveAtScene(ch2, "ch2_intermission_positioning", {-250.0f, -825.0f}));
+        assert(hub.view().tournamentPhase == "EARLY BRACKET");
+        assert(!hub.view().nextTournamentMatch.empty() && !hub.view().bracketSummary.empty());
+        assert(std::any_of(hub.view().ambientActors.begin(), hub.view().ambientActors.end(),
+            [](const px::RuntimeActorView& actor){ return actor.id == "hamual" && actor.important; }));
+        assert(std::any_of(hub.view().ambientActors.begin(), hub.view().ambientActors.end(),
+            [](const px::RuntimeActorView& actor){ return actor.id == "daniel" && actor.important; }));
+        tap(hub, hubInput, px::Action::Pause);
+        assert(std::find(hub.view().pauseSections.begin(), hub.view().pauseSections.end(),
+                         "NEXT • " + hub.view().nextTournamentMatch) != hub.view().pauseSections.end());
+        tap(hub, hubInput, px::Action::Pause);
+
+        tap(hub, hubInput, px::Action::Interact);
+        finishDialogue(hub);
+        tap(hub, hubInput, px::Action::Ability4);
+        finishDialogue(hub);
+        assert(hub.view().optionalTournamentFight && !hub.view().officialTournamentMatch);
+        tap(hub, hubInput, px::Action::Cancel);
+        assert(!hub.view().optionalTournamentFight && hub.view().sceneId == "ch2_intermission_positioning");
+
+        px::RuntimeSession official(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        px::InputState officialInput;
+        official.loadSnapshot(saveAtScene(ch2, "ch2_vs_hamual"));
+        finishDialogue(official);
+        assert(official.view().officialTournamentMatch && official.view().opponent.id == "hamual");
+        tap(official, officialInput, px::Action::Cancel);
+        assert(official.view().sceneId == "ch2_vs_hamual" && official.view().officialTournamentMatch);
+    }
+
+    // The final now ends in a player-performed beam-clash sequence after the
+    // failed ignition; a strong input still produces Plouke's canonical ring-out.
+    {
+        px::RuntimeSession finalRun(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        px::InputState finalInput;
+        finalRun.loadSnapshot(saveAtScene(ch2, "ch2_vs_plouke"));
+        for (int frame = 0; frame < 420 && !finalRun.view().dialogueVisible; ++frame) {
+            finalInput.beginFrame();
+            finalRun.tick(finalInput, .1f);
+        }
+        assert(finalRun.view().dialogueVisible);
+        assert(finalRun.view().dialogueText.find("Fire Awakening") != std::string::npos);
+        assert(finalRun.view().ploukeAwakeningFailureActive);
+        finishDialogue(finalRun);
+        assert(finalRun.view().qteVisible && finalRun.view().qteSequence.size() == 4);
+        tap(finalRun, finalInput, px::Action::Charge);
+        tap(finalRun, finalInput, px::Action::Ability2);
+        tap(finalRun, finalInput, px::Action::Light);
+        tap(finalRun, finalInput, px::Action::Heavy);
+        assert(finalRun.view().dialogueVisible);
+        assert(finalRun.view().dialogueText.find("beat you in the beam") != std::string::npos);
+    }
+
+    // U10 saves already parked past Chapter 2 migrate to the post-Chapter-2
+    // Awakening hotbar without changing schema or exposing Shots of Agony.
+    {
+        auto migrated = saveAtScene(ch2, "ch2_tournament_aftermath", {920.0f, 120.0f});
+        migrated.story.pendingChapterId = "rrvvfo_ch3";
+        px::RuntimeSession migratedRuntime(chapters, maps, cutscenes, dialogue, exploration, training, adventures);
+        migratedRuntime.loadSnapshot(px::SaveCodec::deserialize(px::SaveCodec::serialize(migrated)));
+        assert(migratedRuntime.view().fireAwakeningUnlocked);
+        assert(std::any_of(migratedRuntime.view().hotbar.begin(), migratedRuntime.view().hotbar.end(),
+            [](const px::AbilitySlotDefinition& slot){ return slot.id == "fireAwakening"; }));
+        assert(std::none_of(migratedRuntime.view().hotbar.begin(), migratedRuntime.view().hotbar.end(),
+            [](const px::AbilitySlotDefinition& slot){ return slot.id == "shotsOfAgony"; }));
     }
 
     std::cout << "PASS: Chapter 1 Legacy story/tutorial/UI structure, route panel plus all three routes, "

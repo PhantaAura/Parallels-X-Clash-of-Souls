@@ -434,7 +434,7 @@ void LegacyUi3ds::drawTopGameplay(const RuntimeView& view) {
     } else if (!view.dialogueVisible && !view.pauseVisible && !view.trainingManualVisible &&
                !view.choiceVisible && !view.qteVisible) {
         hardPanel(7, 7, 260, 68, alpha(kNavy, 238), kWhite, kYellow, true);
-        label("CHAPTER 1 - CURRENT OBJECTIVE", 20, 14, .36f, kYellow);
+        label("CURRENT OBJECTIVE", 20, 14, .36f, kYellow);
         fitted(view.objective.empty() ? "EXPLORE" : view.objective, 20, 33, 234, .42f, .36f, kWhite);
         if (!view.objectiveDetail.empty()) fitted(view.objectiveDetail, 20, 53, 234, .36f, .36f, kMuted);
     }
@@ -492,10 +492,12 @@ void LegacyUi3ds::pause(const RuntimeView& view) {
     label("PAUSED", 24, 18, .61f, kInk);
     fitted(view.pausePageTitle, 24, 45, 272, .36f, .28f, kRed);
     float y = 67;
+    const bool dialogueLog = view.pausePageTitle == "RECENT DIALOGUE";
     for (const auto& section : view.pauseSections) {
-        if (y > 94) break;
-        fitted(section, 24, y, 272, .25f, .19f, 0xFF4A4642);
-        y += 15;
+        if (y > (dialogueLog ? 199.0f : 94.0f)) break;
+        fitted(section, 24, y, 272, dialogueLog ? .21f : .25f,
+               dialogueLog ? .16f : .19f, 0xFF4A4642);
+        y += dialogueLog ? 17.0f : 15.0f;
     }
     const std::size_t optionCount = std::min<std::size_t>(view.pauseOptions.size(), 4);
     const std::size_t startIndex = view.pauseOptions.size() <= 4 ? 0 :
@@ -568,7 +570,12 @@ void LegacyUi3ds::qte(const RuntimeView& view) {
         C2D_DrawCircleSolid(x + 18, 122, .91f, 19, kInk);
         C2D_DrawCircleSolid(x + 18, 120, .93f, 16, active ? kYellow : done ? kGreen : kPaper);
         const char* action = view.qteSequence[index] == Action::MoveLeft ? "<" :
-                             view.qteSequence[index] == Action::MoveRight ? ">" : "B";
+                             view.qteSequence[index] == Action::MoveRight ? ">" :
+                             view.qteSequence[index] == Action::Jump ? "B" :
+                             view.qteSequence[index] == Action::Charge ? "R" :
+                             view.qteSequence[index] == Action::Ability2 ? "Y" :
+                             view.qteSequence[index] == Action::Light ? "A" :
+                             view.qteSequence[index] == Action::Heavy ? "X" : "!";
         centered(action, x, 113, 36, .45f, kInk);
         x += 43;
     }
@@ -583,7 +590,7 @@ void LegacyUi3ds::utility(const RuntimeView& view) {
     remakePanel(10, 8, 300, 69, alpha(kNavy, 245), kYellow, true);
     C2D_DrawCircleSolid(31, 29, .89f, 11, kYellow);
     centered("1", 20, 22, 22, .34f, kInk);
-    label("CHAPTER", 49, 18, .23f, kYellow);
+    label("AREA", 49, 18, .23f, kYellow);
     fitted(view.currentArea, 49, 35, 244, .43f, .31f, kWhite);
     fitted(view.objective, 25, 57, 268, .23f, .18f, kMuted);
 

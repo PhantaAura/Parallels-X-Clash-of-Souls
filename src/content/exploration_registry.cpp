@@ -168,8 +168,8 @@ ExplorationDefinition bracket;
 bracket.sceneId="ch2_lost_bracket"; bracket.rule=ExplorationRuleKind::InteractionSequence;
 bracket.objective="THE LOST BRACKET • FIND THREE CONTESTANT CARDS";
 bracket.detail="Search the grounds while registration is delayed.";
-bracket.hasPlayerStart=true; bracket.playerStart={-760.0f,40.0f};
-bracket.sequenceMarkers={{-370.0f,-500.0f},{-20.0f,-360.0f},{250.0f,120.0f}};
+bracket.hasPlayerStart=true; bracket.playerStart={-1190.0f,80.0f};
+bracket.sequenceMarkers={{-850.0f,-790.0f},{-600.0f,-615.0f},{-45.0f,-220.0f}};
 bracket.sequenceLabels={"WADE'S CARD","BARK'S CARD","QUALIFIER CARD"};
 bracket.sequenceDialogueIds={"ch2_bracket_wade","ch2_bracket_bark","ch2_bracket_qualifier"};
 bracket.sequenceRadius=92.0f; bracket.sequenceRequiresInteract=true;
@@ -178,30 +178,30 @@ scenes_.emplace(bracket.sceneId,bracket);
 
 ExplorationDefinition wadeRace;
 wadeRace.sceneId="ch2_wade_shortcut"; wadeRace.rule=ExplorationRuleKind::TimedCheckpointSequence;
-wadeRace.objective="WADE'S SHORTCUT • FIVE DISTRICTS"; wadeRace.detail="Finish the route. Beat 24 seconds for the optional target.";
-wadeRace.hasPlayerStart=true; wadeRace.playerStart={-650.0f,80.0f};
-wadeRace.sequenceMarkers={{-420,-430},{-80,-520},{180,-120},{-40,430},{430,420}};
-wadeRace.sequenceRadius=95; wadeRace.sequenceTargetSeconds=24.0f; wadeRace.sequenceRequiresInteract=false;
+wadeRace.objective="WADE'S SHORTCUT • FIVE DISTRICTS"; wadeRace.detail="Finish the route. Beat 32 seconds for Wade's target.";
+wadeRace.hasPlayerStart=true; wadeRace.playerStart={-1120.0f,160.0f};
+wadeRace.sequenceMarkers={{-860,-650},{-460,-850},{40,-500},{-440,700},{420,760}};
+wadeRace.sequenceRadius=105; wadeRace.sequenceTargetSeconds=32.0f; wadeRace.sequenceRequiresInteract=false;
 wadeRace.completionDialogueId="ch2_wade_shortcut_result"; scenes_.emplace(wadeRace.sceneId,wadeRace);
 
 ExplorationDefinition cracked;
 cracked.sceneId="ch2_cracked_ring"; cracked.rule=ExplorationRuleKind::InteractionSequence;
 cracked.objective="THE CRACKED RING • INSPECT THREE SUPPORTS"; cracked.detail="Bark and Wade are watching the practice ring.";
-cracked.hasPlayerStart=true; cracked.playerStart={-260,430};
-cracked.sequenceMarkers={{-260,520},{-75,620},{110,510}}; cracked.sequenceLabels={"WEST SUPPORT","SOUTH SUPPORT","EAST SUPPORT"};
+cracked.hasPlayerStart=true; cracked.playerStart={-760,760};
+cracked.sequenceMarkers={{-750,790},{-540,980},{-330,790}}; cracked.sequenceLabels={"WEST SUPPORT","SOUTH SUPPORT","EAST SUPPORT"};
 cracked.sequenceDialogueIds={"ch2_crack_west","ch2_crack_south","ch2_crack_east"}; cracked.sequenceRadius=82;
 cracked.completionDialogueId="ch2_cracked_ring_result"; scenes_.emplace(cracked.sceneId,cracked);
 
 const auto addClue=[&](std::string id,std::string objective,Vec2 point,std::string dialogue){
     ExplorationDefinition clue; clue.sceneId=id; clue.rule=ExplorationRuleKind::InteractionSequence; clue.objective=objective;
-    clue.detail="Observe the clue before returning to the arena gate."; clue.hasPlayerStart=true; clue.playerStart={430,0};
+    clue.detail="Learn the pattern from a person or visible arena behavior, then continue."; clue.hasPlayerStart=true; clue.playerStart={900,80};
     clue.sequenceMarkers={point}; clue.sequenceLabels={"OBSERVE"}; clue.sequenceDialogueIds={dialogue}; clue.sequenceRadius=95;
     scenes_.emplace(clue.sceneId,clue);
 };
-addClue("ch2_intermission_stillness","PLOUKE STUDY • STILLNESS",{560,-420},"ch2_clue_stillness");
-addClue("ch2_intermission_positioning","PLOUKE STUDY • POSITIONING",{-80,430},"ch2_clue_positioning");
-addClue("ch2_intermission_timing","PLOUKE STUDY • TIMING",{470,455},"ch2_clue_timing");
-addClue("ch2_intermission_edge","PLOUKE STUDY • RING EDGE",{840,80},"ch2_clue_edge");
+addClue("ch2_intermission_stillness","ASK THE OLD COMPETITOR ABOUT PLOUKE",{260,-820},"ch2_clue_stillness");
+addClue("ch2_intermission_positioning","CHECK THE PRACTICE RING WITH THE WORKER",{-540,760},"ch2_clue_positioning");
+addClue("ch2_intermission_timing","FIND BARK AT THE WAITING TENT",{410,780},"ch2_clue_timing");
+addClue("ch2_intermission_edge","MEET WADE AT THE ARENA EDGE",{1110,220},"ch2_clue_edge");
 }
 
 const ExplorationDefinition& ExplorationRegistry::get(const std::string& sceneId) const {

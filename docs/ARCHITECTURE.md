@@ -36,6 +36,10 @@ flags only; these are not chapter-specific RPG or quest engines.
 
 `content/world_presentation_registry.*` owns portable stage camera/environment/landmark transforms. `content/character_presentation_registry.*` owns replaceable model bindings and fallback identity. Platform renderers choose fidelity but do not author the world.
 
+`core/camera_policy.*` resolves gameplay and cinematic camera state into one platform-neutral focus/yaw/distance/height/FOV result. Cutscene actions update `RuntimeView`; Mac, Linux and 3DS consume the same resolver. Platform tiers may reduce easing, shake and decoration, but cannot reinterpret shot direction or actor focus.
+
+Tournament progression remains authored data and state inside the same `RuntimeSession`. The Chapter 2 hub, optionals, official fights, Energy Power and Fire Awakening do not own separate movement, combat, camera, UI or save implementations.
+
 `platform/` translates device input, rendering, audio and filesystem services.
 
 Current targets:
