@@ -21,7 +21,7 @@ if (-not (Test-Path $executable)) {
 $outputRoot = Join-Path $root $OutputDirectory
 $packageDirectory = Join-Path $outputRoot "package"
 $assetDirectory = Join-Path $packageDirectory "assets/characters/rrvvfo"
-$zipName = "Parallels-X-Clash-of-Souls-3.0R-U16-Final-Prototype-Windows.zip"
+$zipName = "Parallels-X-Clash-of-Souls-3.0R-U16-Final-Prototype-Windows-R2.zip"
 $zipPath = Join-Path $outputRoot $zipName
 $checksumPath = "$zipPath.sha256"
 

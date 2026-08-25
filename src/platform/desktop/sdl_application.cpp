@@ -48,9 +48,18 @@ struct Arguments {
 Arguments parseArguments(int argc, char** argv, const px::desktop::SdlPlatformConfig& platform) {
     Arguments args;
     args.saveDirectory = platform.defaultSaveDirectory;
-    const auto executableDir = std::filesystem::absolute(argv[0]).parent_path();
-    args.assetRoot = std::filesystem::exists(executableDir / "assets")
-        ? executableDir.string() : executableDir.parent_path().string();
+    const auto executableDir = platform.executableDirectory.empty()
+        ? std::filesystem::absolute(argv[0]).parent_path()
+        : platform.executableDirectory;
+    const auto hasCookedModel = [](const std::filesystem::path& root) {
+        return std::filesystem::is_regular_file(
+            root / "assets/characters/rrvvfo/rrvvfo-dev.pxskel");
+    };
+    const auto workingDirectory = std::filesystem::current_path();
+    if (hasCookedModel(executableDir)) args.assetRoot = executableDir.string();
+    else if (hasCookedModel(workingDirectory)) args.assetRoot = workingDirectory.string();
+    else if (hasCookedModel(executableDir.parent_path())) args.assetRoot = executableDir.parent_path().string();
+    else args.assetRoot = executableDir.string();
     if (!platform.saveEnvironmentVariable.empty())
         if (const char* configured = std::getenv(platform.saveEnvironmentVariable.c_str()))
             args.saveDirectory = configured;
@@ -67,6 +76,7 @@ Arguments parseArguments(int argc, char** argv, const px::desktop::SdlPlatformCo
         else if (value == "--save-dir" && i + 1 < argc) args.saveDirectory = argv[++i];
         else if (value == "--asset-root" && i + 1 < argc) args.assetRoot = argv[++i];
         else if (value == "--headless") args.headless = true;
+        else if (value == "--smoke-visible") args.headless = false;
         else if (value == "--help") {
             std::cout
                 << "Parallels X " << platform.platformName << " desktop shell\n"
@@ -458,7 +468,8 @@ int px::desktop::runSdlApplication(int argc, char** argv, const SdlPlatformConfi
         return 2;
     }
 
-    SDL_SetHint("SDL_RENDER_DRIVER", "software");
+    if (arguments.headless || platform.preferSoftwareRenderer)
+        SDL_SetHint("SDL_RENDER_DRIVER", "software");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0) {
         std::cerr << "SDL initialization failed: " << SDL_GetError() << '\n';
         return 3;
@@ -472,7 +483,15 @@ int px::desktop::runSdlApplication(int argc, char** argv, const SdlPlatformConfi
         SDL_Quit();
         return 4;
     }
-    SDL_Renderer* sdlRenderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    const Uint32 preferredRenderer = arguments.headless || platform.preferSoftwareRenderer
+        ? SDL_RENDERER_SOFTWARE
+        : SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
+    SDL_Renderer* sdlRenderer = SDL_CreateRenderer(window, -1, preferredRenderer);
+    if (!sdlRenderer && preferredRenderer != SDL_RENDERER_SOFTWARE) {
+        std::cerr << "Accelerated renderer unavailable; using software renderer: "
+                  << SDL_GetError() << '\n';
+        sdlRenderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    }
     if (!sdlRenderer) {
         std::cerr << "Renderer creation failed: " << SDL_GetError() << '\n';
         SDL_DestroyWindow(window);

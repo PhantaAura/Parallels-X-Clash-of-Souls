@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -9,6 +10,8 @@ struct SdlPlatformConfig {
     std::string defaultSaveDirectory;
     std::string saveEnvironmentVariable;
     std::vector<std::string> legacySaveFileNames;
+    std::filesystem::path executableDirectory;
+    bool preferSoftwareRenderer{false};
 };
 
 int runSdlApplication(int argc, char** argv, const SdlPlatformConfig& platform);

@@ -128,6 +128,8 @@ assert "UiPresentationRegistry" in desktop_renderer and "MenuSnapshot" in deskto
 assert "dev-saves/linux" in linux_entry, "Linux development saves are not isolated"
 assert "LOCALAPPDATA" in windows_entry and "ParallelsX/ClashOfSouls" in windows_entry, \
     "Windows saves are not isolated under local application data"
+for startup_contract in ("GetModuleFileNameW", "SetCurrentDirectoryW", "ParallelsX-startup.log", "MessageBoxW"):
+    assert startup_contract in windows_entry, f"Windows startup diagnostics are missing {startup_contract}"
 
 character_binding = read("src/content/character_presentation_registry.cpp")
 model_asset = read("src/content/character_model_asset.cpp")

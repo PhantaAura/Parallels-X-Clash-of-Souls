@@ -21,5 +21,7 @@ int main(int argc, char** argv) {
         "PX_LINUX_SAVE_DIR",
         {"ParallelsX-0.4H-GOLDEN-GATE-QOL-linux-dev.save",
          "ParallelsX-0.4G-GOLD-linux-dev.save"},
+        {},
+        true,
     });
 }

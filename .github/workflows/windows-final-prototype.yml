@@ -6,11 +6,11 @@ on:
     branches: [ agent/u16-final-windows ]
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   U16_SOURCE_COMMIT: 0e533c2ff5058346a3a76ec293a899c3ad6ce80a
-  WINDOWS_ZIP: Parallels-X-Clash-of-Souls-3.0R-U16-Final-Prototype-Windows.zip
+  WINDOWS_ZIP: Parallels-X-Clash-of-Souls-3.0R-U16-Final-Prototype-Windows-R2.zip
 
 jobs:
   build-windows:
@@ -84,6 +84,21 @@ jobs:
           $exe = Join-Path $package "Parallels X - Clash of Souls.exe"
           $smoke = Join-Path $env:RUNNER_TEMP "px-windows-smoke"
           New-Item $smoke -ItemType Directory -Force | Out-Null
+
+          # Exercise the real Windows window/renderer path before the hidden,
+          # deterministic screenshot and gameplay checks below.
+          $env:SDL_VIDEODRIVER = "windows"
+          $nativeSave = Join-Path $smoke "save-native-window"
+          $nativeProcess = Start-Process -FilePath $exe -ArgumentList @(
+            "--smoke", "story", "--smoke-visible", "--save-dir", $nativeSave
+          ) -Wait -PassThru
+          if ($nativeProcess.ExitCode -ne 0) {
+            throw "Packaged native Windows window/renderer launch failed."
+          }
+          if (-not (Test-Path (Join-Path $nativeSave "ParallelsX-Omega-save-v5.txt"))) {
+            throw "Native Windows smoke launch did not create its save directory."
+          }
+
           $env:SDL_VIDEODRIVER = "dummy"
 
           $menuScreenshot = Join-Path $smoke "main-menu.ppm"
@@ -132,7 +147,7 @@ jobs:
       - name: Upload Windows playtest build
         uses: actions/upload-artifact@v4
         with:
-          name: Parallels-X-Clash-of-Souls-3.0R-U16-Final-Prototype-Windows
+          name: Parallels-X-Clash-of-Souls-3.0R-U16-Final-Prototype-Windows-R2
           path: |
             dist/windows/${{ env.WINDOWS_ZIP }}
             dist/windows/${{ env.WINDOWS_ZIP }}.sha256
@@ -140,3 +155,18 @@ jobs:
             dist/windows/zip-contents.txt
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish direct Windows ZIP download
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v3.0R-u16-final-prototype-windows-r2"
+          $zip = Join-Path "dist/windows" $env:WINDOWS_ZIP
+          $checksum = "$zip.sha256"
+          gh release create $tag `
+            --target $env:GITHUB_SHA `
+            --title "Parallels X 3.0R - U16 Final Prototype Windows R2" `
+            --notes "Windows startup hotfix. Extract the entire ZIP before launching. No gameplay or content changes." `
+            --prerelease `
+            $zip $checksum

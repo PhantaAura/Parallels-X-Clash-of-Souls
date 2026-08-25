@@ -3,6 +3,13 @@ PARALLELS X: CLASH OF SOULS
 
 This is a prototype/playtest build.
 
+IMPORTANT
+Extract the ENTIRE ZIP to a normal folder before launching.
+Do not run the EXE from inside the ZIP preview.
+
+If Windows shows a startup error, send the tester log stored at:
+%LOCALAPPDATA%\ParallelsX\ClashOfSouls\ParallelsX-startup.log
+
 HOW TO LAUNCH
 Double-click:
 Parallels X - Clash of Souls.exe
