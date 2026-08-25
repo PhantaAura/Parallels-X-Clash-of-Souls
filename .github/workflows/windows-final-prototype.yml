@@ -86,15 +86,27 @@ jobs:
           New-Item $smoke -ItemType Directory -Force | Out-Null
           $env:SDL_VIDEODRIVER = "dummy"
 
-          & $exe --review press-start --headless --screenshot (Join-Path $smoke "main-menu.ppm") --save-dir (Join-Path $smoke "menu-save")
-          if ($LASTEXITCODE -ne 0 -or -not (Test-Path (Join-Path $smoke "main-menu.ppm"))) {
+          $menuScreenshot = Join-Path $smoke "main-menu.ppm"
+          $menuStdout = Join-Path $smoke "main-menu.stdout.txt"
+          $menuStderr = Join-Path $smoke "main-menu.stderr.txt"
+          $menuProcess = Start-Process -FilePath $exe -ArgumentList @(
+            "--review", "press-start", "--headless", "--screenshot", $menuScreenshot,
+            "--save-dir", (Join-Path $smoke "menu-save")
+          ) -Wait -PassThru -RedirectStandardOutput $menuStdout -RedirectStandardError $menuStderr
+          Get-Content $menuStdout, $menuStderr -ErrorAction SilentlyContinue
+          if ($menuProcess.ExitCode -ne 0 -or -not (Test-Path $menuScreenshot)) {
             throw "Packaged main-menu launch failed."
           }
 
           foreach ($mode in @("story", "fight", "training")) {
             $saveDirectory = Join-Path $smoke "save-$mode"
-            & $exe --smoke $mode --save-dir $saveDirectory
-            if ($LASTEXITCODE -ne 0) { throw "Packaged $mode smoke launch failed." }
+            $stdout = Join-Path $smoke "$mode.stdout.txt"
+            $stderr = Join-Path $smoke "$mode.stderr.txt"
+            $process = Start-Process -FilePath $exe -ArgumentList @(
+              "--smoke", $mode, "--save-dir", $saveDirectory
+            ) -Wait -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            Get-Content $stdout, $stderr -ErrorAction SilentlyContinue
+            if ($process.ExitCode -ne 0) { throw "Packaged $mode smoke launch failed." }
             if (-not (Test-Path (Join-Path $saveDirectory "ParallelsX-Omega-save-v5.txt"))) {
               throw "Packaged $mode smoke launch did not create its save directory."
             }
