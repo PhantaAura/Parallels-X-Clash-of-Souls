@@ -9,12 +9,12 @@
 #include "content/world_presentation_registry.hpp"
 #include "core/menu_state.hpp"
 #include "core/runtime.hpp"
-#include "platform/linux/sdl_compat.hpp"
+#include "platform/desktop/sdl_compat.hpp"
 #include <cstdint>
 #include <string>
 #include <vector>
 
-namespace px::linux {
+namespace px::desktop {
 
 class PresentationRenderer {
 public:
@@ -78,4 +78,4 @@ private:
     const SkeletalAnimationPlayer& playerAnimation_;
 };
 
-} // namespace px::linux
+} // namespace px::desktop

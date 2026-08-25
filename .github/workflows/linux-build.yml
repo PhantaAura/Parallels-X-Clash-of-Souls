@@ -2,7 +2,7 @@ name: Linux build
 
 on:
   push:
-    branches: [main]
+    branches: [main, agent/u16-final-windows]
   workflow_dispatch:
 
 jobs:

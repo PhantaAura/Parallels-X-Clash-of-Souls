@@ -16,7 +16,8 @@ PX_BUILD_ARGS=(
   -I"${PX_ROOT}/src"
   "${PX_SHARED_SOURCES[@]}"
   "${PX_ROOT}/src/platform/linux/main.cpp"
-  "${PX_ROOT}/src/platform/linux/presentation_renderer.cpp"
+  "${PX_ROOT}/src/platform/desktop/sdl_application.cpp"
+  "${PX_ROOT}/src/platform/desktop/presentation_renderer.cpp"
   -Wl,-l:libSDL2-2.0.so.0
   -o "${PX_BUILD_DIR}/ParallelsX"
 )

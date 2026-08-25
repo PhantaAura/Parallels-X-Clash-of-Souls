@@ -1,4 +1,4 @@
-#include "platform/linux/presentation_renderer.hpp"
+#include "platform/desktop/presentation_renderer.hpp"
 #include "core/camera_policy.hpp"
 #include "content/character_face.hpp"
 #include <algorithm>
@@ -8,7 +8,7 @@
 #include <fstream>
 #include <sstream>
 
-namespace px::linux {
+namespace px::desktop {
 namespace {
 
 std::array<Uint8, 7> glyphRows(char input) {
@@ -1400,4 +1400,4 @@ bool PresentationRenderer::writePpm(const std::string& path) const {
     return static_cast<bool>(out);
 }
 
-} // namespace px::linux
+} // namespace px::desktop

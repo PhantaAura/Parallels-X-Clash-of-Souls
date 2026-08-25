@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    add_compile_options(/utf-8)
+endif()
+
 enable_testing()
 
 add_library(px_core
@@ -118,10 +123,29 @@ if(UNIX AND NOT APPLE)
     if(PX_SDL2_LIBRARY)
         add_executable(ParallelsX
             src/platform/linux/main.cpp
-            src/platform/linux/presentation_renderer.cpp)
+            src/platform/desktop/sdl_application.cpp
+            src/platform/desktop/presentation_renderer.cpp)
         target_link_libraries(ParallelsX PRIVATE px_core ${PX_SDL2_LIBRARY})
         add_executable(px_linux ALIAS ParallelsX)
     else()
         message(WARNING "SDL2 runtime not found; Linux graphical target is unavailable")
     endif()
+endif()
+
+# Windows is another thin SDL desktop shell over the same px_core runtime.
+# The x64-windows-static vcpkg triplet used by CI produces a self-contained EXE,
+# so playtesters do not need SDL or the Visual C++ runtime installed separately.
+if(WIN32)
+    find_package(SDL2 CONFIG REQUIRED)
+    add_executable(ParallelsX WIN32
+        src/platform/windows/main.cpp
+        src/platform/desktop/sdl_application.cpp
+        src/platform/desktop/presentation_renderer.cpp)
+    target_link_libraries(ParallelsX PRIVATE
+        px_core
+        $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
+        $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>)
+    target_compile_definitions(ParallelsX PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    set_target_properties(ParallelsX PROPERTIES
+        OUTPUT_NAME "Parallels X - Clash of Souls")
 endif()

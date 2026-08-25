@@ -1,0 +1,122 @@
+name: Windows U16 Final Prototype
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ agent/u16-final-windows ]
+
+permissions:
+  contents: read
+
+env:
+  U16_SOURCE_COMMIT: 0e533c2ff5058346a3a76ec293a899c3ad6ce80a
+  WINDOWS_ZIP: Parallels-X-Clash-of-Souls-3.0R-U16-Final-Prototype-Windows.zip
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out exact workflow commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Verify frozen U16 source and gameplay diff
+        shell: pwsh
+        run: |
+          $head = git rev-parse HEAD
+          Write-Host "Building exact commit $head"
+          git merge-base --is-ancestor $env:U16_SOURCE_COMMIT HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Build is not based on the frozen U16 source." }
+          git diff --exit-code $env:U16_SOURCE_COMMIT HEAD -- src/core src/content
+          if ($LASTEXITCODE -ne 0) { throw "Windows branch modifies protected gameplay/content code." }
+
+      - name: Install static SDL2 dependency
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install sdl2:x64-windows-static
+          if ($LASTEXITCODE -ne 0) { throw "vcpkg SDL2 installation failed." }
+
+      - name: Configure Release
+        shell: pwsh
+        run: |
+          cmake -S . -B build-windows -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static
+
+      - name: Compile executable and tests
+        shell: pwsh
+        run: cmake --build build-windows --config Release --parallel 3
+
+      - name: Run shared automated tests
+        shell: pwsh
+        run: ctest --test-dir build-windows -C Release --output-on-failure
+
+      - name: Package relocatable playtest folder
+        shell: pwsh
+        run: ./scripts/package-windows.ps1
+
+      - name: Audit executable dependencies
+        shell: pwsh
+        run: |
+          $exe = "dist/windows/package/Parallels X - Clash of Souls.exe"
+          $dependencies = (dumpbin /DEPENDENTS $exe | Out-String)
+          $dependencies | Set-Content dist/windows/windows-dependencies.txt
+          Write-Host $dependencies
+          if ($dependencies -match "SDL2.dll|VCRUNTIME|MSVCP") {
+            throw "A non-system runtime dependency was not statically packaged."
+          }
+
+      - name: Smoke-test the distributable folder
+        shell: pwsh
+        run: |
+          $package = (Resolve-Path "dist/windows/package").Path
+          $exe = Join-Path $package "Parallels X - Clash of Souls.exe"
+          $smoke = Join-Path $env:RUNNER_TEMP "px-windows-smoke"
+          New-Item $smoke -ItemType Directory -Force | Out-Null
+          $env:SDL_VIDEODRIVER = "dummy"
+
+          & $exe --review press-start --headless --screenshot (Join-Path $smoke "main-menu.ppm") --save-dir (Join-Path $smoke "menu-save")
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path (Join-Path $smoke "main-menu.ppm"))) {
+            throw "Packaged main-menu launch failed."
+          }
+
+          foreach ($mode in @("story", "fight", "training")) {
+            $saveDirectory = Join-Path $smoke "save-$mode"
+            & $exe --smoke $mode --save-dir $saveDirectory
+            if ($LASTEXITCODE -ne 0) { throw "Packaged $mode smoke launch failed." }
+            if (-not (Test-Path (Join-Path $saveDirectory "ParallelsX-Omega-save-v5.txt"))) {
+              throw "Packaged $mode smoke launch did not create its save directory."
+            }
+          }
+
+      - name: Verify ZIP contents and checksum
+        shell: pwsh
+        run: |
+          $zip = Join-Path "dist/windows" $env:WINDOWS_ZIP
+          $expected = (Get-Content "$zip.sha256").Split()[0]
+          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Windows ZIP checksum mismatch." }
+          $listing = tar -tf $zip
+          $listing | Set-Content dist/windows/zip-contents.txt
+          foreach ($required in @(
+            "Parallels X - Clash of Souls.exe",
+            "README.txt",
+            "assets/characters/rrvvfo/rrvvfo-dev.pxskel"
+          )) {
+            if (-not ($listing -contains $required)) { throw "ZIP is missing $required" }
+          }
+
+      - name: Upload Windows playtest build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Parallels-X-Clash-of-Souls-3.0R-U16-Final-Prototype-Windows
+          path: |
+            dist/windows/${{ env.WINDOWS_ZIP }}
+            dist/windows/${{ env.WINDOWS_ZIP }}.sha256
+            dist/windows/windows-dependencies.txt
+            dist/windows/zip-contents.txt
+          if-no-files-found: error
+          retention-days: 30

@@ -1,4 +1,7 @@
 #pragma once
+#if defined(_WIN32)
+#include <SDL.h>
+#else
 // The Codex Linux image contains the SDL2 runtime but not the development
 // headers. This file declares only the stable SDL2 ABI used by the validation
 // shell. Gameplay and presentation state remain in px_core.
@@ -151,3 +154,4 @@ constexpr int SDL_CONTROLLER_AXIS_RIGHTX = 2;
 constexpr int SDL_CONTROLLER_AXIS_RIGHTY = 3;
 constexpr int SDL_CONTROLLER_AXIS_TRIGGERLEFT = 4;
 constexpr int SDL_CONTROLLER_AXIS_TRIGGERRIGHT = 5;
+#endif

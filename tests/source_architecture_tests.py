@@ -40,8 +40,10 @@ for forbidden in (
 
 world_content = read("src/content/world_presentation_registry.cpp")
 mac_renderer = read("src/platform/macos/main.mm")
-linux_shell = read("src/platform/linux/main.cpp")
-linux_renderer = read("src/platform/linux/presentation_renderer.cpp")
+linux_entry = read("src/platform/linux/main.cpp")
+windows_entry = read("src/platform/windows/main.cpp")
+desktop_shell = read("src/platform/desktop/sdl_application.cpp")
+desktop_renderer = read("src/platform/desktop/presentation_renderer.cpp")
 for landmark in (
     "sage_bell",
     "focus_pillar_center",
@@ -91,7 +93,7 @@ for shared_linux_contract in (
     "CombatManualRegistry",
     "UiPresentationRegistry",
 ):
-    assert shared_linux_contract in linux_shell, f"Linux shell is not consuming shared {shared_linux_contract}"
+    assert shared_linux_contract in desktop_shell, f"SDL desktop shell is not consuming shared {shared_linux_contract}"
 for review_state in (
     "press-start",
     "mode-story",
@@ -119,31 +121,34 @@ for review_state in (
     "rrvvfo-object-swap",
     "rrvvfo-lens",
 ):
-    assert review_state in linux_shell, f"Linux deterministic review state is missing: {review_state}"
+    assert review_state in desktop_shell, f"Desktop deterministic review state is missing: {review_state}"
 assert not (ROOT / "src/platform/linux/game.cpp").exists(), "Linux-specific gameplay fork exists"
-assert "UiPresentationRegistry" in linux_renderer and "MenuSnapshot" in linux_renderer
-assert "dev-saves/linux" in linux_shell, "Linux development saves are not isolated"
+assert not (ROOT / "src/platform/windows/game.cpp").exists(), "Windows-specific gameplay fork exists"
+assert "UiPresentationRegistry" in desktop_renderer and "MenuSnapshot" in desktop_renderer
+assert "dev-saves/linux" in linux_entry, "Linux development saves are not isolated"
+assert "LOCALAPPDATA" in windows_entry and "ParallelsX/ClashOfSouls" in windows_entry, \
+    "Windows saves are not isolated under local application data"
 
 character_binding = read("src/content/character_presentation_registry.cpp")
 model_asset = read("src/content/character_model_asset.cpp")
 assert "assets/characters/rrvvfo/rrvvfo-dev.glb" in character_binding
 assert "assets/characters/rrvvfo/rrvvfo-dev.pxskel" in character_binding
-assert "CharacterModelRepository" in linux_shell and "CharacterModelRepository" in mac_renderer
-assert "playerPosition" in linux_renderer and 'characterModels_.find("rrvvfo")' in linux_renderer
+assert "CharacterModelRepository" in desktop_shell and "CharacterModelRepository" in mac_renderer
+assert "playerPosition" in desktop_renderer and 'characterModels_.find("rrvvfo")' in desktop_renderer
 camera_policy = read("src/core/camera_policy.cpp")
-assert "SoftwareWorldCanvas" in linux_renderer and "resolveRuntimeCamera" in linux_renderer
+assert "SoftwareWorldCanvas" in desktop_renderer and "resolveRuntimeCamera" in desktop_renderer
 assert "resolveRuntimeCamera" in mac_renderer and "ResolvedCamera" in camera_policy
 assert "playerPosition" in mac_renderer and "pushCharacterModel" in mac_renderer
-assert "Required Rrvvfo model failed to load" in linux_shell and "using procedural fallback" not in linux_shell
-assert "actorCanvas.fallback(rrvvfo" not in linux_renderer, "Linux gameplay may substitute a fake playable Rrvvfo"
+assert "Required Rrvvfo model failed to load" in desktop_shell and "using procedural fallback" not in desktop_shell
+assert "actorCanvas.fallback(rrvvfo" not in desktop_renderer, "Desktop gameplay may substitute a fake playable Rrvvfo"
 assert "pushCharacterFallback(vertices,rrvvfoBinding" not in mac_renderer, "Mac gameplay may substitute a fake playable Rrvvfo"
-assert "drawMenuRrvvfo" in mac_renderer and 'characterModel("rrvvfo"' in linux_renderer, \
+assert "drawMenuRrvvfo" in mac_renderer and 'characterModel("rrvvfo"' in desktop_renderer, \
     "desktop route/menu presentation is not using the real cooked Rrvvfo model"
 animation_source = read("src/content/skeletal_animation.cpp")
 face_source = read("src/content/character_face.cpp")
 assert "SkeletalAnimationPlayer" in animation_source
 assert "findAnimation" in model_asset
-for renderer in (linux_renderer, mac_renderer):
+for renderer in (desktop_renderer, mac_renderer):
     assert "playerAnimation" in renderer, "platform renderer is not consuming the shared animation player"
     assert "resolveRrvvfoFaceExpression" in renderer, "desktop renderer is not consuming the shared face state"
 assert "kRrvvfoFaceTriangleBudget = 48" in read("src/content/character_face.hpp")
@@ -190,7 +195,7 @@ assert "0.4E" not in mac_renderer, "Mac presentation still labels itself as 0.4E
 three_ds = read("src/platform/3ds/main.cpp")
 three_ds_renderer = read("src/platform/3ds/world_renderer_3ds.cpp")
 three_ds_ui = read("src/platform/3ds/legacy_ui_3ds.cpp")
-for platform_shell in (mac_renderer, linux_shell, three_ds):
+for platform_shell in (mac_renderer, desktop_shell, three_ds):
     for direct_mode_contract in ("MenuOutcome::LaunchMode", "startCpuFight", "startStandaloneTraining", "standaloneMode"):
         assert direct_mode_contract in platform_shell, \
             f"platform shell is missing playable Fight/Training contract: {direct_mode_contract}"
@@ -305,4 +310,4 @@ def assert_u4_u6_invariants():
 
 assert_u4_u6_invariants()
 
-print("PASS: portable source boundary, shared Mac/Linux presentation ownership, no platform gameplay fork, no mission architecture, and perspective RuntimeSession 3DS parity boundary")
+print("PASS: portable source boundary, shared Mac/Linux/Windows presentation ownership, no platform gameplay fork, no mission architecture, and perspective RuntimeSession 3DS parity boundary")
