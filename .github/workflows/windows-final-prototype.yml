@@ -63,7 +63,14 @@ jobs:
         shell: pwsh
         run: |
           $exe = "dist/windows/package/Parallels X - Clash of Souls.exe"
-          $dependencies = (dumpbin /DEPENDENTS $exe | Out-String)
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          $dumpbin = Get-ChildItem "$visualStudio\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $dumpbin) { throw "Could not locate the Visual C++ dependency auditor." }
+          $dependencies = (& $dumpbin.FullName /DEPENDENTS $exe | Out-String)
           $dependencies | Set-Content dist/windows/windows-dependencies.txt
           Write-Host $dependencies
           if ($dependencies -match "SDL2.dll|VCRUNTIME|MSVCP") {
